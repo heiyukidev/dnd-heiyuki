@@ -1,0 +1,43 @@
+{
+  "name": "dnd-heiyuki",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx convex dev --start 'vp dev'",
+    "dev:vite": "vp dev",
+    "build": "vue-tsc -b && vp build",
+    "preview": "vp preview",
+    "test": "vp test",
+    "check": "vp check",
+    "lint": "vp lint",
+    "fmt": "vp fmt"
+  },
+  "dependencies": {
+    "@clerk/vue": "^2.2.3",
+    "convex": "^1.38.0",
+    "lodash": "^4.18.1",
+    "vue": "^3.5.34",
+    "vue-router": "^5.0.7"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.24",
+    "@types/node": "^24.12.3",
+    "@vitejs/plugin-vue": "^6.0.6",
+    "@vue/test-utils": "^2.4.10",
+    "@vue/tsconfig": "^0.9.1",
+    "jsdom": "^29.1.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "vite-plus": "^0.1.21",
+    "vitest": "^4.1.6",
+    "vue-tsc": "^3.2.8"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@clerk/shared",
+      "esbuild"
+    ]
+  }
+}
