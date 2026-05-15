@@ -15,6 +15,15 @@ export const EQUIPMENT_CATEGORY_KEYS = [
 
 export type EquipmentCategoryKey = (typeof EQUIPMENT_CATEGORY_KEYS)[number]
 
+/** Categories managed as single equipped SRD slots (not the carried-items table). */
+export const EQUIPMENT_EQUIP_SLOT_KEYS = ['weapon', 'armor', 'shield', 'gear'] as const
+
+export type EquipmentEquipSlotKey = (typeof EQUIPMENT_EQUIP_SLOT_KEYS)[number]
+
+export function isEquipmentEquipSlotKey(vv: unknown): vv is EquipmentEquipSlotKey {
+  return typeof vv === 'string' && includes([...EQUIPMENT_EQUIP_SLOT_KEYS], vv)
+}
+
 export const EQUIPMENT_ITEMS_MAX = 200
 export const EQUIPMENT_ITEM_ID_MAX = 128
 export const EQUIPMENT_ITEM_NAME_MAX = 200
@@ -47,6 +56,13 @@ const equipmentItemValidator = v.object({
   equipped: v.optional(v.boolean()),
   category: v.optional(equipmentCategoryValidator),
   catalogIndex: v.optional(v.string()),
+})
+
+const equippedLoadoutValidator = v.object({
+  weapon: v.optional(v.string()),
+  armor: v.optional(v.string()),
+  shield: v.optional(v.string()),
+  gear: v.optional(v.string()),
 })
 
 export function isEquipmentCategoryKey(vv: unknown): vv is EquipmentCategoryKey {
@@ -215,6 +231,27 @@ export function sanitizeCharacterSheetForPersist(
       }),
     ).slice(0, EQUIPMENT_ITEMS_MAX)
   }
+  const rawLoadout = next.equippedLoadout
+  if (rawLoadout !== undefined && rawLoadout !== null && typeof rawLoadout === 'object' && !Array.isArray(rawLoadout)) {
+    const outLoad: Record<string, string> = {}
+    for (const slot of EQUIPMENT_EQUIP_SLOT_KEYS) {
+      const slotVal = (rawLoadout as Record<string, unknown>)[slot]
+      if (slotVal === undefined || slotVal === null) {
+        continue
+      }
+      const slug = trim(String(slotVal)).slice(0, EQUIPMENT_ITEM_CATALOG_INDEX_MAX)
+      if (isValidCatalogIndexSlug(slug)) {
+        outLoad[slot] = slug
+      }
+    }
+    if (Object.keys(outLoad).length > 0) {
+      next.equippedLoadout = outLoad
+    } else {
+      delete next.equippedLoadout
+    }
+  } else if (rawLoadout !== undefined) {
+    delete next.equippedLoadout
+  }
   return next
 }
 
@@ -296,6 +333,32 @@ export function validateCharacterSheetForPersist(sheet: Record<string, unknown> 
       }
     }
   }
+  const loadout = sheet.equippedLoadout
+  if (loadout !== undefined) {
+    if (loadout === null || typeof loadout !== 'object' || Array.isArray(loadout)) {
+      throw new Error('Invalid character sheet')
+    }
+    const lo = loadout as Record<string, unknown>
+    for (const k of Object.keys(lo)) {
+      if (!isEquipmentEquipSlotKey(k)) {
+        throw new Error('Invalid character sheet')
+      }
+    }
+    for (const slot of EQUIPMENT_EQUIP_SLOT_KEYS) {
+      const slotVal = lo[slot]
+      if (slotVal === undefined || slotVal === null) {
+        continue
+      }
+      if (typeof slotVal !== 'string' || !isValidCatalogIndexSlug(slotVal)) {
+        throw new Error('Invalid character sheet')
+      }
+    }
+    for (const val of Object.values(lo)) {
+      if (val !== null && val !== undefined && typeof val !== 'string') {
+        throw new Error('Invalid character sheet')
+      }
+    }
+  }
 }
 
 /** Full D&D 5e PHB-style **Character sheet** payload (v1 hybrid: structured header + plain text blocks). */
@@ -333,6 +396,7 @@ export const characterSheetValidator = v.object({
   attacksSpellcasting: v.optional(v.string()),
   equipment: v.optional(v.string()),
   equipmentItems: v.optional(v.array(equipmentItemValidator)),
+  equippedLoadout: v.optional(equippedLoadoutValidator),
   currencyCp: v.optional(v.string()),
   currencySp: v.optional(v.string()),
   currencyEp: v.optional(v.string()),
@@ -387,6 +451,7 @@ export const characterSheetPatchValidator = v.object({
   attacksSpellcasting: v.optional(v.string()),
   equipment: v.optional(v.string()),
   equipmentItems: v.optional(v.array(equipmentItemValidator)),
+  equippedLoadout: v.optional(equippedLoadoutValidator),
   currencyCp: v.optional(v.string()),
   currencySp: v.optional(v.string()),
   currencyEp: v.optional(v.string()),

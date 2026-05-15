@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { searchSrdCatalog, SRD_CATALOG } from './srdCatalog'
+import {
+  getSrdCatalogEntryByIndex,
+  listSrdCatalogForCarriedItemSelect,
+  listSrdCatalogForEquipSlot,
+  listSrdCatalogForSheetCategory,
+  searchSrdCatalog,
+  SRD_CATALOG,
+} from './srdCatalog'
 
 describe('srdCatalog', () => {
   it('lists entries sorted by name', () => {
@@ -33,5 +40,32 @@ describe('srdCatalog', () => {
 
   it('searchSrdCatalog returns empty for blank query', () => {
     expect(searchSrdCatalog('   ', 10)).toEqual([])
+  })
+
+  it('getSrdCatalogEntryByIndex returns entry or undefined', () => {
+    expect(getSrdCatalogEntryByIndex('longsword')?.name).toBe('Longsword')
+    expect(getSrdCatalogEntryByIndex('nope')).toBeUndefined()
+  })
+
+  it('listSrdCatalogForSheetCategory filters by sheetCategory', () => {
+    const weapons = listSrdCatalogForSheetCategory('weapon')
+    expect(weapons.length).toBeGreaterThan(0)
+    expect(weapons.every((e) => e.sheetCategory === 'weapon')).toBe(true)
+  })
+
+  it('listSrdCatalogForSheetCategory returns full catalog when uncategorized', () => {
+    expect(listSrdCatalogForSheetCategory(undefined).length).toBe(SRD_CATALOG.length)
+  })
+
+  it('listSrdCatalogForEquipSlot returns only matching sheetCategory', () => {
+    const weapons = listSrdCatalogForEquipSlot('weapon')
+    expect(weapons.length).toBeGreaterThan(0)
+    expect(weapons.every((e) => e.sheetCategory === 'weapon')).toBe(true)
+  })
+
+  it('listSrdCatalogForCarriedItemSelect omits equip-slot categories for non-consumable rows', () => {
+    const list = listSrdCatalogForCarriedItemSelect('other')
+    expect(list.some((e) => e.sheetCategory === 'weapon')).toBe(false)
+    expect(list.some((e) => e.sheetCategory === 'consumable')).toBe(true)
   })
 })

@@ -1,4 +1,4 @@
-import { compact, concat, filter, get, includes, map, sortBy, trim, uniqBy } from 'lodash'
+import { compact, concat, filter, get, includes, keyBy, map, sortBy, trim, uniqBy } from 'lodash'
 
 import type { EquipmentCategoryKey } from '../../convex/characterSheetValidators'
 import equipmentJson from '../data/srd/5e-SRD-Equipment.json'
@@ -115,6 +115,49 @@ export const SRD_CATALOG: SrdCatalogEntry[] = sortBy(
   uniqBy(concat(rawEquipmentEntries(), rawMagicItemEntries()), (e) => e.index),
   [(e) => e.name.toLowerCase(), 'index'],
 )
+
+const SRD_CATALOG_BY_INDEX = keyBy(SRD_CATALOG, (e) => e.index)
+
+export function getSrdCatalogEntryByIndex(index: string): SrdCatalogEntry | undefined {
+  return SRD_CATALOG_BY_INDEX[index]
+}
+
+export function listSrdCatalogForSheetCategory(
+  category: EquipmentCategoryKey | undefined,
+): SrdCatalogEntry[] {
+  if (category === undefined) {
+    return SRD_CATALOG
+  }
+  const list = filter(SRD_CATALOG, (entry) => entry.sheetCategory === category)
+  if (list.length === 0) {
+    return SRD_CATALOG
+  }
+  return list
+}
+
+/** SRD options for a single equipped slot (strict category match; no fallback). */
+export function listSrdCatalogForEquipSlot(
+  slot: 'weapon' | 'armor' | 'shield' | 'gear',
+): SrdCatalogEntry[] {
+  return filter(SRD_CATALOG, (entry) => entry.sheetCategory === slot)
+}
+
+/** Carried-table item picker: consumables when that category; otherwise all SRD rows except equip-slot categories. */
+export function listSrdCatalogForCarriedItemSelect(
+  category: EquipmentCategoryKey | undefined,
+): SrdCatalogEntry[] {
+  if (category === 'consumable') {
+    return filter(SRD_CATALOG, (entry) => entry.sheetCategory === 'consumable')
+  }
+  return filter(
+    SRD_CATALOG,
+    (entry) =>
+      entry.sheetCategory !== 'weapon' &&
+      entry.sheetCategory !== 'armor' &&
+      entry.sheetCategory !== 'shield' &&
+      entry.sheetCategory !== 'gear',
+  )
+}
 
 export function searchSrdCatalog(query: string, limit = 20): SrdCatalogEntry[] {
   const q = trim(query).toLowerCase()

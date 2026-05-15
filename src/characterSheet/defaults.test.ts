@@ -38,4 +38,36 @@ describe('hydrateSheetFromServer', () => {
     const out = hydrateSheetFromServer({ race: 'Custom lineage' } as never)
     expect(out.race).toBe('')
   })
+
+  it('migrates first weapon equipment row into equippedLoadout', () => {
+    const out = hydrateSheetFromServer({
+      equipmentItems: [
+        {
+          id: '1',
+          name: 'Longsword',
+          category: 'weapon',
+          catalogIndex: 'longsword',
+          equipped: false,
+        },
+        {
+          id: '2',
+          name: 'Dagger',
+          category: 'weapon',
+          catalogIndex: 'dagger',
+          equipped: false,
+        },
+      ],
+    } as never)
+    expect(out.equippedLoadout.weapon).toBe('longsword')
+    const dagger = out.equipmentItems.find((r) => r.id === '2')
+    expect(dagger?.category).toBe('other')
+  })
+
+  it('keeps explicit equippedLoadout from server when valid', () => {
+    const out = hydrateSheetFromServer({
+      equippedLoadout: { weapon: 'longsword' },
+      equipmentItems: [],
+    } as never)
+    expect(out.equippedLoadout.weapon).toBe('longsword')
+  })
 })

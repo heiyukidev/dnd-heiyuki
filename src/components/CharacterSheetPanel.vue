@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { cloneDeep, concat, debounce, filter, keyBy, map, startCase, trim } from 'lodash'
+import { assign, cloneDeep, concat, debounce, filter, keyBy, map, startCase, trim } from 'lodash'
 import type { Id } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
 import {
   EQUIPMENT_CATEGORY_KEYS,
+  EQUIPMENT_EQUIP_SLOT_KEYS,
+  isEquipmentCategoryKey,
+  isEquipmentEquipSlotKey,
   type EquipmentCategoryKey,
+  type EquipmentEquipSlotKey,
 } from '../../convex/characterSheetValidators'
 import {
   createDefaultSheet,
@@ -22,7 +26,12 @@ import {
   nextLevelCumulativeXp,
   parseExperiencePointsField,
 } from '../characterSheet/xpThresholds'
-import { searchSrdCatalog, type SrdCatalogEntry } from '../catalog/srdCatalog'
+import {
+  getSrdCatalogEntryByIndex,
+  listSrdCatalogForCarriedItemSelect,
+  listSrdCatalogForEquipSlot,
+  type SrdCatalogEntry,
+} from '../catalog/srdCatalog'
 
 const props = defineProps<{
   sessionId: Id<'sessions'>
@@ -82,10 +91,19 @@ const canEditClassLevels = computed(() => canEdit.value === true && viewerIsDm.v
 
 const phbClassByKey = keyBy([...CHARACTER_CLASS_OPTIONS], (o) => o.key)
 
-const equipmentCategorySelectOptions = map([...EQUIPMENT_CATEGORY_KEYS], (key) => ({
-  key,
-  label: startCase(key),
+const carriedEquipmentCategorySelectOptions = map(
+  filter([...EQUIPMENT_CATEGORY_KEYS], (k) => k === 'consumable' || k === 'other'),
+  (key) => ({ key, label: startCase(key) }),
+)
+
+const equippedSlotFieldOptions = map([...EQUIPMENT_EQUIP_SLOT_KEYS], (slot) => ({
+  slot,
+  label: startCase(slot),
 }))
+
+const ADD_EQUIPMENT_UNCATEGORIZED_VALUE = '__no_category__'
+
+const addEquipmentCategorySelect = ref('')
 
 const xpFormat = new Intl.NumberFormat('en-US')
 
@@ -129,11 +147,14 @@ function removeClassLevelRow(index: number) {
   touch()
 }
 
-function addEquipmentRow() {
+function addEquipmentRow(category?: EquipmentCategoryKey) {
   if (!canEdit.value) {
     return
   }
-  draft.sheet.equipmentItems = concat(draft.sheet.equipmentItems, [
+  if (category !== undefined && isEquipmentEquipSlotKey(category)) {
+    return
+  }
+  const row = assign(
     {
       id: crypto.randomUUID(),
       name: '',
@@ -141,8 +162,26 @@ function addEquipmentRow() {
       weightLb: '',
       equipped: false,
     },
-  ])
+    category !== undefined ? { category } : {},
+  )
+  draft.sheet.equipmentItems = concat(draft.sheet.equipmentItems, [row])
   touch()
+}
+
+function onAddEquipmentCategorySelectChange() {
+  if (!canEdit.value) {
+    return
+  }
+  const v = addEquipmentCategorySelect.value
+  if (v === '') {
+    return
+  }
+  if (v === ADD_EQUIPMENT_UNCATEGORIZED_VALUE) {
+    addEquipmentRow()
+  } else if (isEquipmentCategoryKey(v) && !isEquipmentEquipSlotKey(v)) {
+    addEquipmentRow(v)
+  }
+  addEquipmentCategorySelect.value = ''
 }
 
 function removeEquipmentRow(index: number) {
@@ -159,48 +198,55 @@ function onEquipmentCategoryChange(index: number, ev: Event) {
   if (!row) {
     return
   }
-  row.category = v === '' ? undefined : (v as EquipmentCategoryKey)
+  const nextCat = v === '' ? undefined : (v as EquipmentCategoryKey)
+  row.category = nextCat
+
+  const catIdx = row.catalogIndex
+  if (catIdx !== undefined) {
+    const ent = getSrdCatalogEntryByIndex(catIdx)
+    if (
+      ent !== undefined &&
+      nextCat !== undefined &&
+      ent.sheetCategory !== nextCat
+    ) {
+      row.name = ''
+      row.catalogIndex = undefined
+      row.weightLb = ''
+    }
+  }
   touch()
 }
 
-const srdPickerFocusedRowId = ref<string | null>(null)
-let srdPickerBlurClear: ReturnType<typeof setTimeout> | null = null
-
-function clearSrdPickerBlurTimer() {
-  if (srdPickerBlurClear !== null) {
-    clearTimeout(srdPickerBlurClear)
-    srdPickerBlurClear = null
-  }
-}
-
-function onEquipmentNameCellFocus(rowId: string) {
-  clearSrdPickerBlurTimer()
-  srdPickerFocusedRowId.value = rowId
-}
-
-function onEquipmentNameCellBlur() {
-  clearSrdPickerBlurTimer()
-  srdPickerBlurClear = setTimeout(() => {
-    srdPickerFocusedRowId.value = null
-    srdPickerBlurClear = null
-  }, 180)
-}
-
-function equipmentSrdSuggestionsForRow(
+function equipmentItemSelectValue(
   row: CharacterSheetForm['equipmentItems'][number],
-): SrdCatalogEntry[] {
-  const q = trim(row.name)
-  if (q.length === 0) {
-    return []
+): string {
+  const idx = row.catalogIndex
+  if (idx === undefined || trim(idx) === '') {
+    return ''
   }
-  return searchSrdCatalog(q, 12)
+  return getSrdCatalogEntryByIndex(idx) !== undefined ? idx : ''
 }
 
-function onEquipmentNameInput(row: CharacterSheetForm['equipmentItems'][number]) {
-  if (trim(row.name) === '') {
-    row.catalogIndex = undefined
+function onEquipmentItemSelect(
+  row: CharacterSheetForm['equipmentItems'][number],
+  ev: Event,
+) {
+  if (!canEdit.value) {
+    return
   }
-  touch()
+  const v = trim((ev.target as HTMLSelectElement).value)
+  if (v === '') {
+    row.name = ''
+    row.catalogIndex = undefined
+    row.weightLb = ''
+    touch()
+    return
+  }
+  const ent = getSrdCatalogEntryByIndex(v)
+  if (ent === undefined) {
+    return
+  }
+  pickSrdCatalogEntry(row, ent)
 }
 
 function pickSrdCatalogEntry(
@@ -211,9 +257,47 @@ function pickSrdCatalogEntry(
   row.weightLb = entry.weightLb !== undefined ? entry.weightLb : ''
   row.category = entry.sheetCategory
   row.catalogIndex = entry.index
-  clearSrdPickerBlurTimer()
-  srdPickerFocusedRowId.value = null
   touch()
+}
+
+function equippedSlotSelectValue(slot: EquipmentEquipSlotKey): string {
+  const idx = draft.sheet.equippedLoadout[slot]
+  if (idx === undefined || trim(idx) === '') {
+    return ''
+  }
+  const ent = getSrdCatalogEntryByIndex(idx)
+  if (ent === undefined || ent.sheetCategory !== slot) {
+    return ''
+  }
+  return idx
+}
+
+function onEquippedSlotChange(slot: EquipmentEquipSlotKey, ev: Event) {
+  if (!canEdit.value) {
+    return
+  }
+  const v = trim((ev.target as HTMLSelectElement).value)
+  if (!draft.sheet.equippedLoadout) {
+    draft.sheet.equippedLoadout = {}
+  }
+  if (v === '') {
+    delete draft.sheet.equippedLoadout[slot]
+    touch()
+    return
+  }
+  const ent = getSrdCatalogEntryByIndex(v)
+  if (ent === undefined || ent.sheetCategory !== slot) {
+    return
+  }
+  draft.sheet.equippedLoadout[slot] = v
+  touch()
+}
+
+function equipmentWeightDisplay(
+  row: CharacterSheetForm['equipmentItems'][number],
+): string {
+  const w = trim(row.weightLb)
+  return w.length > 0 ? w : '—'
 }
 
 const scheduleSave = debounce(async () => {
@@ -275,7 +359,6 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  clearSrdPickerBlurTimer()
   scheduleSave.flush()
 })
 </script>
@@ -712,9 +795,37 @@ onBeforeUnmount(() => {
             />
           </label>
         </div>
+        <div class="cs-equipped-block">
+          <h4 class="cs-subheading">Equipped</h4>
+          <div class="cs-grid cs-grid--2">
+            <label
+              v-for="slotOpt in equippedSlotFieldOptions"
+              :key="slotOpt.slot"
+              class="cs-field"
+            >
+              <span class="cs-label">{{ slotOpt.label }}</span>
+              <select
+                class="input"
+                :value="equippedSlotSelectValue(slotOpt.slot)"
+                :disabled="!canEdit"
+                :aria-label="slotOpt.label"
+                @change="onEquippedSlotChange(slotOpt.slot, $event)"
+              >
+                <option value="">None</option>
+                <option
+                  v-for="ent in listSrdCatalogForEquipSlot(slotOpt.slot)"
+                  :key="ent.index"
+                  :value="ent.index"
+                >
+                  {{ ent.name }}{{ ent.kind === 'magic-item' ? ' (Magic)' : '' }}
+                </option>
+              </select>
+            </label>
+          </div>
+        </div>
         <div class="cs-equipment-block">
+          <h4 class="cs-subheading">Carried</h4>
           <div class="cs-equipment-head" aria-hidden="true">
-            <span class="cs-equipment-h-int">Eq.</span>
             <span class="cs-equipment-col-name">Name</span>
             <span>Qty</span>
             <span>Wt.</span>
@@ -726,42 +837,23 @@ onBeforeUnmount(() => {
             :key="row.id"
             class="cs-equipment-row"
           >
-            <label class="cs-inline cs-equipment-equipped">
-              <input v-model="row.equipped" type="checkbox" :disabled="!canEdit" @change="touch" />
-            </label>
             <div class="cs-equipment-name-cell">
-              <input
-                v-model="row.name"
-                class="input"
-                type="text"
-                autocomplete="off"
-                placeholder="Item name"
+              <select
+                class="input cs-equipment-item-select"
+                :value="equipmentItemSelectValue(row)"
                 :disabled="!canEdit"
-                @focus="onEquipmentNameCellFocus(row.id)"
-                @blur="onEquipmentNameCellBlur"
-                @input="onEquipmentNameInput(row)"
-              />
-              <ul
-                v-if="
-                  canEdit &&
-                  srdPickerFocusedRowId === row.id &&
-                  equipmentSrdSuggestionsForRow(row).length > 0
-                "
-                class="cs-srd-suggest thin-scroll"
+                :aria-label="`Carried item ${index + 1}`"
+                @change="onEquipmentItemSelect(row, $event)"
               >
-                <li v-for="ent in equipmentSrdSuggestionsForRow(row)" :key="ent.index">
-                  <button
-                    type="button"
-                    class="cs-srd-suggest-btn"
-                    @mousedown.prevent="pickSrdCatalogEntry(row, ent)"
-                  >
-                    <span class="cs-srd-suggest-name">{{ ent.name }}</span>
-                    <span class="cs-srd-suggest-kind tiny muted">{{
-                      ent.kind === 'magic-item' ? 'Magic' : 'SRD'
-                    }}</span>
-                  </button>
-                </li>
-              </ul>
+                <option value="">Select item…</option>
+                <option
+                  v-for="ent in listSrdCatalogForCarriedItemSelect(row.category)"
+                  :key="ent.index"
+                  :value="ent.index"
+                >
+                  {{ ent.name }}{{ ent.kind === 'magic-item' ? ' (Magic)' : '' }}
+                </option>
+              </select>
             </div>
             <input
               v-model="row.quantity"
@@ -772,12 +864,13 @@ onBeforeUnmount(() => {
               @input="touch"
             />
             <input
-              v-model="row.weightLb"
-              class="input input-narrow"
+              class="input input-narrow cs-equipment-weight-readonly"
               type="text"
-              autocomplete="off"
+              readonly
+              tabindex="-1"
               :disabled="!canEdit"
-              @input="touch"
+              :value="equipmentWeightDisplay(row)"
+              :aria-label="`Weight in lb for item ${index + 1}`"
             />
             <select
               class="input input-narrow"
@@ -786,7 +879,11 @@ onBeforeUnmount(() => {
               @change="onEquipmentCategoryChange(index, $event)"
             >
               <option value="">—</option>
-              <option v-for="opt in equipmentCategorySelectOptions" :key="opt.key" :value="opt.key">
+              <option
+                v-for="opt in carriedEquipmentCategorySelectOptions"
+                :key="opt.key"
+                :value="opt.key"
+              >
                 {{ opt.label }}
               </option>
             </select>
@@ -802,9 +899,23 @@ onBeforeUnmount(() => {
               </button>
             </div>
           </div>
-          <button v-if="canEdit" type="button" class="cs-link-btn" @click="addEquipmentRow">
-            Add item
-          </button>
+          <select
+            v-if="canEdit"
+            v-model="addEquipmentCategorySelect"
+            class="input input-narrow"
+            aria-label="Add carried item"
+            @change="onAddEquipmentCategorySelectChange"
+          >
+            <option value="" disabled>Add carried item…</option>
+            <option :value="ADD_EQUIPMENT_UNCATEGORIZED_VALUE">No category</option>
+            <option
+              v-for="opt in carriedEquipmentCategorySelectOptions"
+              :key="opt.key"
+              :value="opt.key"
+            >
+              {{ opt.label }}
+            </option>
+          </select>
         </div>
         <label class="cs-field cs-field--wide">
           <span class="cs-label">Equipment notes</span>
@@ -1110,6 +1221,18 @@ onBeforeUnmount(() => {
 .cs-skill-label {
   font-size: 0.82rem;
 }
+.cs-equipped-block {
+  margin-top: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.cs-subheading {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #888);
+}
 .cs-equipment-block {
   margin-top: 0.75rem;
   margin-bottom: 0.75rem;
@@ -1117,7 +1240,7 @@ onBeforeUnmount(() => {
 .cs-equipment-head,
 .cs-equipment-row {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 52px 52px minmax(88px, 120px) 32px;
+  grid-template-columns: minmax(0, 1fr) 52px 52px minmax(88px, 120px) 32px;
   gap: 0.35rem;
   align-items: center;
 }
@@ -1128,59 +1251,19 @@ onBeforeUnmount(() => {
   color: var(--muted, #888);
   margin-bottom: 0.25rem;
 }
-.cs-equipment-h-int {
-  text-align: center;
-}
 .cs-equipment-row {
   margin-bottom: 0.35rem;
 }
 .cs-equipment-name-cell {
-  position: relative;
   min-width: 0;
 }
-.cs-srd-suggest {
-  position: absolute;
-  z-index: 30;
-  left: 0;
-  right: 0;
-  top: calc(100% + 2px);
-  max-height: 200px;
-  overflow-y: auto;
-  margin: 0;
-  padding: 0.2rem 0;
-  list-style: none;
-  background: var(--panel-bg, #1e1e1e);
-  border: 1px solid var(--border, #444);
-  border-radius: 4px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-}
-.cs-srd-suggest-btn {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
+.cs-equipment-item-select {
   width: 100%;
-  padding: 0.35rem 0.5rem;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.cs-srd-suggest-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-.cs-srd-suggest-name {
-  flex: 1;
   min-width: 0;
-  font-size: 0.82rem;
 }
-.cs-srd-suggest-kind {
-  flex-shrink: 0;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+.cs-equipment-weight-readonly {
+  cursor: default;
+  color: var(--muted, #888);
 }
 .cs-equipment-col-action {
   display: flex;

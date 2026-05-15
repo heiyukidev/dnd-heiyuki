@@ -121,6 +121,72 @@ describe('sanitizeCharacterSheetForPersist equipmentItems', () => {
   })
 })
 
+describe('sanitizeCharacterSheetForPersist equippedLoadout', () => {
+  it('keeps valid slot catalog slugs', () => {
+    const out = sanitizeCharacterSheetForPersist({
+      equippedLoadout: {
+        weapon: 'longsword',
+        armor: 'not-a-real-armor-slug-but-format',
+      },
+    })
+    expect(out?.equippedLoadout).toEqual({
+      weapon: 'longsword',
+      armor: 'not-a-real-armor-slug-but-format',
+    })
+  })
+
+  it('drops invalid slugs and unknown keys', () => {
+    const out = sanitizeCharacterSheetForPersist({
+      equippedLoadout: {
+        weapon: 'BAD',
+        shield: 'shield',
+        extra: 'nope',
+      } as Record<string, unknown>,
+    })
+    expect(out?.equippedLoadout).toEqual({ shield: 'shield' })
+  })
+
+  it('removes equippedLoadout when empty after sanitize', () => {
+    const out = sanitizeCharacterSheetForPersist({
+      equippedLoadout: { weapon: '  ' },
+    })
+    expect(out?.equippedLoadout).toBeUndefined()
+  })
+
+  it('removes non-object equippedLoadout', () => {
+    const out = sanitizeCharacterSheetForPersist({
+      equippedLoadout: [] as unknown as Record<string, string>,
+    })
+    expect(out?.equippedLoadout).toBeUndefined()
+  })
+})
+
+describe('validateCharacterSheetForPersist equippedLoadout', () => {
+  it('accepts valid loadout', () => {
+    expect(() =>
+      validateCharacterSheetForPersist({
+        equippedLoadout: { weapon: 'longsword', gear: 'backpack' },
+      }),
+    ).not.toThrow()
+  })
+
+  it('rejects invalid slug', () => {
+    expect(() =>
+      validateCharacterSheetForPersist({
+        equippedLoadout: { weapon: 'BAD_SLUG' },
+      }),
+    ).toThrow('Invalid character sheet')
+  })
+
+  it('rejects unknown slot keys', () => {
+    expect(() =>
+      validateCharacterSheetForPersist({
+        equippedLoadout: { foo: 'longsword' } as Record<string, unknown>,
+      }),
+    ).toThrow('Invalid character sheet')
+  })
+})
+
 describe('validateCharacterSheetForPersist equipmentItems', () => {
   it('accepts valid sanitized rows', () => {
     expect(() =>

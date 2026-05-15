@@ -1,4 +1,4 @@
-import { clamp, compact, get, isEmpty, map, merge, omit, trim } from 'lodash'
+import { clamp, compact, filter, get, includes, isEmpty, map, merge, omit, trim } from 'lodash'
 import type { PhbClassKey } from '../../convex/characterClasses'
 import { resolvePhbClassKey } from '../../convex/characterClasses'
 import type { PhbRaceKey } from '../../convex/characterRaces'
@@ -6,9 +6,12 @@ import { resolvePhbRaceKey } from '../../convex/characterRaces'
 import type { Doc } from '../../convex/_generated/dataModel'
 import {
   type EquipmentCategoryKey,
+  type EquipmentEquipSlotKey,
+  EQUIPMENT_EQUIP_SLOT_KEYS,
   EQUIPMENT_ITEM_CATALOG_INDEX_MAX,
   isEquipmentCategoryKey,
 } from '../../convex/characterSheetValidators'
+import { getSrdCatalogEntryByIndex } from '../catalog/srdCatalog'
 
 type ServerSheet = NonNullable<Doc<'sessionCharacters'>['sheet']>
 
@@ -24,6 +27,8 @@ export type CharacterEquipmentRow = {
   catalogIndex?: string
 }
 
+export type EquippedLoadout = Partial<Record<EquipmentEquipSlotKey, string>>
+
 export type CharacterSheetForm = Omit<
   ServerSheet,
   'abilities' | 'saves' | 'skills' | 'classLevels' | 'race' | 'equipmentItems'
@@ -34,6 +39,7 @@ export type CharacterSheetForm = Omit<
   classLevels: ClassLevelRow[]
   race: PhbRaceKey | ''
   equipmentItems: CharacterEquipmentRow[]
+  equippedLoadout: EquippedLoadout
 }
 
 const LEGACY_CLASS_AND_LEVEL = 'classAndLevel' as const
@@ -111,6 +117,7 @@ export function createDefaultSheet(): CharacterSheetForm {
     attacksSpellcasting: '',
     equipment: '',
     equipmentItems: [],
+    equippedLoadout: {},
     currencyCp: '',
     currencySp: '',
     currencyEp: '',
@@ -197,6 +204,66 @@ function normalizeEquipmentItemsFromServer(raw: unknown): CharacterEquipmentRow[
   )
 }
 
+function pruneInvalidEquippedIndices(loadout: EquippedLoadout): EquippedLoadout {
+  const next: EquippedLoadout = {}
+  for (const slot of EQUIPMENT_EQUIP_SLOT_KEYS) {
+    const idx = loadout[slot]
+    if (idx === undefined) {
+      continue
+    }
+    const ent = getSrdCatalogEntryByIndex(idx)
+    if (ent !== undefined && ent.sheetCategory === slot) {
+      next[slot] = idx
+    }
+  }
+  return next
+}
+
+function migrateEquipmentLoadoutAndItems(
+  rawLoadout: unknown,
+  items: CharacterEquipmentRow[],
+): { items: CharacterEquipmentRow[]; equippedLoadout: EquippedLoadout } {
+  let working = [...items]
+  let loadout: EquippedLoadout = {}
+
+  if (rawLoadout && typeof rawLoadout === 'object' && !Array.isArray(rawLoadout)) {
+    for (const slot of EQUIPMENT_EQUIP_SLOT_KEYS) {
+      const idx = normalizeCatalogIndex(get(rawLoadout as object, slot))
+      if (idx !== undefined) {
+        loadout[slot] = idx
+      }
+    }
+  }
+  loadout = pruneInvalidEquippedIndices(loadout)
+
+  for (const slot of EQUIPMENT_EQUIP_SLOT_KEYS) {
+    if (loadout[slot] !== undefined) {
+      continue
+    }
+    const foundIdx = working.findIndex(
+      (r) =>
+        r.category === slot &&
+        r.catalogIndex !== undefined &&
+        trim(String(r.catalogIndex)).length > 0,
+    )
+    if (foundIdx >= 0) {
+      const row = working[foundIdx]!
+      loadout[slot] = row.catalogIndex!
+      working = filter(working, (_, i) => i !== foundIdx)
+    }
+  }
+  loadout = pruneInvalidEquippedIndices(loadout)
+
+  working = map(working, (row) => {
+    if (row.category !== undefined && includes([...EQUIPMENT_EQUIP_SLOT_KEYS], row.category)) {
+      return { ...row, category: 'other' as EquipmentCategoryKey }
+    }
+    return row
+  })
+
+  return { items: working, equippedLoadout: loadout }
+}
+
 export function hydrateSheetFromServer(sheet: ServerSheet | null | undefined): CharacterSheetForm {
   const base = createDefaultSheet()
   const merged = merge({}, base, sheet ?? {})
@@ -210,10 +277,16 @@ export function hydrateSheetFromServer(sheet: ServerSheet | null | undefined): C
       classLevels = [{ class: legacyResolved, level: 1 }]
     }
   }
+  const rawItems = normalizeEquipmentItemsFromServer(get(merged, 'equipmentItems'))
+  const { items, equippedLoadout } = migrateEquipmentLoadoutAndItems(
+    get(merged, 'equippedLoadout'),
+    rawItems,
+  )
   return {
     ...omit(merged, [LEGACY_CLASS_AND_LEVEL]),
     classLevels,
     race: resolvePhbRaceKey(trim(String(merged.race ?? ''))) ?? '',
-    equipmentItems: normalizeEquipmentItemsFromServer(get(merged, 'equipmentItems')),
+    equipmentItems: items,
+    equippedLoadout,
   } as CharacterSheetForm
 }
