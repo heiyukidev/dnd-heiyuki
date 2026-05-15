@@ -22,6 +22,7 @@ import { useConvexQuery } from '../composables/useConvexQuery'
 import { CHARACTER_CLASS_OPTIONS } from '../../convex/characterClasses'
 import { CHARACTER_RACE_OPTIONS } from '../../convex/characterRaces'
 import { computeArmorClass } from '../characterSheet/computeArmorClass'
+import { computeWalkingSpeed } from '../characterSheet/computeWalkingSpeed'
 import {
   characterLevelFromClassLevels,
   nextLevelCumulativeXp,
@@ -112,6 +113,15 @@ const calculatedArmorClass = computed(() =>
   computeArmorClass({
     abilities: draft.sheet.abilities,
     equippedLoadout: draft.sheet.equippedLoadout,
+  }),
+)
+
+const calculatedWalkingSpeed = computed(() =>
+  computeWalkingSpeed({
+    abilities: draft.sheet.abilities,
+    classLevels: draft.sheet.classLevels,
+    equippedLoadout: draft.sheet.equippedLoadout,
+    race: draft.sheet.race,
   }),
 )
 
@@ -535,6 +545,7 @@ onBeforeUnmount(() => {
               :disabled="!canEdit"
               @input="touch"
             />
+            <span class="muted tiny">Calculated: {{ calculatedWalkingSpeed }}</span>
           </label>
         </div>
         <div class="cs-grid cs-grid--3 cs-tight">
