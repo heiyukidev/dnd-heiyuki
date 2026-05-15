@@ -22,6 +22,7 @@ import { useConvexQuery } from '../composables/useConvexQuery'
 import { CHARACTER_CLASS_OPTIONS } from '../../convex/characterClasses'
 import { CHARACTER_RACE_OPTIONS } from '../../convex/characterRaces'
 import { computeArmorClass } from '../characterSheet/computeArmorClass'
+import { computeMaxHitPoints } from '../characterSheet/computeMaxHitPoints'
 import { computeWalkingSpeed } from '../characterSheet/computeWalkingSpeed'
 import {
   characterLevelFromClassLevels,
@@ -124,6 +125,18 @@ const calculatedWalkingSpeed = computed(() =>
     race: draft.sheet.race,
   }),
 )
+
+const calculatedMaxHitPoints = computed(() =>
+  computeMaxHitPoints({
+    classLevels: draft.sheet.classLevels,
+    abilities: draft.sheet.abilities,
+  }),
+)
+
+const calculatedMaxHitPointsDisplay = computed(() => {
+  const v = calculatedMaxHitPoints.value
+  return v === null ? '—' : v
+})
 
 const experiencePointsProgress = computed(() => {
   const level = characterLevelFromClassLevels(draft.sheet.classLevels)
@@ -572,6 +585,7 @@ onBeforeUnmount(() => {
               :disabled="!canEdit"
               @input="touch"
             />
+            <span class="muted tiny">Calculated: {{ calculatedMaxHitPointsDisplay }}</span>
           </label>
           <label class="cs-field">
             <span class="cs-label">Hit dice</span>
@@ -582,6 +596,7 @@ onBeforeUnmount(() => {
               :disabled="!canEdit"
               @input="touch"
             />
+            <span class="muted tiny">Plain text for your short-rest Hit Die pool.</span>
           </label>
         </div>
         <div class="cs-row cs-row--wrap">
