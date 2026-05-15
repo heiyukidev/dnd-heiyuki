@@ -1,5 +1,7 @@
-import { clamp, omit } from 'lodash'
+import { clamp, compact, omit } from 'lodash'
 import { v } from 'convex/values'
+
+import { resolvePhbClassKey } from './characterClasses'
 
 const classLevelEntryValidator = v.object({
   class: v.string(),
@@ -84,12 +86,18 @@ export function sanitizeCharacterSheetForPersist(
     return next
   }
   if (Array.isArray(rawLevels)) {
-    next.classLevels = rawLevels.map((entry) => {
-      const obj = entry as { class?: unknown; level?: unknown }
-      const n = Number(obj.level)
-      const lvl = clamp(Number.isFinite(n) ? Math.trunc(n) : 1, 1, 20)
-      return { class: String(obj.class ?? '').trim(), level: lvl }
-    })
+    next.classLevels = compact(
+      rawLevels.map((entry) => {
+        const obj = entry as { class?: unknown; level?: unknown }
+        const n = Number(obj.level)
+        const lvl = clamp(Number.isFinite(n) ? Math.trunc(n) : 1, 1, 20)
+        const resolved = resolvePhbClassKey(String(obj.class ?? ''))
+        if (resolved === null) {
+          return undefined
+        }
+        return { class: resolved, level: lvl }
+      }),
+    )
   }
   return next
 }

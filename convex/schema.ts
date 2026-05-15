@@ -58,7 +58,7 @@ export default defineSchema({
     name: v.string(),
     isNpc: v.boolean(),
     stats: statsValidator,
-    /** **Character class** template key (v1: `test` = empty placeholder class). */
+    /** Optional PHB class template key (`characterClasses`). Legacy `test` is deprecated. */
     characterClassKey: v.optional(characterClassKeyValidator),
     boundClerkUserId: v.optional(v.string()),
     /** Odd-r offset column within session map footprint; unset means unplaced. */

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { cloneDeep, concat, debounce, filter } from 'lodash'
+import { cloneDeep, concat, debounce, filter, keyBy } from 'lodash'
 import type { Id } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
 import {
@@ -11,6 +11,7 @@ import {
 import { ABILITY_ROWS, SKILL_ROWS } from '../characterSheet/skillRows'
 import { useConvexClient } from '../composables/convexClient'
 import { useConvexQuery } from '../composables/useConvexQuery'
+import { CHARACTER_CLASS_OPTIONS } from '../../convex/characterClasses'
 
 const props = defineProps<{
   sessionId: Id<'sessions'>
@@ -67,6 +68,16 @@ const canEdit = computed(() => bundle.value?.canEdit === true)
 const viewerIsDm = computed(() => bundle.value?.viewerRole === 'dm')
 
 const canEditClassLevels = computed(() => canEdit.value === true && viewerIsDm.value === true)
+
+const phbClassByKey = keyBy([...CHARACTER_CLASS_OPTIONS], (o) => o.key)
+
+function classLevelReadonlyLabel(classKey: string): string {
+  const k = classKey.trim()
+  if (k.length === 0) {
+    return '—'
+  }
+  return phbClassByKey[k]?.label ?? classKey
+}
 
 function addClassLevelRow() {
   if (!canEditClassLevels.value) {
@@ -183,15 +194,15 @@ onBeforeUnmount(() => {
                 :key="index"
                 class="cs-class-row"
               >
-                <input
-                  v-model="row.class"
-                  class="input"
-                  type="text"
-                  maxlength="64"
-                  placeholder="Class"
-                  :disabled="!canEditClassLevels"
-                  @input="touch"
-                />
+                <select v-if="canEditClassLevels" v-model="row.class" class="input" @change="touch">
+                  <option value="">Choose class…</option>
+                  <option v-for="opt in CHARACTER_CLASS_OPTIONS" :key="opt.key" :value="opt.key">
+                    {{ opt.label }}
+                  </option>
+                </select>
+                <span v-else class="cs-class-readonly">{{
+                  classLevelReadonlyLabel(row.class)
+                }}</span>
                 <input
                   v-model.number="row.level"
                   class="input cs-class-level"
@@ -763,6 +774,11 @@ onBeforeUnmount(() => {
   grid-template-columns: 1fr 72px 28px;
   gap: 0.35rem;
   align-items: center;
+}
+.cs-class-readonly {
+  font-size: 0.85rem;
+  padding: 0.35rem 0;
+  min-height: 1.5rem;
 }
 .cs-class-level {
   max-width: 72px;

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { capitalize, filter, find, includes, map, size, trim } from 'lodash'
+import { capitalize, filter, find, includes, keyBy, map, size, trim } from 'lodash'
 import type { Id } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
+import type { PhbClassKey } from '../../convex/characterClasses'
+import { CHARACTER_CLASS_OPTIONS } from '../../convex/characterClasses'
 import BattleMapBoard from '../components/BattleMapBoard.vue'
 import CharacterSheetPanel from '../components/CharacterSheetPanel.vue'
 import { useConvexClient } from '../composables/convexClient'
@@ -113,6 +115,8 @@ const { data: playerSheetPreview } = useConvexQuery(
 const { data: classOptions } = useConvexQuery(client, api.sessions.listCharacterClassOptions, () =>
   sessionId.value !== null ? {} : 'skip',
 )
+
+const phbClassLabelByKey = keyBy([...CHARACTER_CLASS_OPTIONS], (o) => o.key)
 
 const joinRequestsList = computed(() => joinRequests.value ?? [])
 const playersList = computed(() => players.value ?? [])
@@ -372,7 +376,11 @@ watch(
   () => charactersList.value,
   (list) => {
     figureClassPick.value = Object.fromEntries(
-      map(list, (c) => [String(c._id), c.characterClassKey ?? '']),
+      map(list, (c) => {
+        const k = c.characterClassKey
+        const raw = k === undefined || k === 'test' || phbClassLabelByKey[k] === undefined ? '' : k
+        return [String(c._id), raw]
+      }),
     )
   },
   { immediate: true },
@@ -393,13 +401,17 @@ function characterOptionLabel(
     name: string
     isNpc: boolean
     boundClerkUserId?: string
-    characterClassKey?: 'test'
+    characterClassKey?: string
   },
   playerClerkUserId: string,
 ) {
   let s = `${c.name}${c.isNpc ? ' (NPC)' : ''}`
-  if (c.characterClassKey === 'test') {
-    s += ' · Test class'
+  const ck = c.characterClassKey
+  if (ck !== undefined && ck !== 'test') {
+    const label = phbClassLabelByKey[ck]?.label
+    if (label !== undefined) {
+      s += ` · ${label}`
+    }
   }
   if (c.boundClerkUserId !== undefined && c.boundClerkUserId !== playerClerkUserId) {
     s += ' — bound elsewhere'
@@ -643,7 +655,7 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
   }
   rosterError.value = null
   const raw = figureClassPick.value[String(characterId)] ?? ''
-  let characterClassKey: 'test' | null
+  let characterClassKey: PhbClassKey | null
   if (raw === '') {
     characterClassKey = null
   } else {
@@ -652,7 +664,7 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
       rosterError.value = 'That character class is not available.'
       return
     }
-    characterClassKey = matched.key as 'test'
+    characterClassKey = matched.key as PhbClassKey
   }
   try {
     await client.mutation(api.sessions.setSessionCharacterClassKey, {
@@ -1013,9 +1025,16 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                           <div class="figure-info">
                             <strong>{{ c.name }}</strong
                             >{{ c.isNpc ? ' (NPC)' : '' }}
-                            <span v-if="c.characterClassKey === 'test'" class="muted tiny">
-                              · Test class</span
+                            <span
+                              v-if="
+                                c.characterClassKey !== undefined &&
+                                c.characterClassKey !== 'test' &&
+                                phbClassLabelByKey[c.characterClassKey]
+                              "
+                              class="muted tiny"
                             >
+                              · {{ phbClassLabelByKey[c.characterClassKey]!.label }}
+                            </span>
                           </div>
                           <div class="field-row">
                             <label class="field grow">

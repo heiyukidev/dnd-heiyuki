@@ -1,9 +1,11 @@
-import { clamp, get, isEmpty, merge, omit, trim } from 'lodash'
+import { clamp, compact, get, isEmpty, map, merge, omit, trim } from 'lodash'
+import type { PhbClassKey } from '../../convex/characterClasses'
+import { resolvePhbClassKey } from '../../convex/characterClasses'
 import type { Doc } from '../../convex/_generated/dataModel'
 
 type ServerSheet = NonNullable<Doc<'sessionCharacters'>['sheet']>
 
-type ClassLevelRow = { class: string; level: number }
+type ClassLevelRow = { class: PhbClassKey | ''; level: number }
 
 export type CharacterSheetForm = Omit<
   ServerSheet,
@@ -112,11 +114,17 @@ function normalizeLevelsFromServer(raw: ServerSheet['classLevels']): ClassLevelR
   if (!raw || !Array.isArray(raw)) {
     return []
   }
-  return raw.map((row) => {
-    const n = Number(row.level)
-    const lvl = clamp(Number.isFinite(n) ? Math.trunc(n) : 1, 1, 20)
-    return { class: trim(row.class ?? ''), level: lvl }
-  })
+  return compact(
+    map(raw, (row) => {
+      const n = Number(row.level)
+      const lvl = clamp(Number.isFinite(n) ? Math.trunc(n) : 1, 1, 20)
+      const resolved = resolvePhbClassKey(String(row.class ?? ''))
+      if (resolved === null) {
+        return undefined
+      }
+      return { class: resolved, level: lvl }
+    }),
+  )
 }
 
 export function hydrateSheetFromServer(sheet: ServerSheet | null | undefined): CharacterSheetForm {
@@ -127,7 +135,10 @@ export function hydrateSheetFromServer(sheet: ServerSheet | null | undefined): C
   const levelsNorm = normalizeLevelsFromServer(merged.classLevels)
   let classLevels = levelsNorm
   if (isEmpty(classLevels) && legacyTrimmed.length > 0) {
-    classLevels = [{ class: legacyTrimmed, level: 1 }]
+    const legacyResolved = resolvePhbClassKey(legacyTrimmed)
+    if (legacyResolved !== null) {
+      classLevels = [{ class: legacyResolved, level: 1 }]
+    }
   }
   return {
     ...omit(merged, [LEGACY_CLASS_AND_LEVEL]),
