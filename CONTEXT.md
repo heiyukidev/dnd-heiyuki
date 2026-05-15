@@ -89,7 +89,13 @@ When more than one client writes overlapping changes to the same **Session chara
 The product does not offer import of **Character sheet** data from external character builders, files, or APIs in v1; tables enter information in the product or paste **plain text** into the provided fields.
 
 **Character sheet sections (v1)**:
-The **Character sheet** mixes **structured fields** for the compact, always-present combat-facing header (for example identity line, armor class, hit points, speed, initiative, ability scores, proficiency bonus, hit dice, death saves—exact set follows the PHB-style layout) with **multi-line text areas** for list-heavy PHB blocks (attacks and spellcasting summary, equipment, features and traits, personality text, spell lists, and similar) so v1 stays easy to ship without modeling every line item as its own record. Those multi-line areas accept **plain text** only in v1—line breaks are fine; the product does not interpret Markdown or other rich markup for rendering. Deeper structure or formatted text for those lists can arrive later if the table needs it.
+The **Character sheet** mixes **structured fields** for the compact, always-present combat-facing header (for example identity line, armor class, hit points, speed, initiative, ability scores, proficiency bonus, hit dice, death saves—exact set follows the PHB-style layout) with **multi-line text areas** for list-heavy PHB blocks (attacks and spellcasting summary, features and traits, personality text, spell lists, and similar) so v1 stays easy to ship without modeling every line item as its own record. Those multi-line areas accept **plain text** only in v1—line breaks are fine; the product does not interpret Markdown or other rich markup for rendering. Deeper structure or formatted text for those lists can arrive later if the table needs it.
+
+**Equipment (v1)**:
+Structured **equipment line items** live in `equipmentItems` (each row: client-stable `id`, trimmed `name`, optional free-text quantity and weight in pounds, optional `equipped`, optional `category` from a small fixed set, optional **`catalogIndex`** — a lowercase kebab slug tying the row to a bundled **SRD / OGL** item entry when picked from the in-app catalog; custom items omit it). The in-repo catalog is **SRD-only on purpose** so the product does not ship proprietary PHB/DMG-style item dumps (see **Wizards of the Coast and IP guardrails**). Blank-name rows are dropped on persist. Optional free-text **equipment notes** remain in the legacy `equipment` field (for example container contents or narrative). **Armor class** is still not derived from armor or shields (see **Armor class (v1)**).
+
+**Armor class (v1)**:
+**Armor class** on the **Character sheet** is whatever total the table agrees is correct for the moment—entered as **plain text** (usually a number, sometimes a note). The product does **not** derive it from equipment, **Dexterity**, shields, natural armor, or class features in v1; players and the **Dungeon Master** maintain the value the same way they would on a paper sheet.
 
 **Hit points (v1)**:
 Each **Session character** carries exactly one authoritative **current hit points** and **maximum hit points** pair for the **Session**; the **Character sheet**’s hit point block is that same pair in the UI, not a second copy that could disagree with tokens, **Turn order**, or other surfaces.
@@ -132,6 +138,31 @@ A **Session** the **Dungeon Master** has formally ended (v1): the table becomes 
 - **Turn order** and **Spotlight** state belong to a **Session** (v1); only the **Dungeon Master** may reorder the **Turn order** or trigger **Spotlight**.
 - **Map placement** (which **hex** each **Session character** occupies, if any) belongs to the **Session** (v1); only the **Dungeon Master** may assign or change it. **Players** see the same **Battle map** layout and token positions the **Dungeon Master** sets. **New fight** clears **Map placement** together with **Turn order** and **Spotlight** (v1). The **Battle map footprint** also belongs to the **Session** (v1); only the **Dungeon Master** may change it. Pan and zoom on the **Battle map** are not **Session** state in v1—each participant may move their own view independently on their device (**Alt/Option+drag** or **drag** on empty margin to **pan**; **Space** recenters a **Player**’s **bound** figure when **placed**; **Dungeon Master** **Space** does nothing).
 - A **Session** becomes an **Archived session** when the **Dungeon Master** ends it (v1); **Join link**s stop admitting new play, and the record is kept for history.
+
+## Wizards of the Coast and IP guardrails
+
+This product is inspired by how many tables play **D&D-style** games; it is **not** affiliated with Wizards of the Coast. The following is **project guidance for contributors and future publishing**, not legal advice. Before any **commercial release** or wide **public distribution** of rules text, art, or marketing, obtain a qualified legal review against then-current Wizards licenses and policies.
+
+**Deliberate copyright avoidance (project stance)**  
+The codebase and **shipped bundles** must **not** embed **Wizards-copyrighted expression**—for example full _Player's Handbook_ / _Dungeon Master's Guide_ (or adventure) item lists, stat blocks, long descriptive passages, or “we typed out the book” substitutes. **Completeness is never a reason** to paste proprietary content into the repo. Prefer **SRD/OGL/CC-licensed** sources with clear attribution, **original** wording and data we own, and **user-entered** table text over infringing convenience.
+
+**Copyright (expression)**  
+Wizards holds copyright in their **specific published works**: book wording, stat blocks as published, adventures, art, layout, and similar creative expression. Do **not** copy, closely paraphrase for reuse, or ship **proprietary Wizards book content** in the codebase, bundled data, or user-visible defaults intended for redistribution.
+
+**Trademarks (branding)**  
+Names and marks such as **Dungeons & Dragons**, **D&D**, the **dragon ampersand**, and many **official product and setting names** are protected. The product must **not** imply official Wizards endorsement, look like an official D&D product, or use Wizards marks in commerce without permission. Store listings, domains, ads, and in-app copy should use **our own product name and voice**, not Wizards-owned branding, unless a future explicit agreement says otherwise.
+
+**Private play vs publishing**  
+**Private tables** using the app among friends are normal hobby use; still avoid building workflows that **encourage** uploading or sharing **pirated** or **full-book** Wizards PDFs or large proprietary excerpts. When the project **sells or publishes** software or content to others, treat everything that is not **clearly licensed for reuse** as **off limits** unless Wizards grants permission.
+
+**What we build on (allowed bundles)**  
+Where the product ships **game content** (for example **equipment** tied to `catalogIndex` per **Equipment (v1)**), it must come only from **explicitly reusable** sources the project has rights to use—e.g. **SRD / OGL / Creative Commons** materials as published and attributed under their terms—and **our own** original text and art. Do **not** treat the _Player’s Handbook_, _Monster Manual_, or other non-open books as sources of copy-pastable text for shipped content.
+
+**Engineering habits**  
+- Prefer **original wording** for user-facing descriptions, tooltips, and bundled lore; if content is derived from an open license bundle, **track the license and source** in code or internal docs.  
+- Do **not** embed long **Wizards-proprietary** passages as seed data, defaults, or imports.  
+- **Character sheet** “PHB-style” layout and labels in this document mean **familiar section order and vocabulary tables already use**, not permission to ship **verbatim PHB text** at scale.  
+- Before launch, audit **shipped strings, images, and imports** and marketing for **proprietary expression** and **trademark** issues.
 
 ## Example dialogue
 

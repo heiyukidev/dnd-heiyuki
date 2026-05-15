@@ -4,20 +4,36 @@ import { resolvePhbClassKey } from '../../convex/characterClasses'
 import type { PhbRaceKey } from '../../convex/characterRaces'
 import { resolvePhbRaceKey } from '../../convex/characterRaces'
 import type { Doc } from '../../convex/_generated/dataModel'
+import {
+  type EquipmentCategoryKey,
+  EQUIPMENT_ITEM_CATALOG_INDEX_MAX,
+  isEquipmentCategoryKey,
+} from '../../convex/characterSheetValidators'
 
 type ServerSheet = NonNullable<Doc<'sessionCharacters'>['sheet']>
 
 type ClassLevelRow = { class: PhbClassKey | ''; level: number }
 
+export type CharacterEquipmentRow = {
+  id: string
+  name: string
+  quantity?: string
+  weightLb?: string
+  equipped?: boolean
+  category?: EquipmentCategoryKey
+  catalogIndex?: string
+}
+
 export type CharacterSheetForm = Omit<
   ServerSheet,
-  'abilities' | 'saves' | 'skills' | 'classLevels' | 'race'
+  'abilities' | 'saves' | 'skills' | 'classLevels' | 'race' | 'equipmentItems'
 > & {
   abilities: NonNullable<ServerSheet['abilities']>
   saves: NonNullable<ServerSheet['saves']>
   skills: NonNullable<ServerSheet['skills']>
   classLevels: ClassLevelRow[]
   race: PhbRaceKey | ''
+  equipmentItems: CharacterEquipmentRow[]
 }
 
 const LEGACY_CLASS_AND_LEVEL = 'classAndLevel' as const
@@ -94,6 +110,7 @@ export function createDefaultSheet(): CharacterSheetForm {
     proficienciesLanguages: '',
     attacksSpellcasting: '',
     equipment: '',
+    equipmentItems: [],
     currencyCp: '',
     currencySp: '',
     currencyEp: '',
@@ -130,6 +147,56 @@ function normalizeLevelsFromServer(raw: ServerSheet['classLevels']): ClassLevelR
   )
 }
 
+function normalizeCatalogIndex(raw: unknown): string | undefined {
+  if (raw === undefined || raw === null) {
+    return undefined
+  }
+  const s = trim(String(raw)).slice(0, EQUIPMENT_ITEM_CATALOG_INDEX_MAX)
+  if (s.length === 0 || !/^[a-z0-9-]+$/.test(s)) {
+    return undefined
+  }
+  return s
+}
+
+function normalizeEquipmentItemsFromServer(raw: unknown): CharacterEquipmentRow[] {
+  if (!raw || !Array.isArray(raw)) {
+    return []
+  }
+  return compact(
+    map(raw, (row) => {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) {
+        return undefined
+      }
+      const id = trim(String(get(row as object, 'id') ?? ''))
+      if (!id) {
+        return undefined
+      }
+      const quantityVal = get(row as object, 'quantity')
+      const weightVal = get(row as object, 'weightLb')
+      const categoryVal = get(row as object, 'category')
+      const catalogIdx = normalizeCatalogIndex(get(row as object, 'catalogIndex'))
+      const out: CharacterEquipmentRow = {
+        id,
+        name: String(get(row as object, 'name') ?? ''),
+        equipped: get(row as object, 'equipped') === true,
+      }
+      if (quantityVal !== undefined && quantityVal !== null) {
+        out.quantity = String(quantityVal)
+      }
+      if (weightVal !== undefined && weightVal !== null) {
+        out.weightLb = String(weightVal)
+      }
+      if (isEquipmentCategoryKey(categoryVal)) {
+        out.category = categoryVal
+      }
+      if (catalogIdx !== undefined) {
+        out.catalogIndex = catalogIdx
+      }
+      return out
+    }),
+  )
+}
+
 export function hydrateSheetFromServer(sheet: ServerSheet | null | undefined): CharacterSheetForm {
   const base = createDefaultSheet()
   const merged = merge({}, base, sheet ?? {})
@@ -147,5 +214,6 @@ export function hydrateSheetFromServer(sheet: ServerSheet | null | undefined): C
     ...omit(merged, [LEGACY_CLASS_AND_LEVEL]),
     classLevels,
     race: resolvePhbRaceKey(trim(String(merged.race ?? ''))) ?? '',
+    equipmentItems: normalizeEquipmentItemsFromServer(get(merged, 'equipmentItems')),
   } as CharacterSheetForm
 }

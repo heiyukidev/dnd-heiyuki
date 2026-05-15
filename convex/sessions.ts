@@ -1024,7 +1024,18 @@ export const patchSessionCharacterSheet = mutation({
     }
     if (sheetPatch !== undefined) {
       const patchForMerge = isBoundPlayer && !isDm ? omit(sheetPatch, 'classLevels') : sheetPatch
-      const merged = merge({}, character.sheet ?? {}, patchForMerge) as Record<string, unknown>
+      const patchRec = patchForMerge as Record<string, unknown>
+      const merged = merge(
+        {},
+        character.sheet ?? {},
+        omit(patchRec, ['equipmentItems', 'classLevels']),
+      ) as Record<string, unknown>
+      if (patchRec.equipmentItems !== undefined) {
+        merged.equipmentItems = patchRec.equipmentItems
+      }
+      if (patchRec.classLevels !== undefined) {
+        merged.classLevels = patchRec.classLevels
+      }
       const finalized = sanitizeCharacterSheetForPersist(merged)
       validateCharacterSheetForPersist(finalized)
       updates.sheet = finalized as Doc<'sessionCharacters'>['sheet']

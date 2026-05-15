@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { cloneDeep, concat, debounce, filter, keyBy } from 'lodash'
+import { cloneDeep, concat, debounce, filter, keyBy, map, startCase, trim } from 'lodash'
 import type { Id } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
+import {
+  EQUIPMENT_CATEGORY_KEYS,
+  type EquipmentCategoryKey,
+} from '../../convex/characterSheetValidators'
 import {
   createDefaultSheet,
   hydrateSheetFromServer,
@@ -18,6 +22,7 @@ import {
   nextLevelCumulativeXp,
   parseExperiencePointsField,
 } from '../characterSheet/xpThresholds'
+import { searchSrdCatalog, type SrdCatalogEntry } from '../catalog/srdCatalog'
 
 const props = defineProps<{
   sessionId: Id<'sessions'>
@@ -77,6 +82,11 @@ const canEditClassLevels = computed(() => canEdit.value === true && viewerIsDm.v
 
 const phbClassByKey = keyBy([...CHARACTER_CLASS_OPTIONS], (o) => o.key)
 
+const equipmentCategorySelectOptions = map([...EQUIPMENT_CATEGORY_KEYS], (key) => ({
+  key,
+  label: startCase(key),
+}))
+
 const xpFormat = new Intl.NumberFormat('en-US')
 
 const experiencePointsProgress = computed(() => {
@@ -116,6 +126,93 @@ function removeClassLevelRow(index: number) {
     return
   }
   draft.sheet.classLevels = filter(draft.sheet.classLevels, (_, i) => i !== index)
+  touch()
+}
+
+function addEquipmentRow() {
+  if (!canEdit.value) {
+    return
+  }
+  draft.sheet.equipmentItems = concat(draft.sheet.equipmentItems, [
+    {
+      id: crypto.randomUUID(),
+      name: '',
+      quantity: '',
+      weightLb: '',
+      equipped: false,
+    },
+  ])
+  touch()
+}
+
+function removeEquipmentRow(index: number) {
+  if (!canEdit.value) {
+    return
+  }
+  draft.sheet.equipmentItems = filter(draft.sheet.equipmentItems, (_, i) => i !== index)
+  touch()
+}
+
+function onEquipmentCategoryChange(index: number, ev: Event) {
+  const v = (ev.target as HTMLSelectElement).value
+  const row = draft.sheet.equipmentItems[index]
+  if (!row) {
+    return
+  }
+  row.category = v === '' ? undefined : (v as EquipmentCategoryKey)
+  touch()
+}
+
+const srdPickerFocusedRowId = ref<string | null>(null)
+let srdPickerBlurClear: ReturnType<typeof setTimeout> | null = null
+
+function clearSrdPickerBlurTimer() {
+  if (srdPickerBlurClear !== null) {
+    clearTimeout(srdPickerBlurClear)
+    srdPickerBlurClear = null
+  }
+}
+
+function onEquipmentNameCellFocus(rowId: string) {
+  clearSrdPickerBlurTimer()
+  srdPickerFocusedRowId.value = rowId
+}
+
+function onEquipmentNameCellBlur() {
+  clearSrdPickerBlurTimer()
+  srdPickerBlurClear = setTimeout(() => {
+    srdPickerFocusedRowId.value = null
+    srdPickerBlurClear = null
+  }, 180)
+}
+
+function equipmentSrdSuggestionsForRow(
+  row: CharacterSheetForm['equipmentItems'][number],
+): SrdCatalogEntry[] {
+  const q = trim(row.name)
+  if (q.length === 0) {
+    return []
+  }
+  return searchSrdCatalog(q, 12)
+}
+
+function onEquipmentNameInput(row: CharacterSheetForm['equipmentItems'][number]) {
+  if (trim(row.name) === '') {
+    row.catalogIndex = undefined
+  }
+  touch()
+}
+
+function pickSrdCatalogEntry(
+  row: CharacterSheetForm['equipmentItems'][number],
+  entry: SrdCatalogEntry,
+) {
+  row.name = entry.name
+  row.weightLb = entry.weightLb !== undefined ? entry.weightLb : ''
+  row.category = entry.sheetCategory
+  row.catalogIndex = entry.index
+  clearSrdPickerBlurTimer()
+  srdPickerFocusedRowId.value = null
   touch()
 }
 
@@ -178,6 +275,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  clearSrdPickerBlurTimer()
   scheduleSave.flush()
 })
 </script>
@@ -614,13 +712,110 @@ onBeforeUnmount(() => {
             />
           </label>
         </div>
-        <textarea
-          v-model="draft.sheet.equipment"
-          class="input cs-textarea"
-          rows="6"
-          :disabled="!canEdit"
-          @input="touch"
-        />
+        <div class="cs-equipment-block">
+          <div class="cs-equipment-head" aria-hidden="true">
+            <span class="cs-equipment-h-int">Eq.</span>
+            <span class="cs-equipment-col-name">Name</span>
+            <span>Qty</span>
+            <span>Wt.</span>
+            <span>Category</span>
+            <span class="cs-equipment-col-action" />
+          </div>
+          <div
+            v-for="(row, index) in draft.sheet.equipmentItems"
+            :key="row.id"
+            class="cs-equipment-row"
+          >
+            <label class="cs-inline cs-equipment-equipped">
+              <input v-model="row.equipped" type="checkbox" :disabled="!canEdit" @change="touch" />
+            </label>
+            <div class="cs-equipment-name-cell">
+              <input
+                v-model="row.name"
+                class="input"
+                type="text"
+                autocomplete="off"
+                placeholder="Item name"
+                :disabled="!canEdit"
+                @focus="onEquipmentNameCellFocus(row.id)"
+                @blur="onEquipmentNameCellBlur"
+                @input="onEquipmentNameInput(row)"
+              />
+              <ul
+                v-if="
+                  canEdit &&
+                  srdPickerFocusedRowId === row.id &&
+                  equipmentSrdSuggestionsForRow(row).length > 0
+                "
+                class="cs-srd-suggest thin-scroll"
+              >
+                <li v-for="ent in equipmentSrdSuggestionsForRow(row)" :key="ent.index">
+                  <button
+                    type="button"
+                    class="cs-srd-suggest-btn"
+                    @mousedown.prevent="pickSrdCatalogEntry(row, ent)"
+                  >
+                    <span class="cs-srd-suggest-name">{{ ent.name }}</span>
+                    <span class="cs-srd-suggest-kind tiny muted">{{
+                      ent.kind === 'magic-item' ? 'Magic' : 'SRD'
+                    }}</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+            <input
+              v-model="row.quantity"
+              class="input input-narrow"
+              type="text"
+              autocomplete="off"
+              :disabled="!canEdit"
+              @input="touch"
+            />
+            <input
+              v-model="row.weightLb"
+              class="input input-narrow"
+              type="text"
+              autocomplete="off"
+              :disabled="!canEdit"
+              @input="touch"
+            />
+            <select
+              class="input input-narrow"
+              :value="row.category ?? ''"
+              :disabled="!canEdit"
+              @change="onEquipmentCategoryChange(index, $event)"
+            >
+              <option value="">—</option>
+              <option v-for="opt in equipmentCategorySelectOptions" :key="opt.key" :value="opt.key">
+                {{ opt.label }}
+              </option>
+            </select>
+            <div class="cs-equipment-col-action">
+              <button
+                v-if="canEdit"
+                type="button"
+                class="cs-icon-btn"
+                aria-label="Remove item"
+                @click="removeEquipmentRow(index)"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          <button v-if="canEdit" type="button" class="cs-link-btn" @click="addEquipmentRow">
+            Add item
+          </button>
+        </div>
+        <label class="cs-field cs-field--wide">
+          <span class="cs-label">Equipment notes</span>
+          <textarea
+            v-model="draft.sheet.equipment"
+            class="input cs-textarea"
+            rows="6"
+            :disabled="!canEdit"
+            @input="touch"
+          />
+        </label>
       </section>
 
       <section class="cs-section">
@@ -914,6 +1109,82 @@ onBeforeUnmount(() => {
 }
 .cs-skill-label {
   font-size: 0.82rem;
+}
+.cs-equipment-block {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.cs-equipment-head,
+.cs-equipment-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 52px 52px minmax(88px, 120px) 32px;
+  gap: 0.35rem;
+  align-items: center;
+}
+.cs-equipment-head {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted, #888);
+  margin-bottom: 0.25rem;
+}
+.cs-equipment-h-int {
+  text-align: center;
+}
+.cs-equipment-row {
+  margin-bottom: 0.35rem;
+}
+.cs-equipment-name-cell {
+  position: relative;
+  min-width: 0;
+}
+.cs-srd-suggest {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  top: calc(100% + 2px);
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.2rem 0;
+  list-style: none;
+  background: var(--panel-bg, #1e1e1e);
+  border: 1px solid var(--border, #444);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.cs-srd-suggest-btn {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cs-srd-suggest-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.cs-srd-suggest-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+}
+.cs-srd-suggest-kind {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.cs-equipment-col-action {
+  display: flex;
+  justify-content: center;
 }
 .cs-death {
   margin-top: 0.75rem;

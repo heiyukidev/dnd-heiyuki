@@ -1,8 +1,57 @@
-import { clamp, compact, omit } from 'lodash'
+import { clamp, compact, includes, map, omit, trim } from 'lodash'
 import { v } from 'convex/values'
 
 import { resolvePhbClassKey } from './characterClasses'
 import { isPhbRaceKey, resolvePhbRaceKey } from './characterRaces'
+
+export const EQUIPMENT_CATEGORY_KEYS = [
+  'weapon',
+  'armor',
+  'shield',
+  'gear',
+  'consumable',
+  'other',
+] as const
+
+export type EquipmentCategoryKey = (typeof EQUIPMENT_CATEGORY_KEYS)[number]
+
+export const EQUIPMENT_ITEMS_MAX = 200
+export const EQUIPMENT_ITEM_ID_MAX = 128
+export const EQUIPMENT_ITEM_NAME_MAX = 200
+export const EQUIPMENT_ITEM_QTY_MAX = 64
+export const EQUIPMENT_ITEM_WEIGHT_MAX = 64
+export const EQUIPMENT_ITEM_CATALOG_INDEX_MAX = 128
+
+const CATALOG_INDEX_SLUG_RE = /^[a-z0-9-]+$/
+
+function isValidCatalogIndexSlug(s: string): boolean {
+  return (
+    s.length > 0 && s.length <= EQUIPMENT_ITEM_CATALOG_INDEX_MAX && CATALOG_INDEX_SLUG_RE.test(s)
+  )
+}
+
+const equipmentCategoryValidator = v.union(
+  v.literal('weapon'),
+  v.literal('armor'),
+  v.literal('shield'),
+  v.literal('gear'),
+  v.literal('consumable'),
+  v.literal('other'),
+)
+
+const equipmentItemValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  quantity: v.optional(v.string()),
+  weightLb: v.optional(v.string()),
+  equipped: v.optional(v.boolean()),
+  category: v.optional(equipmentCategoryValidator),
+  catalogIndex: v.optional(v.string()),
+})
+
+export function isEquipmentCategoryKey(vv: unknown): vv is EquipmentCategoryKey {
+  return typeof vv === 'string' && includes([...EQUIPMENT_CATEGORY_KEYS], vv)
+}
 
 const classLevelEntryValidator = v.object({
   class: v.string(),
@@ -108,6 +157,64 @@ export function sanitizeCharacterSheetForPersist(
       next.race = resolved
     }
   }
+  const rawEquip = next.equipmentItems
+  if (rawEquip !== undefined && !Array.isArray(rawEquip)) {
+    delete next.equipmentItems
+  }
+  if (Array.isArray(rawEquip)) {
+    next.equipmentItems = compact(
+      map(rawEquip, (entry) => {
+        if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+          return undefined
+        }
+        const obj = entry as Record<string, unknown>
+        const idRaw = trim(String(obj.id ?? '')).slice(0, EQUIPMENT_ITEM_ID_MAX)
+        if (idRaw.length === 0) {
+          return undefined
+        }
+        const nameTrimmed = trim(String(obj.name ?? ''))
+        if (nameTrimmed.length === 0) {
+          return undefined
+        }
+        const name = nameTrimmed.slice(0, EQUIPMENT_ITEM_NAME_MAX)
+        const qtyRaw = obj.quantity
+        const wtRaw = obj.weightLb
+        const quantity =
+          qtyRaw === undefined || qtyRaw === null
+            ? undefined
+            : trim(String(qtyRaw)).slice(0, EQUIPMENT_ITEM_QTY_MAX) || undefined
+        const weightLb =
+          wtRaw === undefined || wtRaw === null
+            ? undefined
+            : trim(String(wtRaw)).slice(0, EQUIPMENT_ITEM_WEIGHT_MAX) || undefined
+        const eq = obj.equipped
+        const equipped = eq === true
+        const category = isEquipmentCategoryKey(obj.category) ? obj.category : undefined
+        const catIdxRaw = obj.catalogIndex
+        let catalogIndex: string | undefined
+        if (catIdxRaw !== undefined && catIdxRaw !== null) {
+          const slug = trim(String(catIdxRaw)).slice(0, EQUIPMENT_ITEM_CATALOG_INDEX_MAX)
+          if (isValidCatalogIndexSlug(slug)) {
+            catalogIndex = slug
+          }
+        }
+        const row: Record<string, unknown> = { id: idRaw, name, equipped }
+        if (quantity !== undefined) {
+          row.quantity = quantity
+        }
+        if (weightLb !== undefined) {
+          row.weightLb = weightLb
+        }
+        if (category !== undefined) {
+          row.category = category
+        }
+        if (catalogIndex !== undefined) {
+          row.catalogIndex = catalogIndex
+        }
+        return row
+      }),
+    ).slice(0, EQUIPMENT_ITEMS_MAX)
+  }
   return next
 }
 
@@ -137,6 +244,57 @@ export function validateCharacterSheetForPersist(sheet: Record<string, unknown> 
   const r = sheet.race
   if (r !== undefined && r !== null && String(r).length > 0 && !isPhbRaceKey(String(r))) {
     throw new Error('Invalid character sheet')
+  }
+  const equip = sheet.equipmentItems
+  if (equip !== undefined) {
+    if (!Array.isArray(equip)) {
+      throw new Error('Invalid character sheet')
+    }
+    if (equip.length > EQUIPMENT_ITEMS_MAX) {
+      throw new Error('Invalid character sheet')
+    }
+    for (const row of equip) {
+      if (row === null || typeof row !== 'object' || Array.isArray(row)) {
+        throw new Error('Invalid character sheet')
+      }
+      const o = row as Record<string, unknown>
+      if (typeof o.id !== 'string' || o.id.length === 0 || o.id.length > EQUIPMENT_ITEM_ID_MAX) {
+        throw new Error('Invalid character sheet')
+      }
+      if (
+        typeof o.name !== 'string' ||
+        o.name.length === 0 ||
+        o.name.length > EQUIPMENT_ITEM_NAME_MAX
+      ) {
+        throw new Error('Invalid character sheet')
+      }
+      if (o.quantity !== undefined) {
+        if (typeof o.quantity !== 'string' || o.quantity.length > EQUIPMENT_ITEM_QTY_MAX) {
+          throw new Error('Invalid character sheet')
+        }
+      }
+      if (o.weightLb !== undefined) {
+        if (typeof o.weightLb !== 'string' || o.weightLb.length > EQUIPMENT_ITEM_WEIGHT_MAX) {
+          throw new Error('Invalid character sheet')
+        }
+      }
+      if (o.equipped !== undefined && typeof o.equipped !== 'boolean') {
+        throw new Error('Invalid character sheet')
+      }
+      if (o.category !== undefined && !isEquipmentCategoryKey(o.category)) {
+        throw new Error('Invalid character sheet')
+      }
+      if (o.catalogIndex !== undefined) {
+        if (typeof o.catalogIndex !== 'string' || !isValidCatalogIndexSlug(o.catalogIndex)) {
+          throw new Error('Invalid character sheet')
+        }
+      }
+      for (const val of Object.values(o)) {
+        if (val !== null && typeof val === 'object') {
+          throw new Error('Invalid character sheet')
+        }
+      }
+    }
   }
 }
 
@@ -174,6 +332,7 @@ export const characterSheetValidator = v.object({
 
   attacksSpellcasting: v.optional(v.string()),
   equipment: v.optional(v.string()),
+  equipmentItems: v.optional(v.array(equipmentItemValidator)),
   currencyCp: v.optional(v.string()),
   currencySp: v.optional(v.string()),
   currencyEp: v.optional(v.string()),
@@ -227,6 +386,7 @@ export const characterSheetPatchValidator = v.object({
 
   attacksSpellcasting: v.optional(v.string()),
   equipment: v.optional(v.string()),
+  equipmentItems: v.optional(v.array(equipmentItemValidator)),
   currencyCp: v.optional(v.string()),
   currencySp: v.optional(v.string()),
   currencyEp: v.optional(v.string()),
