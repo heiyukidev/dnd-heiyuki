@@ -1,6 +1,8 @@
 import { clamp, compact, get, isEmpty, map, merge, omit, trim } from 'lodash'
 import type { PhbClassKey } from '../../convex/characterClasses'
 import { resolvePhbClassKey } from '../../convex/characterClasses'
+import type { PhbRaceKey } from '../../convex/characterRaces'
+import { resolvePhbRaceKey } from '../../convex/characterRaces'
 import type { Doc } from '../../convex/_generated/dataModel'
 
 type ServerSheet = NonNullable<Doc<'sessionCharacters'>['sheet']>
@@ -9,12 +11,13 @@ type ClassLevelRow = { class: PhbClassKey | ''; level: number }
 
 export type CharacterSheetForm = Omit<
   ServerSheet,
-  'abilities' | 'saves' | 'skills' | 'classLevels'
+  'abilities' | 'saves' | 'skills' | 'classLevels' | 'race'
 > & {
   abilities: NonNullable<ServerSheet['abilities']>
   saves: NonNullable<ServerSheet['saves']>
   skills: NonNullable<ServerSheet['skills']>
   classLevels: ClassLevelRow[]
+  race: PhbRaceKey | ''
 }
 
 const LEGACY_CLASS_AND_LEVEL = 'classAndLevel' as const
@@ -143,5 +146,6 @@ export function hydrateSheetFromServer(sheet: ServerSheet | null | undefined): C
   return {
     ...omit(merged, [LEGACY_CLASS_AND_LEVEL]),
     classLevels,
+    race: resolvePhbRaceKey(trim(String(merged.race ?? ''))) ?? '',
   } as CharacterSheetForm
 }

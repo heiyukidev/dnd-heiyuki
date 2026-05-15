@@ -12,6 +12,12 @@ import { ABILITY_ROWS, SKILL_ROWS } from '../characterSheet/skillRows'
 import { useConvexClient } from '../composables/convexClient'
 import { useConvexQuery } from '../composables/useConvexQuery'
 import { CHARACTER_CLASS_OPTIONS } from '../../convex/characterClasses'
+import { CHARACTER_RACE_OPTIONS } from '../../convex/characterRaces'
+import {
+  characterLevelFromClassLevels,
+  nextLevelCumulativeXp,
+  parseExperiencePointsField,
+} from '../characterSheet/xpThresholds'
 
 const props = defineProps<{
   sessionId: Id<'sessions'>
@@ -70,6 +76,24 @@ const viewerIsDm = computed(() => bundle.value?.viewerRole === 'dm')
 const canEditClassLevels = computed(() => canEdit.value === true && viewerIsDm.value === true)
 
 const phbClassByKey = keyBy([...CHARACTER_CLASS_OPTIONS], (o) => o.key)
+
+const xpFormat = new Intl.NumberFormat('en-US')
+
+const experiencePointsProgress = computed(() => {
+  const level = characterLevelFromClassLevels(draft.sheet.classLevels)
+  const parsed = parseExperiencePointsField(draft.sheet.experiencePoints)
+  const next = nextLevelCumulativeXp(level)
+  if (parsed === null && next === null) {
+    return '— / —'
+  }
+  if (parsed === null) {
+    return `— / ${xpFormat.format(next!)}`
+  }
+  if (next === null) {
+    return `${xpFormat.format(parsed)} / —`
+  }
+  return `${xpFormat.format(parsed)} / ${xpFormat.format(next)}`
+})
 
 function classLevelReadonlyLabel(classKey: string): string {
   const k = classKey.trim()
@@ -173,6 +197,16 @@ onBeforeUnmount(() => {
         <h3 class="cs-heading">Identity</h3>
         <div class="cs-grid cs-grid--2">
           <label class="cs-field">
+            <span class="cs-label">Player name</span>
+            <input
+              v-model="draft.sheet.playerName"
+              class="input"
+              type="text"
+              :disabled="!canEdit"
+              @input="touch"
+            />
+          </label>
+          <label class="cs-field">
             <span class="cs-label">Character name</span>
             <input
               v-model="draft.name"
@@ -182,6 +216,48 @@ onBeforeUnmount(() => {
               :disabled="!canEdit"
               @input="touch"
             />
+          </label>
+          <label class="cs-field">
+            <span class="cs-label">Race</span>
+            <select v-model="draft.sheet.race" class="input" :disabled="!canEdit" @change="touch">
+              <option value="">Choose race…</option>
+              <option v-for="opt in CHARACTER_RACE_OPTIONS" :key="opt.key" :value="opt.key">
+                {{ opt.label }}
+              </option>
+            </select>
+          </label>
+          <label class="cs-field">
+            <span class="cs-label">Background</span>
+            <input
+              v-model="draft.sheet.background"
+              class="input"
+              type="text"
+              placeholder="What were they before they became an adventurer?"
+              :disabled="!canEdit"
+              @input="touch"
+            />
+          </label>
+          <label class="cs-field">
+            <span class="cs-label">Alignment</span>
+            <input
+              v-model="draft.sheet.alignment"
+              class="input"
+              type="text"
+              placeholder="How do they lean on rules, kindness, and self-interest?"
+              :disabled="!canEdit"
+              @input="touch"
+            />
+          </label>
+          <label class="cs-field">
+            <span class="cs-label">Experience points</span>
+            <input
+              v-model="draft.sheet.experiencePoints"
+              class="input"
+              type="text"
+              :disabled="!canEdit"
+              @input="touch"
+            />
+            <span class="muted tiny">{{ experiencePointsProgress }}</span>
           </label>
           <div class="cs-field cs-field--wide">
             <span class="cs-label">Classes &amp; levels</span>
@@ -233,56 +309,6 @@ onBeforeUnmount(() => {
               </button>
             </div>
           </div>
-          <label class="cs-field">
-            <span class="cs-label">Background</span>
-            <input
-              v-model="draft.sheet.background"
-              class="input"
-              type="text"
-              :disabled="!canEdit"
-              @input="touch"
-            />
-          </label>
-          <label class="cs-field">
-            <span class="cs-label">Player name</span>
-            <input
-              v-model="draft.sheet.playerName"
-              class="input"
-              type="text"
-              :disabled="!canEdit"
-              @input="touch"
-            />
-          </label>
-          <label class="cs-field">
-            <span class="cs-label">Race</span>
-            <input
-              v-model="draft.sheet.race"
-              class="input"
-              type="text"
-              :disabled="!canEdit"
-              @input="touch"
-            />
-          </label>
-          <label class="cs-field">
-            <span class="cs-label">Alignment</span>
-            <input
-              v-model="draft.sheet.alignment"
-              class="input"
-              type="text"
-              :disabled="!canEdit"
-              @input="touch"
-            />
-          </label>
-          <label class="cs-field">
-            <span class="cs-label">Experience points</span>
-            <input
-              v-model="draft.sheet.experiencePoints"
-              class="input"
-              type="text"
-              :disabled="!canEdit"
-              @input="touch"
-            />
-          </label>
         </div>
       </section>
 

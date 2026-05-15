@@ -28,4 +28,14 @@ describe('hydrateSheetFromServer', () => {
     const out = hydrateSheetFromServer(undefined)
     expect(out.classLevels).toEqual(createDefaultSheet().classLevels)
   })
+
+  it('normalizes legacy race free text to a PHB key', () => {
+    const out = hydrateSheetFromServer({ race: 'Half Orc' } as never)
+    expect(out.race).toBe('half_orc')
+  })
+
+  it('clears unmappable race without blocking', () => {
+    const out = hydrateSheetFromServer({ race: 'Custom lineage' } as never)
+    expect(out.race).toBe('')
+  })
 })

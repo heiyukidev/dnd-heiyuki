@@ -2,6 +2,7 @@ import { clamp, compact, omit } from 'lodash'
 import { v } from 'convex/values'
 
 import { resolvePhbClassKey } from './characterClasses'
+import { isPhbRaceKey, resolvePhbRaceKey } from './characterRaces'
 
 const classLevelEntryValidator = v.object({
   class: v.string(),
@@ -83,7 +84,6 @@ export function sanitizeCharacterSheetForPersist(
   const rawLevels = next.classLevels
   if (rawLevels !== undefined && !Array.isArray(rawLevels)) {
     delete next.classLevels
-    return next
   }
   if (Array.isArray(rawLevels)) {
     next.classLevels = compact(
@@ -99,6 +99,15 @@ export function sanitizeCharacterSheetForPersist(
       }),
     )
   }
+  const rawRace = next.race
+  if (rawRace !== undefined && rawRace !== null) {
+    const resolved = resolvePhbRaceKey(String(rawRace))
+    if (resolved === null) {
+      delete next.race
+    } else {
+      next.race = resolved
+    }
+  }
   return next
 }
 
@@ -107,24 +116,27 @@ export function validateCharacterSheetForPersist(sheet: Record<string, unknown> 
     return
   }
   const levels = sheet.classLevels
-  if (levels === undefined) {
-    return
-  }
-  if (!Array.isArray(levels)) {
-    throw new Error('Invalid character sheet')
-  }
-  for (const row of levels) {
-    if (
-      row === null ||
-      typeof row !== 'object' ||
-      typeof row.class !== 'string' ||
-      typeof row.level !== 'number' ||
-      !Number.isInteger(row.level) ||
-      row.level < 1 ||
-      row.level > 20
-    ) {
+  if (levels !== undefined) {
+    if (!Array.isArray(levels)) {
       throw new Error('Invalid character sheet')
     }
+    for (const row of levels) {
+      if (
+        row === null ||
+        typeof row !== 'object' ||
+        typeof row.class !== 'string' ||
+        typeof row.level !== 'number' ||
+        !Number.isInteger(row.level) ||
+        row.level < 1 ||
+        row.level > 20
+      ) {
+        throw new Error('Invalid character sheet')
+      }
+    }
+  }
+  const r = sheet.race
+  if (r !== undefined && r !== null && String(r).length > 0 && !isPhbRaceKey(String(r))) {
+    throw new Error('Invalid character sheet')
   }
 }
 
