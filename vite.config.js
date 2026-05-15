@@ -15,5 +15,6 @@ export default defineConfig({
   fmt: {
     semi: false,
     singleQuote: true,
+    ignorePatterns: ['convex/_generated/**'],
   },
 })

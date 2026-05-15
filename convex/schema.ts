@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
+import { characterClassKeyValidator } from './characterClasses'
 
 const sessionStatus = v.union(v.literal('live'), v.literal('archived'))
 const joinRequestStatus = v.union(
@@ -21,6 +22,12 @@ export default defineSchema({
     dmClerkUserId: v.string(),
     joinToken: v.string(),
     createdAt: v.number(),
+    /** Battle map width in hex columns (fixed grid origin; grow appends trailing, shrink strips trailing). */
+    mapCols: v.optional(v.number()),
+    /** Battle map height in hex rows. */
+    mapRows: v.optional(v.number()),
+    /** Ordered **Session character** ids for **Turn order** (manual **Dungeon Master** queue). */
+    turnOrderCharacterIds: v.optional(v.array(v.id('sessionCharacters'))),
   }).index('by_joinToken', ['joinToken']),
 
   joinRequests: defineTable({
@@ -37,7 +44,11 @@ export default defineSchema({
     clerkUserId: v.string(),
     role: memberRole,
     boundCharacterId: v.optional(v.id('sessionCharacters')),
+    sessionNickname: v.optional(v.string()),
+    /** Player’s preferred **Character class** when joining or before a sheet is bound (optional). */
+    preferredCharacterClassKey: v.optional(characterClassKeyValidator),
   })
+    .index('by_session', ['sessionId'])
     .index('by_session_and_clerkUserId', ['sessionId', 'clerkUserId'])
     .index('by_clerkUserId', ['clerkUserId']),
 
@@ -46,6 +57,11 @@ export default defineSchema({
     name: v.string(),
     isNpc: v.boolean(),
     stats: statsValidator,
+    /** **Character class** template key (v1: `test` = empty placeholder class). */
+    characterClassKey: v.optional(characterClassKeyValidator),
     boundClerkUserId: v.optional(v.string()),
+    /** Odd-r offset column within session map footprint; unset means unplaced. */
+    mapCol: v.optional(v.number()),
+    mapRow: v.optional(v.number()),
   }).index('by_session', ['sessionId']),
 })

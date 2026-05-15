@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Show, SignInButton } from '@clerk/vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../../convex/_generated/api'
@@ -17,26 +17,52 @@ const joinMessage = ref('')
 
 const token = computed(() => props.token || String(route.params.token ?? ''))
 
-const { data: sessionPreview, error: sessionPreviewError } = useConvexQuery(
+const { data: pageState, error: pageStateError } = useConvexQuery(
   client,
-  api.sessions.getSessionByJoinToken,
-  () => (token.value ? { token: token.value } : 'skip'),
+  api.sessions.getJoinPageState,
+  () => (token.value ? { joinToken: token.value } : 'skip'),
+)
+
+const session = computed(() => pageState.value?.session ?? null)
+
+const viewer = computed(() => pageState.value?.viewer)
+
+const pendingJoin = computed(
+  () => viewer.value?.kind === 'non-member' && viewer.value.pendingJoin === true,
+)
+
+const rejectedJoin = computed(
+  () => viewer.value?.kind === 'non-member' && viewer.value.rejectedJoin === true,
+)
+
+watch(
+  () => {
+    const s = session.value
+    const v = viewer.value
+    if (s && v?.kind === 'member') {
+      return s._id
+    }
+    return null
+  },
+  (id) => {
+    if (id) {
+      void router.replace({ name: 'session', params: { id } })
+    }
+  },
+  { immediate: true },
 )
 
 async function onRequestJoin() {
   joinMessage.value = ''
   try {
     const res = await client.mutation(api.sessions.requestJoin, { joinToken: token.value })
-    if (res.status === 'already_member' && sessionPreview.value?._id) {
-      await router.push({ name: 'session', params: { id: sessionPreview.value._id } })
+    if (res.status === 'already_member' && session.value?._id) {
+      await router.push({ name: 'session', params: { id: session.value._id } })
       return
     }
     if (res.status === 'already_pending') {
       joinMessage.value = 'Your join request is pending approval from the Dungeon Master.'
       return
-    }
-    if (res.status === 'created') {
-      joinMessage.value = 'Join request sent. Wait for the Dungeon Master to approve.'
     }
   } catch (e) {
     joinMessage.value = e instanceof Error ? e.message : 'Could not request to join.'
@@ -49,32 +75,47 @@ async function onRequestJoin() {
     <h1>Join session</h1>
     <p v-if="!token" class="muted">Missing join link token.</p>
     <template v-else>
-      <p v-if="sessionPreviewError" class="error">
-        Could not load session. {{ sessionPreviewError.message }}
+      <p v-if="pageStateError" class="error">
+        Could not load session. {{ pageStateError.message }}
       </p>
-      <p v-else-if="sessionPreview === undefined" class="muted">Loading session…</p>
-      <p v-else-if="!sessionPreview" class="muted">This join link is not valid.</p>
+      <p v-else-if="pageState === undefined" class="muted">Loading session…</p>
+      <p v-else-if="!session" class="muted">This join link is not valid.</p>
       <template v-else>
         <p class="lead">
           Session:
-          <strong>{{ sessionPreview.title }}</strong>
-          <span class="muted"> ({{ sessionPreview.status }})</span>
+          <strong>{{ session.title }}</strong>
+          <span class="muted"> ({{ session.status }})</span>
         </p>
         <Show when="signed-out">
           <p>Sign in to send a join request.</p>
           <SignInButton />
         </Show>
         <Show when="signed-in">
-          <button
-            v-if="sessionPreview.status === 'live'"
-            type="button"
-            class="btn-primary"
-            @click="onRequestJoin"
-          >
-            Request to join
-          </button>
-          <p v-else class="muted">This session is archived and is not accepting join requests.</p>
-          <p v-if="joinMessage" class="banner">{{ joinMessage }}</p>
+          <p v-if="viewer?.kind === 'member'" class="muted">Opening session…</p>
+          <template v-else>
+            <p v-if="session.status === 'live' && pendingJoin" class="banner">
+              Join request sent. Wait for the Dungeon Master to approve.
+            </p>
+            <p
+              v-else-if="session.status === 'live' && rejectedJoin && !pendingJoin"
+              class="banner banner-warn"
+            >
+              The Dungeon Master did not admit you to this session. You can send another join
+              request.
+            </p>
+            <button
+              v-if="session.status === 'live' && !pendingJoin"
+              type="button"
+              class="btn-primary"
+              @click="onRequestJoin"
+            >
+              Request to join
+            </button>
+            <p v-else-if="session.status !== 'live'" class="muted">
+              This session is archived and is not accepting join requests.
+            </p>
+            <p v-if="joinMessage" class="banner">{{ joinMessage }}</p>
+          </template>
         </Show>
       </template>
     </template>
@@ -112,5 +153,9 @@ async function onRequestJoin() {
   border: 1px solid var(--accent-border);
   background: var(--accent-bg);
   color: var(--text-h);
+}
+.banner-warn {
+  border-color: color-mix(in srgb, var(--accent-border) 70%, #c9a227);
+  background: color-mix(in srgb, var(--accent-bg) 85%, #2a2410);
 }
 </style>

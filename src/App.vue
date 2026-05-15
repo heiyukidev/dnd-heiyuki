@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { ClerkLoaded, ClerkLoading } from '@clerk/vue'
 import ConvexClerkAuth from './components/ConvexClerkAuth.vue'
+
+const route = useRoute()
+const sessionPlayShell = computed(() => route.name === 'session')
 </script>
 
 <template>
@@ -16,7 +21,7 @@ import ConvexClerkAuth from './components/ConvexClerkAuth.vue'
           <RouterLink to="/">Home</RouterLink>
         </nav>
       </header>
-      <main class="main">
+      <main class="main" :class="{ 'main--session-play': sessionPlayShell }">
         <router-view />
       </main>
     </div>
@@ -52,5 +57,17 @@ import ConvexClerkAuth from './components/ConvexClerkAuth.vue'
 .main {
   flex: 1;
   padding: 16px 20px 48px;
+}
+.main--session-play {
+  padding: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.main--session-play > * {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 </style>

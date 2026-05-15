@@ -164,6 +164,15 @@ code {
   box-sizing: border-box;
 }
 
+/** Session play shell: edge-to-edge width (no centered column cap). */
+#app:has(.main--session-play) {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border-inline: none;
+  text-align: initial;
+}
+
 #center {
   display: flex;
   flex-direction: column;
