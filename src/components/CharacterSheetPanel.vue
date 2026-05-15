@@ -21,6 +21,7 @@ import { useConvexClient } from '../composables/convexClient'
 import { useConvexQuery } from '../composables/useConvexQuery'
 import { CHARACTER_CLASS_OPTIONS } from '../../convex/characterClasses'
 import { CHARACTER_RACE_OPTIONS } from '../../convex/characterRaces'
+import { computeArmorClass } from '../characterSheet/computeArmorClass'
 import {
   characterLevelFromClassLevels,
   nextLevelCumulativeXp,
@@ -106,6 +107,13 @@ const ADD_EQUIPMENT_UNCATEGORIZED_VALUE = '__no_category__'
 const addEquipmentCategorySelect = ref('')
 
 const xpFormat = new Intl.NumberFormat('en-US')
+
+const calculatedArmorClass = computed(() =>
+  computeArmorClass({
+    abilities: draft.sheet.abilities,
+    equippedLoadout: draft.sheet.equippedLoadout,
+  }),
+)
 
 const experiencePointsProgress = computed(() => {
   const level = characterLevelFromClassLevels(draft.sheet.classLevels)
@@ -496,6 +504,7 @@ onBeforeUnmount(() => {
       <section class="cs-section">
         <h3 class="cs-heading">Combat</h3>
         <div class="cs-grid cs-grid--3">
+          <!-- AC input is manual-only; computed SRD hint below avoids overwriting Barkskin/temp tweaks. -->
           <label class="cs-field">
             <span class="cs-label">Armor class</span>
             <input
@@ -505,6 +514,7 @@ onBeforeUnmount(() => {
               :disabled="!canEdit"
               @input="touch"
             />
+            <span class="muted tiny">Calculated: {{ calculatedArmorClass }}</span>
           </label>
           <label class="cs-field">
             <span class="cs-label">Initiative</span>
