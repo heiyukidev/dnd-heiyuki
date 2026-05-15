@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
+import { characterSheetValidator } from './characterSheetValidators'
 import { characterClassKeyValidator } from './characterClasses'
 
 const sessionStatus = v.union(v.literal('live'), v.literal('archived'))
@@ -63,5 +64,7 @@ export default defineSchema({
     /** Odd-r offset column within session map footprint; unset means unplaced. */
     mapCol: v.optional(v.number()),
     mapRow: v.optional(v.number()),
+    /** D&D 5e PHB-style **Character sheet** (structured header + plain text blocks); see CONTEXT.md. */
+    sheet: v.optional(characterSheetValidator),
   }).index('by_session', ['sessionId']),
 })

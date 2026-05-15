@@ -69,14 +69,20 @@ Values on a **Character sheet** (totals, modifiers, DCs, passives, and similar) 
 **Character sheet editing (v1)**:
 In a live **Session**, the **Dungeon Master** may edit every **Character sheet** field the product exposes for any **Session character**. An admitted **Player** may edit **Character sheet** fields only for the **Session character** they are **bound** to; they do not edit other figures’ sheets. **Archived session** freezes these edits like all other live mutations.
 
+**Dungeon Master–only sheet fields (v1)**:
+Some **Character sheet** fields are controlled only by the **Dungeon Master** regardless of **Character sheet editing (v1)**. In v1, multiclass **classes & levels** (`classLevels`) follows that rule: **Players** with **Character sheet** access see them **read-only**; the server ignores **Player** patches that would change those values.
+
 **Character sheet sync (v1)**:
 In live play, **Character sheet** edits are persisted on **debounced autosave** after the editor pauses (not withheld until a separate **Save** action in v1), so the **Session** stays the shared source of truth without a manual commit step for routine typing.
 
 **Character sheet concurrency (v1)**:
 When more than one client writes overlapping changes to the same **Session character**, v1 resolves them by **last write wins** at the server—no operational-transform merge, field locks, or special automatic precedence beyond each editor’s normal **Character sheet editing (v1)** rights.
 
+**Character sheet import (v1)**:
+The product does not offer import of **Character sheet** data from external character builders, files, or APIs in v1; tables enter information in the product or paste **plain text** into the provided fields.
+
 **Character sheet sections (v1)**:
-The **Character sheet** mixes **structured fields** for the compact, always-present combat-facing header (for example identity line, armor class, hit points, speed, initiative, ability scores, proficiency bonus, hit dice, death saves—exact set follows the PHB-style layout) with **multi-line text areas** for list-heavy PHB blocks (attacks and spellcasting summary, equipment, features and traits, personality text, spell lists, and similar) so v1 stays easy to ship without modeling every line item as its own record. Deeper structure for those lists can arrive later if the table needs it.
+The **Character sheet** mixes **structured fields** for the compact, always-present combat-facing header (for example identity line, armor class, hit points, speed, initiative, ability scores, proficiency bonus, hit dice, death saves—exact set follows the PHB-style layout) with **multi-line text areas** for list-heavy PHB blocks (attacks and spellcasting summary, equipment, features and traits, personality text, spell lists, and similar) so v1 stays easy to ship without modeling every line item as its own record. Those multi-line areas accept **plain text** only in v1—line breaks are fine; the product does not interpret Markdown or other rich markup for rendering. Deeper structure or formatted text for those lists can arrive later if the table needs it.
 
 **Hit points (v1)**:
 Each **Session character** carries exactly one authoritative **current hit points** and **maximum hit points** pair for the **Session**; the **Character sheet**’s hit point block is that same pair in the UI, not a second copy that could disagree with tokens, **Turn order**, or other surfaces.

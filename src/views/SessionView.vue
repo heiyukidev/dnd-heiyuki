@@ -5,6 +5,7 @@ import { capitalize, filter, find, includes, map, size, trim } from 'lodash'
 import type { Id } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
 import BattleMapBoard from '../components/BattleMapBoard.vue'
+import CharacterSheetPanel from '../components/CharacterSheetPanel.vue'
 import { useConvexClient } from '../composables/convexClient'
 import { useConvexQuery } from '../composables/useConvexQuery'
 
@@ -216,6 +217,51 @@ const turnOrderEntries = computed(() => turnOrderData.value?.entries ?? [])
 
 const isDm = computed(() => bundle.value?.membership?.role === 'dm')
 
+const sheetCharacterId = ref<Id<'sessionCharacters'> | null>(null)
+const sheetSaveError = ref<string | null>(null)
+
+const sheetCharacterIdSelect = computed({
+  get: () => (sheetCharacterId.value !== null ? String(sheetCharacterId.value) : ''),
+  set: (v: string) => {
+    sheetCharacterId.value = v === '' ? null : (v as Id<'sessionCharacters'>)
+  },
+})
+
+watch(
+  () => [sheetPanelOpen.value, isDm.value, charactersList.value, playerSheetPreview.value] as const,
+  () => {
+    if (!sheetPanelOpen.value) {
+      return
+    }
+    sheetSaveError.value = null
+    if (isDm.value) {
+      const ids = map(charactersList.value, (c) => c._id)
+      if (sheetCharacterId.value === null || !includes(ids, sheetCharacterId.value)) {
+        sheetCharacterId.value = ids[0] ?? null
+      }
+      return
+    }
+    const prev = playerSheetPreview.value
+    if (prev?.kind === 'bound') {
+      sheetCharacterId.value = prev.characterId
+    } else {
+      sheetCharacterId.value = null
+    }
+  },
+  { immediate: true },
+)
+
+function openCharacterSheetPanel() {
+  sheetSaveError.value = null
+  sheetPanelOpen.value = true
+}
+
+function openCharacterSheetFor(id: Id<'sessionCharacters'>) {
+  sheetCharacterId.value = id
+  sheetSaveError.value = null
+  sheetPanelOpen.value = true
+}
+
 const playerRecenterCharacterId = computed(() => {
   const p = playerSheetPreview.value
   if (p === undefined || p === null || p.kind !== 'bound') {
@@ -240,6 +286,16 @@ function persistTurnRail() {
   }
   const key = role === 'dm' ? STORAGE_TURN_DM : STORAGE_TURN_PLAYER
   localStorage.setItem(key, turnRailOpen.value ? '1' : '0')
+}
+
+function openDmToolbox() {
+  dmToolboxOpen.value = true
+  persistDmToolbox()
+}
+
+function openTurnRail() {
+  turnRailOpen.value = true
+  persistTurnRail()
 }
 
 function toggleDmToolbox() {
@@ -637,7 +693,15 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
               v-if="bundle.membership?.role === 'player'"
               type="button"
               class="sheet-entry-btn"
-              @click="sheetPanelOpen = true"
+              @click="openCharacterSheetPanel"
+            >
+              Character sheet
+            </button>
+            <button
+              v-else-if="isDm"
+              type="button"
+              class="sheet-entry-btn"
+              @click="openCharacterSheetPanel"
             >
               Character sheet
             </button>
@@ -675,6 +739,19 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                   @token-click="selectMapCharacter"
                 />
               </div>
+              <p v-if="battleMap" class="battle-map-legend muted tiny" role="note">
+                <span class="battle-map-legend__label">Battle map</span>
+                <span class="battle-map-legend__sep" aria-hidden="true">·</span>
+                <span
+                  ><kbd class="kbd-hint">Alt</kbd>/<kbd class="kbd-hint">⌥</kbd> + drag to pan</span
+                >
+                <template v-if="!isDm">
+                  <span class="battle-map-legend__sep" aria-hidden="true">·</span>
+                  <span
+                    ><kbd class="kbd-hint">Space</kbd> to center on your character when placed</span
+                  >
+                </template>
+              </p>
             </div>
 
             <div v-if="isDm" class="session-float session-float--leading">
@@ -683,7 +760,7 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                 type="button"
                 class="float-handle float-handle--leading"
                 aria-label="Open Dungeon Master tools"
-                @click="dmToolboxOpen = true; persistDmToolbox()"
+                @click="openDmToolbox()"
               >
                 ⟩
               </button>
@@ -714,312 +791,327 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                   </button>
                 </div>
                 <div class="float-panel-body thin-scroll">
-                <div v-show="activeTab === 'map'" class="sidebar-section">
-                <h3 class="panel-heading">Map size (hexes)</h3>
-                <p class="muted tiny">
-                  Trailing columns and bottom rows are added or removed; origin stays fixed.
-                </p>
-                <div class="field-row">
-                  <label class="field">
-                    <span class="field-label">Columns</span>
-                    <input
-                      v-model.number="footprintCols"
-                      type="number"
-                      min="1"
-                      max="24"
-                      class="input input-narrow"
-                      :disabled="!canEditBattleMap"
-                    />
-                  </label>
-                  <label class="field">
-                    <span class="field-label">Rows</span>
-                    <input
-                      v-model.number="footprintRows"
-                      type="number"
-                      min="1"
-                      max="24"
-                      class="input input-narrow"
-                      :disabled="!canEditBattleMap"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    class="btn-small"
-                    :disabled="!canEditBattleMap"
-                    @click="applyBattleFootprint"
-                  >
-                    Apply size
-                  </button>
-                </div>
-                <h3 class="panel-heading spaced">Unplaced figures</h3>
-                <p v-if="!canEditBattleMap" class="muted tiny">
-                  Read-only while session is not live.
-                </p>
-                <p v-else-if="battleMap === undefined" class="muted tiny">Loading battle map…</p>
-                <p
-                  v-else-if="battleMapFigureCounts && battleMapFigureCounts.total === 0"
-                  class="muted tiny"
-                >
-                  No session figures yet. Add party or NPC figures in the Figures tab, then pick one
-                  here and click a hex.
-                </p>
-                <p v-else-if="battleMapFigureCounts?.unplaced === 0" class="muted tiny">
-                  Everyone is on the map.
-                </p>
-                <ul v-else-if="battleMap" class="unplaced-list">
-                  <li v-for="u in battleMap.unplaced" :key="String(u.characterId)">
-                    <button
-                      type="button"
-                      class="linkish"
-                      :class="{ active: selectedMapCharacterId === u.characterId }"
-                      :disabled="!canEditBattleMap"
-                      @click="selectMapCharacter(u.characterId)"
-                    >
-                      {{ u.name }}{{ u.isNpc ? ' (NPC)' : '' }}
-                    </button>
-                  </li>
-                </ul>
-                <p class="muted tiny">
-                  Select a figure, then click a hex to place or move. Drag the map background to
-                  pan; wheel to zoom.
-                </p>
-                <div class="field-row">
-                  <button
-                    type="button"
-                    class="btn-small"
-                    :disabled="!canEditBattleMap || selectedMapCharacterId === null"
-                    @click="unplaceSelectedMapCharacter"
-                  >
-                    Remove selected from map
-                  </button>
-                  <button
-                    type="button"
-                    class="btn-small"
-                    :disabled="!canEditBattleMap"
-                    @click="selectedMapCharacterId = null"
-                  >
-                    Clear selection
-                  </button>
-                </div>
-                <p v-if="mapError" class="error">{{ mapError }}</p>
-              </div>
-              <div
-                v-show="bundle.membership?.role === 'dm' && activeTab === 'players'"
-                class="sidebar-section"
-              >
-                <h3 class="panel-heading">Players in session</h3>
-                <p v-if="playersError" class="error">
-                  Could not load players. {{ playersError.message }}
-                </p>
-                <p v-else-if="charactersError" class="error">
-                  Could not load characters. {{ charactersError.message }}
-                </p>
-                <p v-else-if="players === undefined || characters === undefined" class="muted">
-                  Loading…
-                </p>
-                <p v-else-if="!playersList.length" class="muted">
-                  No players yet. Approve join requests in the Join tab.
-                </p>
-                <ul v-else class="roster">
-                  <li v-for="p in playersList" :key="p.memberId" class="roster-row">
-                    <div class="roster-main">
-                      <div class="label">
-                        <strong>{{ displayPlayerLabel(p.clerkUserId) }}</strong>
-                        <span class="mono sub">{{ p.clerkUserId }}</span>
-                      </div>
-                      <div class="field-row">
-                        <label class="field">
-                          <span class="field-label">Session nickname</span>
-                          <input
-                            v-model="nicknameDraft[p.clerkUserId]"
-                            type="text"
-                            maxlength="48"
-                            class="input"
-                            placeholder="Table name (optional)"
-                            :disabled="!canEditSessionRoster"
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          class="btn-small"
-                          :disabled="!canEditSessionRoster"
-                          @click="saveNickname(p.clerkUserId)"
-                        >
-                          Save name
-                        </button>
-                      </div>
-                      <div class="field-row">
-                        <label class="field grow">
-                          <span class="field-label">Session character</span>
-                          <select
-                            v-model="characterPick[p.clerkUserId]"
-                            class="select"
-                            :disabled="!canEditSessionRoster"
-                          >
-                            <option value="">Unassigned</option>
-                            <option v-for="c in charactersList" :key="c._id" :value="c._id">
-                              {{ characterOptionLabel(c, p.clerkUserId) }}
-                            </option>
-                          </select>
-                        </label>
-                        <button
-                          type="button"
-                          class="btn-small"
-                          :disabled="!canEditSessionRoster"
-                          @click="applyCharacter(p.clerkUserId)"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                      <p v-if="p.characterName" class="muted tiny">
-                        Assigned sheet: {{ p.characterName }}
-                      </p>
-                    </div>
-                  </li>
-                </ul>
-                <p v-if="rosterError" class="error">{{ rosterError }}</p>
-              </div>
-              <div
-                v-show="bundle.membership?.role === 'dm' && activeTab === 'figures'"
-                class="sidebar-section"
-              >
-                <h3 class="panel-heading">Session figures</h3>
-                <p v-if="charactersError" class="error">
-                  Could not load figures. {{ charactersError.message }}
-                </p>
-                <template v-else>
-                  <div class="figure-add-card">
-                    <p class="muted tiny">Create a party member or NPC for this session.</p>
-                    <div class="field-row field-row--wrap">
-                      <label class="field grow">
-                        <span class="field-label">Name</span>
+                  <div v-show="activeTab === 'map'" class="sidebar-section">
+                    <h3 class="panel-heading">Map size (hexes)</h3>
+                    <p class="muted tiny">
+                      Trailing columns and bottom rows are added or removed; origin stays fixed.
+                    </p>
+                    <div class="field-row">
+                      <label class="field">
+                        <span class="field-label">Columns</span>
                         <input
-                          v-model="newFigureName"
-                          type="text"
-                          maxlength="64"
-                          class="input"
-                          placeholder="Figure name"
-                          :disabled="!canEditSessionRoster || characters === undefined"
+                          v-model.number="footprintCols"
+                          type="number"
+                          min="1"
+                          max="24"
+                          class="input input-narrow"
+                          :disabled="!canEditBattleMap"
                         />
                       </label>
-                      <label class="field field--checkbox">
+                      <label class="field">
+                        <span class="field-label">Rows</span>
                         <input
-                          v-model="newFigureIsNpc"
-                          type="checkbox"
-                          :disabled="!canEditSessionRoster || characters === undefined"
+                          v-model.number="footprintRows"
+                          type="number"
+                          min="1"
+                          max="24"
+                          class="input input-narrow"
+                          :disabled="!canEditBattleMap"
                         />
-                        <span class="field-label">NPC</span>
                       </label>
                       <button
                         type="button"
                         class="btn-small"
-                        :disabled="
-                          !canEditSessionRoster ||
-                          characters === undefined ||
-                          trim(newFigureName).length === 0
-                        "
-                        @click="addSessionFigure"
+                        :disabled="!canEditBattleMap"
+                        @click="applyBattleFootprint"
                       >
-                        Add figure
+                        Apply size
                       </button>
                     </div>
+                    <h3 class="panel-heading spaced">Unplaced figures</h3>
+                    <p v-if="!canEditBattleMap" class="muted tiny">
+                      Read-only while session is not live.
+                    </p>
+                    <p v-else-if="battleMap === undefined" class="muted tiny">
+                      Loading battle map…
+                    </p>
+                    <p
+                      v-else-if="battleMapFigureCounts && battleMapFigureCounts.total === 0"
+                      class="muted tiny"
+                    >
+                      No session figures yet. Add party or NPC figures in the Figures tab, then pick
+                      one here and click a hex.
+                    </p>
+                    <p v-else-if="battleMapFigureCounts?.unplaced === 0" class="muted tiny">
+                      Everyone is on the map.
+                    </p>
+                    <ul v-else-if="battleMap" class="unplaced-list">
+                      <li v-for="u in battleMap.unplaced" :key="String(u.characterId)">
+                        <button
+                          type="button"
+                          class="linkish"
+                          :class="{ active: selectedMapCharacterId === u.characterId }"
+                          :disabled="!canEditBattleMap"
+                          @click="selectMapCharacter(u.characterId)"
+                        >
+                          {{ u.name }}{{ u.isNpc ? ' (NPC)' : '' }}
+                        </button>
+                      </li>
+                    </ul>
+                    <p class="muted tiny">
+                      Select a figure, then click a hex to place or move. Drag the map background to
+                      pan; wheel to zoom.
+                    </p>
+                    <div class="field-row">
+                      <button
+                        type="button"
+                        class="btn-small"
+                        :disabled="!canEditBattleMap || selectedMapCharacterId === null"
+                        @click="unplaceSelectedMapCharacter"
+                      >
+                        Remove selected from map
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-small"
+                        :disabled="!canEditBattleMap"
+                        @click="selectedMapCharacterId = null"
+                      >
+                        Clear selection
+                      </button>
+                    </div>
+                    <p v-if="mapError" class="error">{{ mapError }}</p>
                   </div>
-                  <p v-if="characters === undefined" class="muted">Loading…</p>
-                  <p v-else-if="!charactersList.length" class="muted">
-                    No figures in this session yet. Add one above, then place them on the Map tab.
-                  </p>
-                  <ul v-else class="figure-list">
-                    <li v-for="c in charactersList" :key="c._id" class="figure-row">
-                      <div class="figure-info">
-                        <strong>{{ c.name }}</strong
-                        >{{ c.isNpc ? ' (NPC)' : '' }}
-                        <span v-if="c.characterClassKey === 'test'" class="muted tiny">
-                          · Test class</span
-                        >
-                      </div>
-                      <div class="field-row">
-                        <label class="field grow">
-                          <span class="field-label">Character class</span>
-                          <select
-                            v-model="figureClassPick[String(c._id)]"
-                            class="select"
-                            :disabled="!canEditSessionRoster"
+                  <div
+                    v-show="bundle.membership?.role === 'dm' && activeTab === 'players'"
+                    class="sidebar-section"
+                  >
+                    <h3 class="panel-heading">Players in session</h3>
+                    <p v-if="playersError" class="error">
+                      Could not load players. {{ playersError.message }}
+                    </p>
+                    <p v-else-if="charactersError" class="error">
+                      Could not load characters. {{ charactersError.message }}
+                    </p>
+                    <p v-else-if="players === undefined || characters === undefined" class="muted">
+                      Loading…
+                    </p>
+                    <p v-else-if="!playersList.length" class="muted">
+                      No players yet. Approve join requests in the Join tab.
+                    </p>
+                    <ul v-else class="roster">
+                      <li v-for="p in playersList" :key="p.memberId" class="roster-row">
+                        <div class="roster-main">
+                          <div class="label">
+                            <strong>{{ displayPlayerLabel(p.clerkUserId) }}</strong>
+                            <span class="mono sub">{{ p.clerkUserId }}</span>
+                          </div>
+                          <div class="field-row">
+                            <label class="field">
+                              <span class="field-label">Session nickname</span>
+                              <input
+                                v-model="nicknameDraft[p.clerkUserId]"
+                                type="text"
+                                maxlength="48"
+                                class="input"
+                                placeholder="Table name (optional)"
+                                :disabled="!canEditSessionRoster"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              class="btn-small"
+                              :disabled="!canEditSessionRoster"
+                              @click="saveNickname(p.clerkUserId)"
+                            >
+                              Save name
+                            </button>
+                          </div>
+                          <div class="field-row">
+                            <label class="field grow">
+                              <span class="field-label">Session character</span>
+                              <select
+                                v-model="characterPick[p.clerkUserId]"
+                                class="select"
+                                :disabled="!canEditSessionRoster"
+                              >
+                                <option value="">Unassigned</option>
+                                <option v-for="c in charactersList" :key="c._id" :value="c._id">
+                                  {{ characterOptionLabel(c, p.clerkUserId) }}
+                                </option>
+                              </select>
+                            </label>
+                            <button
+                              type="button"
+                              class="btn-small"
+                              :disabled="!canEditSessionRoster"
+                              @click="applyCharacter(p.clerkUserId)"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                          <p v-if="p.characterName" class="muted tiny">
+                            Assigned sheet: {{ p.characterName }}
+                          </p>
+                        </div>
+                      </li>
+                    </ul>
+                    <p v-if="rosterError" class="error">{{ rosterError }}</p>
+                  </div>
+                  <div
+                    v-show="bundle.membership?.role === 'dm' && activeTab === 'figures'"
+                    class="sidebar-section"
+                  >
+                    <h3 class="panel-heading">Session figures</h3>
+                    <p v-if="charactersError" class="error">
+                      Could not load figures. {{ charactersError.message }}
+                    </p>
+                    <template v-else>
+                      <div class="figure-add-card">
+                        <p class="muted tiny">Create a party member or NPC for this session.</p>
+                        <div class="field-row field-row--wrap">
+                          <label class="field grow">
+                            <span class="field-label">Name</span>
+                            <input
+                              v-model="newFigureName"
+                              type="text"
+                              maxlength="64"
+                              class="input"
+                              placeholder="Figure name"
+                              :disabled="!canEditSessionRoster || characters === undefined"
+                            />
+                          </label>
+                          <label class="field field--checkbox">
+                            <input
+                              v-model="newFigureIsNpc"
+                              type="checkbox"
+                              :disabled="!canEditSessionRoster || characters === undefined"
+                            />
+                            <span class="field-label">NPC</span>
+                          </label>
+                          <button
+                            type="button"
+                            class="btn-small"
+                            :disabled="
+                              !canEditSessionRoster ||
+                              characters === undefined ||
+                              trim(newFigureName).length === 0
+                            "
+                            @click="addSessionFigure"
                           >
-                            <option value="">None</option>
-                            <option v-for="opt in classOptionsList" :key="opt.key" :value="opt.key">
-                              {{ opt.label }}
-                            </option>
-                          </select>
-                        </label>
-                        <button
-                          type="button"
-                          class="btn-small"
-                          :disabled="!canEditSessionRoster"
-                          @click="saveFigureClass(c._id)"
-                        >
-                          Apply class
-                        </button>
-                        <button
-                          type="button"
-                          class="btn-small"
-                          :disabled="!canEditSessionRoster"
-                          @click="removeSessionFigure(c._id)"
-                        >
-                          Remove
-                        </button>
-                        <button
-                          type="button"
-                          class="btn-small"
-                          :disabled="!canEditSessionRoster"
-                          @click="appendCharacterToTurnOrder(c._id)"
-                        >
-                          Turn order
-                        </button>
+                            Add figure
+                          </button>
+                        </div>
                       </div>
-                    </li>
-                  </ul>
-                  <p v-if="figuresPanelError" class="error">{{ figuresPanelError }}</p>
-                </template>
-              </div>
-              <div
-                v-show="bundle.membership?.role === 'dm' && activeTab === 'join'"
-                class="sidebar-section"
-              >
-                <template v-if="joinToken">
-                  <h3 class="panel-heading">Join link</h3>
-                  <p class="mono join-url">{{ joinHref(joinToken) }}</p>
-                </template>
-                <h3 class="panel-heading spaced">Pending join requests</h3>
-                <p v-if="joinRequestsError" class="error">
-                  Could not load join requests. {{ joinRequestsError.message }}
-                </p>
-                <p v-else-if="joinRequestsLoading" class="muted">Loading…</p>
-                <p v-else-if="joinRequests && !joinRequestsList.length" class="muted">
-                  No pending requests.
-                </p>
-                <ul v-else-if="joinRequestsList.length" class="list">
-                  <li v-for="req in joinRequestsList" :key="req._id">
-                    <span class="mono">{{ req.clerkUserId }}</span>
-                    <button
-                      type="button"
-                      class="btn-small btn-approve"
-                      :disabled="!canEditSessionRoster"
-                      @click="approve(req._id)"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      class="btn-small"
-                      :disabled="!canEditSessionRoster"
-                      @click="rejectRequest(req._id)"
-                    >
-                      Reject
-                    </button>
-                  </li>
-                </ul>
-                <p v-if="approveError" class="error">{{ approveError }}</p>
-              </div>
+                      <p v-if="characters === undefined" class="muted">Loading…</p>
+                      <p v-else-if="!charactersList.length" class="muted">
+                        No figures in this session yet. Add one above, then place them on the Map
+                        tab.
+                      </p>
+                      <ul v-else class="figure-list">
+                        <li v-for="c in charactersList" :key="c._id" class="figure-row">
+                          <div class="figure-info">
+                            <strong>{{ c.name }}</strong
+                            >{{ c.isNpc ? ' (NPC)' : '' }}
+                            <span v-if="c.characterClassKey === 'test'" class="muted tiny">
+                              · Test class</span
+                            >
+                          </div>
+                          <div class="field-row">
+                            <label class="field grow">
+                              <span class="field-label">Character class</span>
+                              <select
+                                v-model="figureClassPick[String(c._id)]"
+                                class="select"
+                                :disabled="!canEditSessionRoster"
+                              >
+                                <option value="">None</option>
+                                <option
+                                  v-for="opt in classOptionsList"
+                                  :key="opt.key"
+                                  :value="opt.key"
+                                >
+                                  {{ opt.label }}
+                                </option>
+                              </select>
+                            </label>
+                            <button
+                              type="button"
+                              class="btn-small"
+                              :disabled="!canEditSessionRoster"
+                              @click="saveFigureClass(c._id)"
+                            >
+                              Apply class
+                            </button>
+                            <button
+                              type="button"
+                              class="btn-small"
+                              :disabled="!canEditSessionRoster"
+                              @click="openCharacterSheetFor(c._id)"
+                            >
+                              Sheet
+                            </button>
+                            <button
+                              type="button"
+                              class="btn-small"
+                              :disabled="!canEditSessionRoster"
+                              @click="removeSessionFigure(c._id)"
+                            >
+                              Remove
+                            </button>
+                            <button
+                              type="button"
+                              class="btn-small"
+                              :disabled="!canEditSessionRoster"
+                              @click="appendCharacterToTurnOrder(c._id)"
+                            >
+                              Turn order
+                            </button>
+                          </div>
+                        </li>
+                      </ul>
+                      <p v-if="figuresPanelError" class="error">{{ figuresPanelError }}</p>
+                    </template>
+                  </div>
+                  <div
+                    v-show="bundle.membership?.role === 'dm' && activeTab === 'join'"
+                    class="sidebar-section"
+                  >
+                    <template v-if="joinToken">
+                      <h3 class="panel-heading">Join link</h3>
+                      <p class="mono join-url">{{ joinHref(joinToken) }}</p>
+                    </template>
+                    <h3 class="panel-heading spaced">Pending join requests</h3>
+                    <p v-if="joinRequestsError" class="error">
+                      Could not load join requests. {{ joinRequestsError.message }}
+                    </p>
+                    <p v-else-if="joinRequestsLoading" class="muted">Loading…</p>
+                    <p v-else-if="joinRequests && !joinRequestsList.length" class="muted">
+                      No pending requests.
+                    </p>
+                    <ul v-else-if="joinRequestsList.length" class="list">
+                      <li v-for="req in joinRequestsList" :key="req._id">
+                        <span class="mono">{{ req.clerkUserId }}</span>
+                        <button
+                          type="button"
+                          class="btn-small btn-approve"
+                          :disabled="!canEditSessionRoster"
+                          @click="approve(req._id)"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-small"
+                          :disabled="!canEditSessionRoster"
+                          @click="rejectRequest(req._id)"
+                        >
+                          Reject
+                        </button>
+                      </li>
+                    </ul>
+                    <p v-if="approveError" class="error">{{ approveError }}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1030,7 +1122,7 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                 type="button"
                 class="float-handle float-handle--trailing"
                 aria-label="Open turn order"
-                @click="turnRailOpen = true; persistTurnRail()"
+                @click="openTurnRail()"
               >
                 ⟨
               </button>
@@ -1053,7 +1145,8 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                   <p v-else-if="turnOrderData === undefined" class="muted">Loading turn order…</p>
                   <p v-else-if="!turnOrderEntries.length" class="muted tiny">
                     No figures in turn order yet. Dungeon Master: use <strong>Figures</strong> and
-                    <strong>Turn order</strong> on each row to add entries, then drag the grip to reorder.
+                    <strong>Turn order</strong> on each row to add entries, then drag the grip to
+                    reorder.
                   </p>
                   <ul v-else class="turn-order-list">
                     <li
@@ -1069,7 +1162,8 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                         draggable="true"
                         aria-label="Drag to reorder"
                         @dragstart="onTurnDragStart(idx, $event)"
-                        >⋮⋮</span>
+                        >⋮⋮</span
+                      >
                       <button
                         v-if="canEditBattleMap"
                         type="button"
@@ -1105,29 +1199,64 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
           class="sheet-modal-backdrop"
           @click.self="sheetPanelOpen = false"
         >
-          <div class="sheet-modal" role="dialog" aria-modal="true" aria-labelledby="sheet-modal-title" @click.stop>
+          <div
+            class="sheet-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sheet-modal-title"
+            @click.stop
+          >
             <div class="sheet-modal-header">
               <h2 id="sheet-modal-title" class="sheet-modal-title">Character sheet</h2>
-              <button type="button" class="sheet-modal-close" @click="sheetPanelOpen = false">Close</button>
+              <div v-if="isDm && charactersList.length" class="sheet-modal-pick">
+                <label class="sheet-pick-label muted tiny" for="sheet-character-select"
+                  >Figure</label
+                >
+                <select
+                  id="sheet-character-select"
+                  v-model="sheetCharacterIdSelect"
+                  class="select sheet-character-select"
+                >
+                  <option v-for="c in charactersList" :key="c._id" :value="String(c._id)">
+                    {{ c.name }}{{ c.isNpc ? ' (NPC)' : '' }}
+                  </option>
+                </select>
+              </div>
+              <button type="button" class="sheet-modal-close" @click="sheetPanelOpen = false">
+                Close
+              </button>
             </div>
             <div class="sheet-modal-body">
-              <template v-if="playerSheetPreview === undefined">
-                <p class="muted">Loading…</p>
+              <p v-if="sheetSaveError" class="error tiny">{{ sheetSaveError }}</p>
+              <template v-if="bundle.membership?.role === 'player'">
+                <template v-if="playerSheetPreview === undefined">
+                  <p class="muted">Loading…</p>
+                </template>
+                <template v-else-if="playerSheetPreview?.kind === 'unbound'">
+                  <p class="muted">
+                    You are not bound to a session character yet. The Dungeon Master can assign one
+                    from the Players tab.
+                  </p>
+                </template>
+                <CharacterSheetPanel
+                  v-else-if="sessionId && sheetCharacterId"
+                  :session-id="sessionId"
+                  :character-id="sheetCharacterId"
+                  @save-error="sheetSaveError = $event"
+                />
               </template>
-              <template v-else-if="playerSheetPreview?.kind === 'unbound'">
-                <p class="muted">
-                  You are not bound to a session character yet. The Dungeon Master can assign one from
-                  the Players tab.
+              <template v-else-if="isDm">
+                <p v-if="characters === undefined" class="muted">Loading figures…</p>
+                <p v-else-if="!charactersList.length" class="muted">
+                  No session figures yet. Add figures in Dungeon Master tools (Figures tab), then
+                  open this sheet again.
                 </p>
-              </template>
-              <template v-else-if="playerSheetPreview && playerSheetPreview.kind === 'bound'">
-                <p>
-                  <strong>{{ playerSheetPreview.name }}</strong>{{ playerSheetPreview.isNpc ? ' (NPC)' : '' }}
-                </p>
-                <p class="muted tiny">
-                  HP {{ playerSheetPreview.stats.hp }} / {{ playerSheetPreview.stats.maxHp }}
-                </p>
-                <p class="muted tiny">Full sheet layout can grow here later.</p>
+                <CharacterSheetPanel
+                  v-else-if="sessionId && sheetCharacterId"
+                  :session-id="sessionId"
+                  :character-id="sheetCharacterId"
+                  @save-error="sheetSaveError = $event"
+                />
               </template>
             </div>
           </div>
@@ -1418,9 +1547,11 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
   padding: 48px 16px 16px;
 }
 .sheet-modal {
-  width: min(520px, 100%);
-  max-height: min(80vh, 720px);
-  overflow: auto;
+  width: min(960px, 100%);
+  max-height: min(90vh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--bg);
@@ -1428,15 +1559,28 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
 }
 .sheet-modal-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
+.sheet-modal-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 160px;
+  max-width: 320px;
+}
+.sheet-character-select {
+  width: 100%;
+}
 .sheet-modal-title {
   margin: 0;
   font-size: 1rem;
+  flex-shrink: 0;
 }
 .sheet-modal-close {
   font: inherit;
@@ -1445,10 +1589,14 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
   border: 1px solid var(--border);
   background: var(--bg);
   padding: 4px 10px;
+  flex-shrink: 0;
 }
 .sheet-modal-body {
   padding: 14px 16px 18px;
   font-size: 0.92rem;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 .sidebar-section .panel-heading {
   font-size: 0.9rem;
@@ -1482,6 +1630,38 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
 .stage-map {
   flex: 1;
   min-height: 0;
+}
+.battle-map-legend {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 6px 12px 8px;
+  text-align: center;
+  line-height: 1.45;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 94%, var(--border));
+}
+.battle-map-legend__label {
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0.72;
+}
+.battle-map-legend__sep {
+  margin: 0 0.35em;
+  opacity: 0.45;
+}
+.kbd-hint {
+  display: inline-block;
+  padding: 0.08em 0.38em;
+  margin: 0 0.05em;
+  font: inherit;
+  font-size: 0.88em;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--text));
+  background: color-mix(in srgb, var(--bg) 88%, var(--border));
+  color: var(--text);
+  box-shadow: 0 1px 0 color-mix(in srgb, #000 6%, transparent);
 }
 .session-fallback {
   padding: 16px 20px;

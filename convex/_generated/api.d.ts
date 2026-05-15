@@ -9,6 +9,7 @@
  */
 
 import type * as characterClasses from "../characterClasses.js";
+import type * as characterSheetValidators from "../characterSheetValidators.js";
 import type * as sessions from "../sessions.js";
 
 import type {
@@ -19,6 +20,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   characterClasses: typeof characterClasses;
+  characterSheetValidators: typeof characterSheetValidators;
   sessions: typeof sessions;
 }>;
 
