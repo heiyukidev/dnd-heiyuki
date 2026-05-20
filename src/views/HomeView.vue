@@ -24,7 +24,7 @@ const canCreateSession = computed(
 const { data: mySessionsRaw, error: mySessionsError } = useConvexQuery(
   client,
   api.sessions.listMySessions,
-  () => (convexTokenReady.value ? {} : 'skip'),
+  () => (clerkSignedIn.value && clerkLoaded.value ? {} : 'skip'),
 )
 
 const mySessionsLoading = computed(
