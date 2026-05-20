@@ -56,6 +56,15 @@ const { data: bundle, error: bundleError } = useConvexQuery(
   () => (sessionId.value !== null ? { sessionId: sessionId.value } : 'skip'),
 )
 
+const { data: playerSheetPreview } = useConvexQuery(
+  client,
+  api.sessions.getPlayerBoundCharacterPreview,
+  () =>
+    bundle.value?.membership?.role === 'player' && sessionId.value !== null
+      ? { sessionId: sessionId.value }
+      : 'skip',
+)
+
 const { data: joinRequests, error: joinRequestsError } = useConvexQuery(
   client,
   api.sessions.listJoinRequests,
