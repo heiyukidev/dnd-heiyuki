@@ -1,11 +1,12 @@
-import { filter, find, includes, map, merge, omit, orderBy, sortBy } from 'lodash'
+import { filter, find, flatten, includes, map, merge, omit, orderBy, sortBy, times } from 'lodash'
 import { v } from 'convex/values'
-import { CHARACTER_CLASS_OPTIONS, characterClassKeyValidator } from './characterClasses'
+import { CHARACTER_CLASS_OPTIONS, resolvePhbClassKey } from './characterClasses'
 import {
   characterSheetPatchValidator,
   sanitizeCharacterSheetForPersist,
   validateCharacterSheetForPersist,
 } from './characterSheetValidators'
+import { createDefaultConvexSheetPayload } from './defaultCharacterSheet'
 import type { Doc, Id } from './_generated/dataModel'
 import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
 
@@ -41,6 +42,76 @@ function sessionFootprint(session: Pick<Doc<'sessions'>, 'mapCols' | 'mapRows'>)
   }
 }
 
+export function sessionCharacterIsPlayable(
+  c: Pick<Doc<'sessionCharacters'>, 'isPlayable' | 'isNpc'>,
+): boolean {
+  if (c.isPlayable !== undefined) {
+    return c.isPlayable
+  }
+  if (c.isNpc !== undefined) {
+    return !c.isNpc
+  }
+  return false
+}
+
+export function findFirstEmptyHex(
+  mapCols: number,
+  mapRows: number,
+  placedCharacters: readonly Pick<Doc<'sessionCharacters'>, 'mapCol' | 'mapRow'>[],
+): { col: number; row: number } | null {
+  const coords = filter(
+    placedCharacters,
+    (p): p is Doc<'sessionCharacters'> & { mapCol: number; mapRow: number } =>
+      p.mapCol !== undefined && p.mapRow !== undefined,
+  )
+  const occupied = new Set(map(coords, (p) => `${p.mapCol},${p.mapRow}`))
+  const order = flatten(times(mapRows, (row) => times(mapCols, (col) => ({ col, row }))))
+  return find(order, (cell) => !occupied.has(`${cell.col},${cell.row}`)) ?? null
+}
+
+function classSummaryFromSheet(sheet: Doc<'sessionCharacters'>['sheet']): string | undefined {
+  const row = sheet?.classLevels?.[0]
+  if (row === undefined) {
+    return undefined
+  }
+  const resolved = resolvePhbClassKey(String(row.class ?? ''))
+  if (resolved === null) {
+    return undefined
+  }
+  const hit = find(CHARACTER_CLASS_OPTIONS, (o) => o.key === resolved)
+  return hit?.label
+}
+
+async function bindSessionCharacterEffects(
+  ctx: MutationCtx,
+  session: Doc<'sessions'>,
+  characterId: Id<'sessionCharacters'>,
+) {
+  const character = await ctx.db.get(characterId)
+  if (character === null || character.sessionId !== session._id) {
+    return
+  }
+  const patch: Partial<Doc<'sessionCharacters'>> = {}
+  if (!sessionCharacterIsPlayable(character)) {
+    patch.isPlayable = true
+  }
+  if (!isPlacedCharacter(character)) {
+    const chars = await ctx.db
+      .query('sessionCharacters')
+      .withIndex('by_session', (q) => q.eq('sessionId', session._id))
+      .collect()
+    const { cols, rows } = sessionFootprint(session)
+    const spot = findFirstEmptyHex(cols, rows, chars)
+    if (spot !== null) {
+      patch.mapCol = spot.col
+      patch.mapRow = spot.row
+    }
+  }
+  if (Object.keys(patch).length > 0) {
+    await ctx.db.patch(characterId, patch)
+  }
+}
+
 function isPlacedCharacter(c: Pick<Doc<'sessionCharacters'>, 'mapCol' | 'mapRow'>): boolean {
   return c.mapCol !== undefined && c.mapRow !== undefined
 }
@@ -55,10 +126,9 @@ async function writeCharacterWithoutPlacement(ctx: MutationCtx, c: Doc<'sessionC
   await ctx.db.replace(c._id, {
     sessionId: c.sessionId,
     name: c.name,
-    isNpc: c.isNpc,
+    isPlayable: sessionCharacterIsPlayable(c),
     stats: c.stats,
     ...(c.boundClerkUserId !== undefined ? { boundClerkUserId: c.boundClerkUserId } : {}),
-    ...(c.characterClassKey !== undefined ? { characterClassKey: c.characterClassKey } : {}),
     ...(sheetOut !== undefined ? { sheet: sheetOut } : {}),
   })
 }
@@ -339,6 +409,9 @@ export const approveJoinRequest = mutation({
       if (otherMemberWithCharacter !== undefined) {
         throw new Error('Character is already assigned to another member')
       }
+      if (!sessionCharacterIsPlayable(character)) {
+        throw new Error('Character is not playable')
+      }
     }
 
     const existingMember = await ctx.db
@@ -360,6 +433,7 @@ export const approveJoinRequest = mutation({
     })
     if (characterId !== undefined) {
       await ctx.db.patch(characterId, { boundClerkUserId: joinRequest.clerkUserId })
+      await bindSessionCharacterEffects(ctx, session, characterId)
     }
     return { ok: true as const }
   },
@@ -415,11 +489,6 @@ export const getMyMembership = query({
   },
 })
 
-export const listCharacterClassOptions = query({
-  args: v.object({}),
-  handler: async () => [...CHARACTER_CLASS_OPTIONS],
-})
-
 export const listSessionPlayersForDm = query({
   args: { sessionId: v.id('sessions') },
   handler: async (ctx, { sessionId }) => {
@@ -466,12 +535,12 @@ export const listSessionCharactersForDm = query({
       .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
       .collect()
     return sortBy(
-      chars.map((c) => ({
+      map(chars, (c) => ({
         _id: c._id,
         name: c.name,
-        isNpc: c.isNpc,
+        isPlayable: sessionCharacterIsPlayable(c),
+        classSummary: classSummaryFromSheet(c.sheet),
         boundClerkUserId: c.boundClerkUserId,
-        characterClassKey: c.characterClassKey,
         mapCol: c.mapCol,
         mapRow: c.mapRow,
       })),
@@ -512,36 +581,6 @@ export const setPlayerSessionNickname = mutation({
       await ctx.db.patch(member._id, { sessionNickname: undefined })
     } else {
       await ctx.db.patch(member._id, { sessionNickname: trimmed })
-    }
-    return { ok: true as const }
-  },
-})
-
-const characterClassKeyOrClear = v.union(characterClassKeyValidator, v.null())
-
-export const setSessionCharacterClassKey = mutation({
-  args: {
-    sessionId: v.id('sessions'),
-    characterId: v.id('sessionCharacters'),
-    characterClassKey: characterClassKeyOrClear,
-  },
-  handler: async (ctx, { sessionId, characterId, characterClassKey }) => {
-    const dmClerkUserId = await requireIdentitySubject(ctx)
-    const session = await ctx.db.get(sessionId)
-    if (!session || session.dmClerkUserId !== dmClerkUserId) {
-      throw new Error('Forbidden')
-    }
-    if (session.status !== 'live') {
-      throw new Error('Session is not live')
-    }
-    const character = await ctx.db.get(characterId)
-    if (!character || character.sessionId !== sessionId) {
-      throw new Error('Character not found')
-    }
-    if (characterClassKey === null) {
-      await ctx.db.patch(characterId, { characterClassKey: undefined })
-    } else {
-      await ctx.db.patch(characterId, { characterClassKey })
     }
     return { ok: true as const }
   },
@@ -614,6 +653,7 @@ export const assignPlayerCharacter = mutation({
 
     await ctx.db.patch(member._id, { boundCharacterId: characterId })
     await ctx.db.patch(characterId, { boundClerkUserId: playerClerkUserId })
+    await bindSessionCharacterEffects(ctx, session, characterId)
     return { ok: true as const }
   },
 })
@@ -622,19 +662,23 @@ export const createSessionCharacter = mutation({
   args: {
     sessionId: v.id('sessions'),
     name: v.string(),
-    isNpc: v.boolean(),
+    isPlayable: v.boolean(),
   },
-  handler: async (ctx, { sessionId, name, isNpc }) => {
+  handler: async (ctx, { sessionId, name, isPlayable }) => {
     await requireDmLiveSession(ctx, sessionId)
     const trimmed = name.trim()
     if (trimmed.length === 0 || trimmed.length > 64) {
       throw new Error('Invalid name')
     }
+    const rawPayload = createDefaultConvexSheetPayload()
+    const sheetPersist = sanitizeCharacterSheetForPersist(rawPayload)
+    validateCharacterSheetForPersist(sheetPersist)
     const characterId = await ctx.db.insert('sessionCharacters', {
       sessionId,
       name: trimmed,
-      isNpc,
+      isPlayable,
       stats: { hp: 10, maxHp: 10 },
+      sheet: sheetPersist as Doc<'sessionCharacters'>['sheet'],
     })
     return { characterId }
   },
@@ -722,10 +766,10 @@ export const getSessionTurnOrder = query({
         if (c === undefined) {
           return null
         }
-        return { characterId: c._id, name: c.name, isNpc: c.isNpc }
+        return { characterId: c._id, name: c.name, isPlayable: sessionCharacterIsPlayable(c) }
       }),
       (e) => e !== null,
-    ) as Array<{ characterId: Id<'sessionCharacters'>; name: string; isNpc: boolean }>
+    ) as Array<{ characterId: Id<'sessionCharacters'>; name: string; isPlayable: boolean }>
     return { entries }
   },
 })
@@ -778,7 +822,7 @@ export const getPlayerBoundCharacterPreview = query({
       kind: 'bound' as const,
       characterId: c._id,
       name: c.name,
-      isNpc: c.isNpc,
+      isPlayable: sessionCharacterIsPlayable(c),
       stats: c.stats,
     }
   },
@@ -805,9 +849,8 @@ export const getSessionCharacterSheetForViewer = query({
       character: {
         _id: character._id,
         name: character.name,
-        isNpc: character.isNpc,
+        isPlayable: sessionCharacterIsPlayable(character),
         stats: character.stats,
-        characterClassKey: character.characterClassKey,
         sheet: character.sheet,
       },
       sessionStatus: session.status,
@@ -848,7 +891,11 @@ export const getSessionBattleMap = query({
     const unplaced = isDm
       ? map(
           filter(chars, (c) => !isPlacedCharacter(c)),
-          (c) => ({ characterId: c._id, name: c.name, isNpc: c.isNpc }),
+          (c) => ({
+            characterId: c._id,
+            name: c.name,
+            isPlayable: sessionCharacterIsPlayable(c),
+          }),
         )
       : null
     return {

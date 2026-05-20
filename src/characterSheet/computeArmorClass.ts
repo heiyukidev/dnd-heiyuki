@@ -18,15 +18,13 @@ const EQUIPMENT_BY_INDEX = keyBy(
 
 function isNonShieldBodyArmorRow(row: RawEquipmentRow): boolean {
   return (
-    get(row, ['equipment_category', 'index']) === 'armor' &&
-    get(row, 'armor_category') !== 'Shield'
+    get(row, ['equipment_category', 'index']) === 'armor' && get(row, 'armor_category') !== 'Shield'
   )
 }
 
 function isShieldEquipmentRow(row: RawEquipmentRow): boolean {
   return (
-    get(row, ['equipment_category', 'index']) === 'armor' &&
-    get(row, 'armor_category') === 'Shield'
+    get(row, ['equipment_category', 'index']) === 'armor' && get(row, 'armor_category') === 'Shield'
   )
 }
 

@@ -232,7 +232,12 @@ export function sanitizeCharacterSheetForPersist(
     ).slice(0, EQUIPMENT_ITEMS_MAX)
   }
   const rawLoadout = next.equippedLoadout
-  if (rawLoadout !== undefined && rawLoadout !== null && typeof rawLoadout === 'object' && !Array.isArray(rawLoadout)) {
+  if (
+    rawLoadout !== undefined &&
+    rawLoadout !== null &&
+    typeof rawLoadout === 'object' &&
+    !Array.isArray(rawLoadout)
+  ) {
     const outLoad: Record<string, string> = {}
     for (const slot of EQUIPMENT_EQUIP_SLOT_KEYS) {
       const slotVal = (rawLoadout as Record<string, unknown>)[slot]

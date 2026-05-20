@@ -4,6 +4,7 @@ import { resolvePhbClassKey } from '../../convex/characterClasses'
 import type { PhbRaceKey } from '../../convex/characterRaces'
 import { resolvePhbRaceKey } from '../../convex/characterRaces'
 import type { Doc } from '../../convex/_generated/dataModel'
+import { createDefaultConvexSheetPayload } from '../../convex/defaultCharacterSheet'
 import {
   type EquipmentCategoryKey,
   type EquipmentEquipSlotKey,
@@ -12,6 +13,7 @@ import {
   isEquipmentCategoryKey,
 } from '../../convex/characterSheetValidators'
 import { getSrdCatalogEntryByIndex } from '../catalog/srdCatalog'
+import { maybeApplyStandardArrayAbilitiesToSheet } from './standardArrayAbilitiesByClass'
 
 type ServerSheet = NonNullable<Doc<'sessionCharacters'>['sheet']>
 
@@ -44,97 +46,8 @@ export type CharacterSheetForm = Omit<
 
 const LEGACY_CLASS_AND_LEVEL = 'classAndLevel' as const
 
-function blankAbility(): NonNullable<CharacterSheetForm['abilities']>['str'] {
-  return { score: '', mod: '' }
-}
-
-function blankSave(): NonNullable<CharacterSheetForm['saves']>['str'] {
-  return { mod: '', prof: false }
-}
-
-function blankSkill(): NonNullable<CharacterSheetForm['skills']>['acrobatics'] {
-  return { mod: '', prof: false }
-}
-
 export function createDefaultSheet(): CharacterSheetForm {
-  return merge({}, {
-    classLevels: [],
-    background: '',
-    playerName: '',
-    race: '',
-    alignment: '',
-    experiencePoints: '',
-    inspiration: false,
-    proficiencyBonus: '',
-    passivePerception: '',
-    armorClass: '',
-    initiative: '',
-    speed: '',
-    hitDice: '',
-    deathSaveSuccess1: false,
-    deathSaveSuccess2: false,
-    deathSaveSuccess3: false,
-    deathSaveFail1: false,
-    deathSaveFail2: false,
-    deathSaveFail3: false,
-    abilities: {
-      str: blankAbility(),
-      dex: blankAbility(),
-      con: blankAbility(),
-      int: blankAbility(),
-      wis: blankAbility(),
-      cha: blankAbility(),
-    },
-    saves: {
-      str: blankSave(),
-      dex: blankSave(),
-      con: blankSave(),
-      int: blankSave(),
-      wis: blankSave(),
-      cha: blankSave(),
-    },
-    skills: {
-      acrobatics: blankSkill(),
-      animalHandling: blankSkill(),
-      arcana: blankSkill(),
-      athletics: blankSkill(),
-      deception: blankSkill(),
-      history: blankSkill(),
-      insight: blankSkill(),
-      intimidation: blankSkill(),
-      investigation: blankSkill(),
-      medicine: blankSkill(),
-      nature: blankSkill(),
-      perception: blankSkill(),
-      performance: blankSkill(),
-      persuasion: blankSkill(),
-      religion: blankSkill(),
-      sleightOfHand: blankSkill(),
-      stealth: blankSkill(),
-      survival: blankSkill(),
-    },
-    proficienciesLanguages: '',
-    attacksSpellcasting: '',
-    equipment: '',
-    equipmentItems: [],
-    equippedLoadout: {},
-    currencyCp: '',
-    currencySp: '',
-    currencyEp: '',
-    currencyGp: '',
-    currencyPp: '',
-    personalityTraits: '',
-    ideals: '',
-    bonds: '',
-    flaws: '',
-    featuresAndTraits: '',
-    spellcastingClass: '',
-    spellSaveDc: '',
-    spellAttackBonus: '',
-    cantrips: '',
-    spellsPrepared: '',
-    spellSlots: '',
-  } satisfies CharacterSheetForm)
+  return merge({}, createDefaultConvexSheetPayload()) as CharacterSheetForm
 }
 
 function normalizeLevelsFromServer(raw: ServerSheet['classLevels']): ClassLevelRow[] {
@@ -282,11 +195,13 @@ export function hydrateSheetFromServer(sheet: ServerSheet | null | undefined): C
     get(merged, 'equippedLoadout'),
     rawItems,
   )
-  return {
+  const form = {
     ...omit(merged, [LEGACY_CLASS_AND_LEVEL]),
     classLevels,
     race: resolvePhbRaceKey(trim(String(merged.race ?? ''))) ?? '',
     equipmentItems: items,
     equippedLoadout,
   } as CharacterSheetForm
+  maybeApplyStandardArrayAbilitiesToSheet(form)
+  return form
 }

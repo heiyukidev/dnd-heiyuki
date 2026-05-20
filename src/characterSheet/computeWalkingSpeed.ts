@@ -28,21 +28,17 @@ const EQUIPMENT_BY_INDEX = keyBy(
 
 function isNonShieldBodyArmorRow(row: RawEquipmentRow): boolean {
   return (
-    get(row, ['equipment_category', 'index']) === 'armor' &&
-    get(row, 'armor_category') !== 'Shield'
+    get(row, ['equipment_category', 'index']) === 'armor' && get(row, 'armor_category') !== 'Shield'
   )
 }
 
 function isShieldEquipmentRow(row: RawEquipmentRow): boolean {
   return (
-    get(row, ['equipment_category', 'index']) === 'armor' &&
-    get(row, 'armor_category') === 'Shield'
+    get(row, ['equipment_category', 'index']) === 'armor' && get(row, 'armor_category') === 'Shield'
   )
 }
 
-function strengthScoreFromSheet(
-  str: CharacterSheetForm['abilities']['str'] | undefined,
-): number {
+function strengthScoreFromSheet(str: CharacterSheetForm['abilities']['str'] | undefined): number {
   const scoreStr = trim(String(get(str, 'score') ?? ''))
   if (scoreStr.length > 0) {
     const score = Number(scoreStr)
@@ -135,10 +131,7 @@ function monkUnarmoredMovementBonusFt(totalMonkLevel: number): number {
 }
 
 export function computeWalkingSpeed(
-  sheet: Pick<
-    CharacterSheetForm,
-    'race' | 'abilities' | 'equippedLoadout' | 'classLevels'
-  >,
+  sheet: Pick<CharacterSheetForm, 'race' | 'abilities' | 'equippedLoadout' | 'classLevels'>,
 ): number {
   let speed = baseWalkingSpeedFtFromRace(sheet.race)
 

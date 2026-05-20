@@ -7,6 +7,10 @@ describe('hydrateSheetFromServer', () => {
       classAndLevel: '  Wizard  ',
     } as never)
     expect(out.classLevels).toEqual([{ class: 'wizard', level: 1 }])
+    expect(out.abilities.int.score).toBe('15')
+    expect(out.abilities.int.mod).toBe('+2')
+    expect(out.abilities.str.score).toBe('8')
+    expect(out.abilities.str.mod).toBe('-1')
   })
 
   it('drops unmappable legacy classAndLevel without blocking', () => {
@@ -69,5 +73,37 @@ describe('hydrateSheetFromServer', () => {
       equipmentItems: [],
     } as never)
     expect(out.equippedLoadout.weapon).toBe('longsword')
+  })
+
+  it('fills standard-array abilities for a single resolved PHB class when abilities are blank', () => {
+    const out = hydrateSheetFromServer({
+      classLevels: [{ class: 'fighter', level: 1 }],
+    } as never)
+    expect(out.abilities.str.score).toBe('15')
+    expect(out.abilities.str.mod).toBe('+2')
+    expect(out.abilities.int.score).toBe('8')
+  })
+
+  it('does not preset abilities when more than one class row exists', () => {
+    const out = hydrateSheetFromServer({
+      classLevels: [
+        { class: 'fighter', level: 2 },
+        { class: 'wizard', level: 1 },
+      ],
+    } as never)
+    expect(out.abilities.str.score).toBe('')
+  })
+
+  it('does not overwrite abilities when any ability cell is already set', () => {
+    const base = createDefaultSheet()
+    const out = hydrateSheetFromServer({
+      classLevels: [{ class: 'wizard', level: 1 }],
+      abilities: {
+        ...base.abilities,
+        int: { score: '16', mod: '+3' },
+      },
+    } as never)
+    expect(out.abilities.int.score).toBe('16')
+    expect(out.abilities.str.score).toBe('')
   })
 })

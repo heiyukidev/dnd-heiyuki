@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { capitalize, filter, find, includes, keyBy, map, size, trim } from 'lodash'
+import { capitalize, filter, find, includes, map, size, trim } from 'lodash'
 import type { Id } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
-import type { PhbClassKey } from '../../convex/characterClasses'
-import { CHARACTER_CLASS_OPTIONS } from '../../convex/characterClasses'
 import BattleMapBoard from '../components/BattleMapBoard.vue'
 import CharacterSheetPanel from '../components/CharacterSheetPanel.vue'
 import { useConvexClient } from '../composables/convexClient'
@@ -15,7 +13,7 @@ const props = defineProps<{
   id: string
 }>()
 
-type SidebarTabId = 'map' | 'players' | 'figures' | 'join'
+type SidebarTabId = 'map' | 'players' | 'characters' | 'join'
 
 const TAB_DEFS: ReadonlyArray<{
   id: SidebarTabId
@@ -25,7 +23,7 @@ const TAB_DEFS: ReadonlyArray<{
 }> = [
   { id: 'map', label: 'Map', short: 'M', dmOnly: true },
   { id: 'players', label: 'Players', short: 'P', dmOnly: true },
-  { id: 'figures', label: 'Figures', short: 'F', dmOnly: true },
+  { id: 'characters', label: 'Characters', short: 'C', dmOnly: true },
   { id: 'join', label: 'Join', short: 'J', dmOnly: true },
 ]
 
@@ -103,25 +101,10 @@ const { data: turnOrderData, error: turnOrderQueryError } = useConvexQuery(
       : 'skip',
 )
 
-const { data: playerSheetPreview } = useConvexQuery(
-  client,
-  api.sessions.getPlayerBoundCharacterPreview,
-  () =>
-    bundle.value?.membership?.role === 'player' && sessionId.value !== null
-      ? { sessionId: sessionId.value }
-      : 'skip',
-)
-
-const { data: classOptions } = useConvexQuery(client, api.sessions.listCharacterClassOptions, () =>
-  sessionId.value !== null ? {} : 'skip',
-)
-
-const phbClassLabelByKey = keyBy([...CHARACTER_CLASS_OPTIONS], (o) => o.key)
-
 const joinRequestsList = computed(() => joinRequests.value ?? [])
 const playersList = computed(() => players.value ?? [])
 const charactersList = computed(() => characters.value ?? [])
-const classOptionsList = computed(() => classOptions.value ?? [])
+const playableCharactersForBind = computed(() => filter(charactersList.value, (c) => c.isPlayable))
 
 const sidebarTabs = computed(() =>
   filter(TAB_DEFS, (t) => !t.dmOnly || bundle.value?.membership?.role === 'dm'),
@@ -136,7 +119,7 @@ const rosterError = ref<string | null>(null)
 const mapError = ref<string | null>(null)
 const figuresPanelError = ref<string | null>(null)
 const newFigureName = ref('')
-const newFigureIsNpc = ref(false)
+const newFigureIsPlayable = ref(true)
 
 const footprintCols = ref(8)
 const footprintRows = ref(6)
@@ -339,8 +322,13 @@ function joinHref(token: string) {
 
 async function approve(requestId: Id<'joinRequests'>) {
   approveError.value = null
+  const raw = joinApproveCharacterPick.value[String(requestId)] ?? ''
+  const characterId = raw === '' ? undefined : (raw as Id<'sessionCharacters'>)
   try {
-    await client.mutation(api.sessions.approveJoinRequest, { requestId })
+    await client.mutation(api.sessions.approveJoinRequest, {
+      requestId,
+      ...(characterId !== undefined ? { characterId } : {}),
+    })
   } catch {
     approveError.value = 'Could not approve request. Try again.'
   }
@@ -357,7 +345,8 @@ async function rejectRequest(requestId: Id<'joinRequests'>) {
 
 const nicknameDraft = ref<Record<string, string>>({})
 const characterPick = ref<Record<string, string>>({})
-const figureClassPick = ref<Record<string, string>>({})
+/** Playable character to bind when approving a join request (per request id). */
+const joinApproveCharacterPick = ref<Record<string, string>>({})
 
 watch(
   () => playersList.value,
@@ -367,20 +356,6 @@ watch(
     )
     characterPick.value = Object.fromEntries(
       map(list, (p) => [p.clerkUserId, p.boundCharacterId ?? '']),
-    )
-  },
-  { immediate: true },
-)
-
-watch(
-  () => charactersList.value,
-  (list) => {
-    figureClassPick.value = Object.fromEntries(
-      map(list, (c) => {
-        const k = c.characterClassKey
-        const raw = k === undefined || k === 'test' || phbClassLabelByKey[k] === undefined ? '' : k
-        return [String(c._id), raw]
-      }),
     )
   },
   { immediate: true },
@@ -399,19 +374,18 @@ function characterOptionLabel(
   c: {
     _id: Id<'sessionCharacters'>
     name: string
-    isNpc: boolean
+    isPlayable: boolean
+    classSummary?: string
     boundClerkUserId?: string
-    characterClassKey?: string
   },
   playerClerkUserId: string,
 ) {
-  let s = `${c.name}${c.isNpc ? ' (NPC)' : ''}`
-  const ck = c.characterClassKey
-  if (ck !== undefined && ck !== 'test') {
-    const label = phbClassLabelByKey[ck]?.label
-    if (label !== undefined) {
-      s += ` · ${label}`
-    }
+  let s = c.name
+  if (!c.isPlayable) {
+    s += ' (non-playable)'
+  }
+  if (c.classSummary !== undefined && trim(c.classSummary).length > 0) {
+    s += ` · ${c.classSummary}`
   }
   if (c.boundClerkUserId !== undefined && c.boundClerkUserId !== playerClerkUserId) {
     s += ' — bound elsewhere'
@@ -614,7 +588,7 @@ async function addSessionFigure() {
   }
   const name = trim(newFigureName.value)
   if (name.length === 0) {
-    figuresPanelError.value = 'Enter a figure name.'
+    figuresPanelError.value = 'Enter a character name.'
     return
   }
   figuresPanelError.value = null
@@ -622,12 +596,12 @@ async function addSessionFigure() {
     await client.mutation(api.sessions.createSessionCharacter, {
       sessionId: sessionId.value,
       name,
-      isNpc: newFigureIsNpc.value,
+      isPlayable: newFigureIsPlayable.value,
     })
     newFigureName.value = ''
-    newFigureIsNpc.value = false
+    newFigureIsPlayable.value = true
   } catch {
-    figuresPanelError.value = 'Could not add figure.'
+    figuresPanelError.value = 'Could not add character.'
   }
 }
 
@@ -645,35 +619,7 @@ async function removeSessionFigure(characterId: Id<'sessionCharacters'>) {
       selectedMapCharacterId.value = null
     }
   } catch {
-    figuresPanelError.value = 'Could not remove figure.'
-  }
-}
-
-async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
-  if (sessionId.value === null || !canEditSessionRoster.value) {
-    return
-  }
-  rosterError.value = null
-  const raw = figureClassPick.value[String(characterId)] ?? ''
-  let characterClassKey: PhbClassKey | null
-  if (raw === '') {
-    characterClassKey = null
-  } else {
-    const matched = find(classOptionsList.value, (opt) => opt.key === raw)
-    if (matched === undefined) {
-      rosterError.value = 'That character class is not available.'
-      return
-    }
-    characterClassKey = matched.key as PhbClassKey
-  }
-  try {
-    await client.mutation(api.sessions.setSessionCharacterClassKey, {
-      sessionId: sessionId.value,
-      characterId,
-      characterClassKey,
-    })
-  } catch {
-    rosterError.value = 'Could not save figure class.'
+    figuresPanelError.value = 'Could not remove character.'
   }
 }
 </script>
@@ -840,7 +786,7 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                         Apply size
                       </button>
                     </div>
-                    <h3 class="panel-heading spaced">Unplaced figures</h3>
+                    <h3 class="panel-heading spaced">Unplaced characters</h3>
                     <p v-if="!canEditBattleMap" class="muted tiny">
                       Read-only while session is not live.
                     </p>
@@ -851,8 +797,8 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                       v-else-if="battleMapFigureCounts && battleMapFigureCounts.total === 0"
                       class="muted tiny"
                     >
-                      No session figures yet. Add party or NPC figures in the Figures tab, then pick
-                      one here and click a hex.
+                      No session characters yet. Add playable or non-playable characters in the
+                      Characters tab, then pick one here and click a hex.
                     </p>
                     <p v-else-if="battleMapFigureCounts?.unplaced === 0" class="muted tiny">
                       Everyone is on the map.
@@ -866,13 +812,13 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                           :disabled="!canEditBattleMap"
                           @click="selectMapCharacter(u.characterId)"
                         >
-                          {{ u.name }}{{ u.isNpc ? ' (NPC)' : '' }}
+                          {{ u.name }}{{ u.isPlayable ? '' : ' (non-playable)' }}
                         </button>
                       </li>
                     </ul>
                     <p class="muted tiny">
-                      Select a figure, then click a hex to place or move. Drag the map background to
-                      pan; wheel to zoom.
+                      Select a character, then click a hex to place or move. Drag the map background
+                      to pan; wheel to zoom.
                     </p>
                     <div class="field-row">
                       <button
@@ -948,7 +894,11 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                                 :disabled="!canEditSessionRoster"
                               >
                                 <option value="">Unassigned</option>
-                                <option v-for="c in charactersList" :key="c._id" :value="c._id">
+                                <option
+                                  v-for="c in playableCharactersForBind"
+                                  :key="c._id"
+                                  :value="c._id"
+                                >
                                   {{ characterOptionLabel(c, p.clerkUserId) }}
                                 </option>
                               </select>
@@ -971,16 +921,16 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                     <p v-if="rosterError" class="error">{{ rosterError }}</p>
                   </div>
                   <div
-                    v-show="bundle.membership?.role === 'dm' && activeTab === 'figures'"
+                    v-show="bundle.membership?.role === 'dm' && activeTab === 'characters'"
                     class="sidebar-section"
                   >
-                    <h3 class="panel-heading">Session figures</h3>
+                    <h3 class="panel-heading">Session characters</h3>
                     <p v-if="charactersError" class="error">
-                      Could not load figures. {{ charactersError.message }}
+                      Could not load characters. {{ charactersError.message }}
                     </p>
                     <template v-else>
                       <div class="figure-add-card">
-                        <p class="muted tiny">Create a party member or NPC for this session.</p>
+                        <p class="muted tiny">Add names for playable or session-run characters.</p>
                         <div class="field-row field-row--wrap">
                           <label class="field grow">
                             <span class="field-label">Name</span>
@@ -989,17 +939,17 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                               type="text"
                               maxlength="64"
                               class="input"
-                              placeholder="Figure name"
+                              placeholder="Character name"
                               :disabled="!canEditSessionRoster || characters === undefined"
                             />
                           </label>
                           <label class="field field--checkbox">
                             <input
-                              v-model="newFigureIsNpc"
+                              v-model="newFigureIsPlayable"
                               type="checkbox"
                               :disabled="!canEditSessionRoster || characters === undefined"
                             />
-                            <span class="field-label">NPC</span>
+                            <span class="field-label">Playable character</span>
                           </label>
                           <button
                             type="button"
@@ -1011,57 +961,28 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                             "
                             @click="addSessionFigure"
                           >
-                            Add figure
+                            Add character
                           </button>
                         </div>
                       </div>
                       <p v-if="characters === undefined" class="muted">Loading…</p>
                       <p v-else-if="!charactersList.length" class="muted">
-                        No figures in this session yet. Add one above, then place them on the Map
+                        No characters in this session yet. Add one above, then place them on the Map
                         tab.
                       </p>
                       <ul v-else class="figure-list">
                         <li v-for="c in charactersList" :key="c._id" class="figure-row">
                           <div class="figure-info">
                             <strong>{{ c.name }}</strong
-                            >{{ c.isNpc ? ' (NPC)' : '' }}
+                            ><span v-if="!c.isPlayable"> (non-playable)</span>
                             <span
-                              v-if="
-                                c.characterClassKey !== undefined &&
-                                c.characterClassKey !== 'test' &&
-                                phbClassLabelByKey[c.characterClassKey]
-                              "
+                              v-if="c.classSummary !== undefined && trim(c.classSummary).length > 0"
                               class="muted tiny"
                             >
-                              · {{ phbClassLabelByKey[c.characterClassKey]!.label }}
-                            </span>
+                              · {{ c.classSummary }}</span
+                            >
                           </div>
                           <div class="field-row">
-                            <label class="field grow">
-                              <span class="field-label">Character class</span>
-                              <select
-                                v-model="figureClassPick[String(c._id)]"
-                                class="select"
-                                :disabled="!canEditSessionRoster"
-                              >
-                                <option value="">None</option>
-                                <option
-                                  v-for="opt in classOptionsList"
-                                  :key="opt.key"
-                                  :value="opt.key"
-                                >
-                                  {{ opt.label }}
-                                </option>
-                              </select>
-                            </label>
-                            <button
-                              type="button"
-                              class="btn-small"
-                              :disabled="!canEditSessionRoster"
-                              @click="saveFigureClass(c._id)"
-                            >
-                              Apply class
-                            </button>
                             <button
                               type="button"
                               class="btn-small"
@@ -1108,9 +1029,27 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                     <p v-else-if="joinRequests && !joinRequestsList.length" class="muted">
                       No pending requests.
                     </p>
-                    <ul v-else-if="joinRequestsList.length" class="list">
-                      <li v-for="req in joinRequestsList" :key="req._id">
+                    <ul v-else-if="joinRequestsList.length" class="list join-request-list">
+                      <li v-for="req in joinRequestsList" :key="req._id" class="join-request-row">
                         <span class="mono">{{ req.clerkUserId }}</span>
+                        <label v-if="playableCharactersForBind.length" class="field grow">
+                          <span class="field-label">Playable character</span>
+                          <select
+                            v-model="joinApproveCharacterPick[String(req._id)]"
+                            class="select"
+                            :disabled="!canEditSessionRoster"
+                          >
+                            <option value="">Assign later</option>
+                            <option
+                              v-for="c in playableCharactersForBind"
+                              :key="c._id"
+                              :value="String(c._id)"
+                            >
+                              {{ characterOptionLabel(c, req.clerkUserId) }}
+                            </option>
+                          </select>
+                        </label>
+                        <p v-else class="muted tiny">No playable characters yet.</p>
                         <button
                           type="button"
                           class="btn-small btn-approve"
@@ -1163,9 +1102,9 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                   </p>
                   <p v-else-if="turnOrderData === undefined" class="muted">Loading turn order…</p>
                   <p v-else-if="!turnOrderEntries.length" class="muted tiny">
-                    No figures in turn order yet. Dungeon Master: use <strong>Figures</strong> and
-                    <strong>Turn order</strong> on each row to add entries, then drag the grip to
-                    reorder.
+                    No entries in turn order yet. Dungeon Master: use
+                    <strong>Characters</strong> and <strong>Turn order</strong> on each row to add
+                    entries, then drag the grip to reorder.
                   </p>
                   <ul v-else class="turn-order-list">
                     <li
@@ -1190,10 +1129,10 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                         :class="{ active: selectedMapCharacterId === entry.characterId }"
                         @click="onTurnRowClickSelect(entry.characterId)"
                       >
-                        {{ entry.name }}{{ entry.isNpc ? ' (NPC)' : '' }}
+                        {{ entry.name }}<span v-if="!entry.isPlayable"> (non-playable)</span>
                       </button>
                       <span v-else class="turn-name-readonly">
-                        {{ entry.name }}{{ entry.isNpc ? ' (NPC)' : '' }}
+                        {{ entry.name }}<span v-if="!entry.isPlayable"> (non-playable)</span>
                       </span>
                       <button
                         v-if="canEditSessionRoster"
@@ -1229,7 +1168,7 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
               <h2 id="sheet-modal-title" class="sheet-modal-title">Character sheet</h2>
               <div v-if="isDm && charactersList.length" class="sheet-modal-pick">
                 <label class="sheet-pick-label muted tiny" for="sheet-character-select"
-                  >Figure</label
+                  >Character</label
                 >
                 <select
                   id="sheet-character-select"
@@ -1237,7 +1176,7 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                   class="select sheet-character-select"
                 >
                   <option v-for="c in charactersList" :key="c._id" :value="String(c._id)">
-                    {{ c.name }}{{ c.isNpc ? ' (NPC)' : '' }}
+                    {{ c.name }}<span v-if="!c.isPlayable"> (non-playable)</span>
                   </option>
                 </select>
               </div>
@@ -1265,10 +1204,10 @@ async function saveFigureClass(characterId: Id<'sessionCharacters'>) {
                 />
               </template>
               <template v-else-if="isDm">
-                <p v-if="characters === undefined" class="muted">Loading figures…</p>
+                <p v-if="characters === undefined" class="muted">Loading characters…</p>
                 <p v-else-if="!charactersList.length" class="muted">
-                  No session figures yet. Add figures in Dungeon Master tools (Figures tab), then
-                  open this sheet again.
+                  No session characters yet. Add characters in Dungeon Master tools (Characters
+                  tab), then open this sheet again.
                 </p>
                 <CharacterSheetPanel
                   v-else-if="sessionId && sheetCharacterId"

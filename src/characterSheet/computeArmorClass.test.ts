@@ -14,13 +14,11 @@ const BLANK_ABILITIES = {
 } satisfies CharacterSheetForm['abilities']
 
 function acInput(
-  overrides: Partial<
-    Pick<CharacterSheetForm, 'equippedLoadout' | 'abilities'>
-  > = {},
+  overrides: Partial<Pick<CharacterSheetForm, 'equippedLoadout' | 'abilities'>> = {},
 ): Pick<CharacterSheetForm, 'equippedLoadout' | 'abilities'> {
   return {
     abilities: merge({}, BLANK_ABILITIES, overrides.abilities),
-    equippedLoadout: { ...(overrides.equippedLoadout ?? {}) },
+    equippedLoadout: { ...overrides.equippedLoadout },
   }
 }
 

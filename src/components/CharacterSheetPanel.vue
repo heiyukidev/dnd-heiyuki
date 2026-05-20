@@ -16,6 +16,7 @@ import {
   hydrateSheetFromServer,
   type CharacterSheetForm,
 } from '../characterSheet/defaults'
+import { maybeApplyStandardArrayAbilitiesToSheet } from '../characterSheet/standardArrayAbilitiesByClass'
 import { ABILITY_ROWS, SKILL_ROWS } from '../characterSheet/skillRows'
 import { useConvexClient } from '../composables/convexClient'
 import { useConvexQuery } from '../composables/useConvexQuery'
@@ -235,11 +236,7 @@ function onEquipmentCategoryChange(index: number, ev: Event) {
   const catIdx = row.catalogIndex
   if (catIdx !== undefined) {
     const ent = getSrdCatalogEntryByIndex(catIdx)
-    if (
-      ent !== undefined &&
-      nextCat !== undefined &&
-      ent.sheetCategory !== nextCat
-    ) {
+    if (ent !== undefined && nextCat !== undefined && ent.sheetCategory !== nextCat) {
       row.name = ''
       row.catalogIndex = undefined
       row.weightLb = ''
@@ -248,9 +245,7 @@ function onEquipmentCategoryChange(index: number, ev: Event) {
   touch()
 }
 
-function equipmentItemSelectValue(
-  row: CharacterSheetForm['equipmentItems'][number],
-): string {
+function equipmentItemSelectValue(row: CharacterSheetForm['equipmentItems'][number]): string {
   const idx = row.catalogIndex
   if (idx === undefined || trim(idx) === '') {
     return ''
@@ -258,10 +253,7 @@ function equipmentItemSelectValue(
   return getSrdCatalogEntryByIndex(idx) !== undefined ? idx : ''
 }
 
-function onEquipmentItemSelect(
-  row: CharacterSheetForm['equipmentItems'][number],
-  ev: Event,
-) {
+function onEquipmentItemSelect(row: CharacterSheetForm['equipmentItems'][number], ev: Event) {
   if (!canEdit.value) {
     return
   }
@@ -324,9 +316,7 @@ function onEquippedSlotChange(slot: EquipmentEquipSlotKey, ev: Event) {
   touch()
 }
 
-function equipmentWeightDisplay(
-  row: CharacterSheetForm['equipmentItems'][number],
-): string {
+function equipmentWeightDisplay(row: CharacterSheetForm['equipmentItems'][number]): string {
   const w = trim(row.weightLb)
   return w.length > 0 ? w : '—'
 }
@@ -387,6 +377,19 @@ watch(
       hydrateFromBundle()
     }
   },
+)
+
+watch(
+  () => draft.sheet.classLevels,
+  () => {
+    if (!canEdit.value) {
+      return
+    }
+    if (maybeApplyStandardArrayAbilitiesToSheet(draft.sheet)) {
+      touch()
+    }
+  },
+  { deep: true },
 )
 
 onBeforeUnmount(() => {
@@ -834,11 +837,7 @@ onBeforeUnmount(() => {
         <div class="cs-equipped-block">
           <h4 class="cs-subheading">Equipped</h4>
           <div class="cs-grid cs-grid--2">
-            <label
-              v-for="slotOpt in equippedSlotFieldOptions"
-              :key="slotOpt.slot"
-              class="cs-field"
-            >
+            <label v-for="slotOpt in equippedSlotFieldOptions" :key="slotOpt.slot" class="cs-field">
               <span class="cs-label">{{ slotOpt.label }}</span>
               <select
                 class="input"

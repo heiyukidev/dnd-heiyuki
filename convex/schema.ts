@@ -56,10 +56,11 @@ export default defineSchema({
   sessionCharacters: defineTable({
     sessionId: v.id('sessions'),
     name: v.string(),
-    isNpc: v.boolean(),
+    /** Playable roster flag; authoritative when present. Legacy `isNpc` is migrated on read/write. */
+    isPlayable: v.optional(v.boolean()),
+    /** @deprecated Legacy inversion of `isPlayable`; omit on new writes. */
+    isNpc: v.optional(v.boolean()),
     stats: statsValidator,
-    /** Optional PHB class template key (`characterClasses`). Legacy `test` is deprecated. */
-    characterClassKey: v.optional(characterClassKeyValidator),
     boundClerkUserId: v.optional(v.string()),
     /** Odd-r offset column within session map footprint; unset means unplaced. */
     mapCol: v.optional(v.number()),

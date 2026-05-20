@@ -15,19 +15,13 @@ const BLANK_ABILITIES = {
 
 function speedInput(
   overrides: Partial<
-    Pick<
-      CharacterSheetForm,
-      'race' | 'abilities' | 'equippedLoadout' | 'classLevels'
-    >
+    Pick<CharacterSheetForm, 'race' | 'abilities' | 'equippedLoadout' | 'classLevels'>
   > = {},
-): Pick<
-  CharacterSheetForm,
-  'race' | 'abilities' | 'equippedLoadout' | 'classLevels'
-> {
+): Pick<CharacterSheetForm, 'race' | 'abilities' | 'equippedLoadout' | 'classLevels'> {
   return {
     race: overrides.race ?? '',
     abilities: merge({}, BLANK_ABILITIES, overrides.abilities),
-    equippedLoadout: { ...(overrides.equippedLoadout ?? {}) },
+    equippedLoadout: { ...overrides.equippedLoadout },
     classLevels: overrides.classLevels ?? [],
   }
 }
