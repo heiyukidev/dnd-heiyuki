@@ -58,8 +58,10 @@ export default defineSchema({
     name: v.string(),
     /** Playable roster flag; authoritative when present. Legacy `isNpc` is migrated on read/write. */
     isPlayable: v.optional(v.boolean()),
-    /** @deprecated Legacy inversion of `isPlayable`; omit on new writes. */
+    /** @deprecated Legacy inversion of `isPlayable`; stripped on canonical replace. */
     isNpc: v.optional(v.boolean()),
+    /** @deprecated Class lives on `sheet.classLevels`; stripped on canonical replace. */
+    characterClassKey: v.optional(characterClassKeyValidator),
     stats: statsValidator,
     boundClerkUserId: v.optional(v.string()),
     /** Odd-r offset column within session map footprint; unset means unplaced. */

@@ -7,8 +7,17 @@ import {
   validateCharacterSheetForPersist,
 } from './characterSheetValidators'
 import { createDefaultConvexSheetPayload } from './defaultCharacterSheet'
+import {
+  canonicalSessionCharacterDocument,
+  canonicalSessionCharacterReplace,
+  isPlacedCharacter,
+  patchSessionCharacterCanonical,
+  sessionCharacterIsPlayable,
+} from './sessionCharacterPersist'
 import type { Doc, Id } from './_generated/dataModel'
 import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
+
+export { sessionCharacterIsPlayable } from './sessionCharacterPersist'
 
 type SessionReadCtx = QueryCtx | MutationCtx
 
@@ -40,18 +49,6 @@ function sessionFootprint(session: Pick<Doc<'sessions'>, 'mapCols' | 'mapRows'>)
     cols: session.mapCols ?? DEFAULT_MAP_COLS,
     rows: session.mapRows ?? DEFAULT_MAP_ROWS,
   }
-}
-
-export function sessionCharacterIsPlayable(
-  c: Pick<Doc<'sessionCharacters'>, 'isPlayable' | 'isNpc'>,
-): boolean {
-  if (c.isPlayable !== undefined) {
-    return c.isPlayable
-  }
-  if (c.isNpc !== undefined) {
-    return !c.isNpc
-  }
-  return false
 }
 
 export function findFirstEmptyHex(
@@ -108,28 +105,20 @@ async function bindSessionCharacterEffects(
     }
   }
   if (Object.keys(patch).length > 0) {
-    await ctx.db.patch(characterId, patch)
+    const merged = { ...character, ...patch } as Doc<'sessionCharacters'>
+    await canonicalSessionCharacterReplace(ctx, merged)
   }
-}
-
-function isPlacedCharacter(c: Pick<Doc<'sessionCharacters'>, 'mapCol' | 'mapRow'>): boolean {
-  return c.mapCol !== undefined && c.mapRow !== undefined
 }
 
 async function writeCharacterWithoutPlacement(ctx: MutationCtx, c: Doc<'sessionCharacters'>) {
-  let sheetOut: Doc<'sessionCharacters'>['sheet'] | undefined
-  if (c.sheet !== undefined) {
-    const sanitized = sanitizeCharacterSheetForPersist(c.sheet as Record<string, unknown>)
-    validateCharacterSheetForPersist(sanitized)
-    sheetOut = sanitized as Doc<'sessionCharacters'>['sheet']
-  }
+  const doc = canonicalSessionCharacterDocument(c)
   await ctx.db.replace(c._id, {
-    sessionId: c.sessionId,
-    name: c.name,
-    isPlayable: sessionCharacterIsPlayable(c),
-    stats: c.stats,
-    ...(c.boundClerkUserId !== undefined ? { boundClerkUserId: c.boundClerkUserId } : {}),
-    ...(sheetOut !== undefined ? { sheet: sheetOut } : {}),
+    sessionId: doc.sessionId,
+    name: doc.name,
+    isPlayable: doc.isPlayable,
+    stats: doc.stats,
+    ...(doc.boundClerkUserId !== undefined ? { boundClerkUserId: doc.boundClerkUserId } : {}),
+    ...(doc.sheet !== undefined ? { sheet: doc.sheet } : {}),
   })
 }
 
@@ -432,7 +421,13 @@ export const approveJoinRequest = mutation({
       ...(characterId !== undefined ? { boundCharacterId: characterId } : {}),
     })
     if (characterId !== undefined) {
-      await ctx.db.patch(characterId, { boundClerkUserId: joinRequest.clerkUserId })
+      const boundCharacter = await ctx.db.get(characterId)
+      if (boundCharacter !== null) {
+        await canonicalSessionCharacterReplace(ctx, {
+          ...boundCharacter,
+          boundClerkUserId: joinRequest.clerkUserId,
+        })
+      }
       await bindSessionCharacterEffects(ctx, session, characterId)
     }
     return { ok: true as const }
@@ -647,12 +642,15 @@ export const assignPlayerCharacter = mutation({
     if (member.boundCharacterId !== undefined && member.boundCharacterId !== characterId) {
       const prev = await ctx.db.get(member.boundCharacterId)
       if (prev !== null && prev.boundClerkUserId === playerClerkUserId) {
-        await ctx.db.patch(member.boundCharacterId, { boundClerkUserId: undefined })
+        await canonicalSessionCharacterReplace(ctx, { ...prev, boundClerkUserId: undefined })
       }
     }
 
     await ctx.db.patch(member._id, { boundCharacterId: characterId })
-    await ctx.db.patch(characterId, { boundClerkUserId: playerClerkUserId })
+    await canonicalSessionCharacterReplace(ctx, {
+      ...character,
+      boundClerkUserId: playerClerkUserId,
+    })
     await bindSessionCharacterEffects(ctx, session, characterId)
     return { ok: true as const }
   },
@@ -998,7 +996,7 @@ export const setSessionCharacterMapPlacement = mutation({
       return { ok: true as const }
     }
 
-    await ctx.db.patch(characterId, { mapCol: col, mapRow: row })
+    await patchSessionCharacterCanonical(ctx, characterId, { mapCol: col, mapRow: row })
     return { ok: true as const }
   },
 })
@@ -1090,7 +1088,7 @@ export const patchSessionCharacterSheet = mutation({
     if (Object.keys(updates).length === 0) {
       return { ok: true as const }
     }
-    await ctx.db.patch(characterId, updates)
+    await patchSessionCharacterCanonical(ctx, characterId, updates)
     return { ok: true as const }
   },
 })
