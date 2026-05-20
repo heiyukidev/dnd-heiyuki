@@ -1,43 +1,86 @@
 <script setup lang="ts">
 import { watch, ref } from 'vue'
-import { useAuth } from '@clerk/vue'
+import { useAuth, useSession } from '@clerk/vue'
 import { useConvexClient } from '../composables/convexClient'
+import { provideConvexAuth } from '../composables/convexAuth'
 
 const client = useConvexClient()
-const { isLoaded, isSignedIn, getToken, sessionClaims } = useAuth()
+const { isLoaded: clerkLoaded, isSignedIn: clerkSignedIn, getToken } = useAuth()
+const { session } = useSession()
+const convexTokenReady = ref(false)
 const warnedTokenFailure = ref(false)
 
+provideConvexAuth({
+  clerkLoaded,
+  clerkSignedIn,
+  convexTokenReady,
+})
+
+async function fetchClerkJwt(forceRefreshToken: boolean): Promise<string | null> {
+  const sessionRef = session.value
+  if (sessionRef !== null && sessionRef !== undefined) {
+    try {
+      const fromSession = await sessionRef.getToken({
+        template: 'convex',
+        skipCache: forceRefreshToken,
+      })
+      if (fromSession) {
+        return fromSession
+      }
+    } catch {
+      // fall through
+    }
+  }
+  const getTokenFn = getToken.value
+  if (typeof getTokenFn !== 'function') {
+    return null
+  }
+  try {
+    const templated = await getTokenFn({ template: 'convex', skipCache: forceRefreshToken })
+    if (templated) {
+      return templated
+    }
+  } catch {
+    // fall through
+  }
+  try {
+    return (await getTokenFn({ skipCache: forceRefreshToken })) ?? null
+  } catch {
+    return null
+  }
+}
+
 watch(
-  [isLoaded, isSignedIn, sessionClaims],
+  [clerkLoaded, clerkSignedIn, session],
   () => {
-    if (!isLoaded.value) {
+    if (!clerkLoaded.value) {
+      convexTokenReady.value = false
       return
     }
-    if (!isSignedIn.value) {
+    if (!clerkSignedIn.value) {
+      convexTokenReady.value = false
       client.setAuth(async () => null)
       return
     }
     client.setAuth(
       async ({ forceRefreshToken }) => {
-        try {
-          if (sessionClaims.value?.aud === 'convex') {
-            return (await getToken.value({ skipCache: forceRefreshToken })) ?? null
-          }
-          return (
-            (await getToken.value({
-              template: 'convex',
-              skipCache: forceRefreshToken,
-            })) ?? null
-          )
-        } catch {
-          if (import.meta.env.DEV && !warnedTokenFailure.value) {
-            warnedTokenFailure.value = true
-            console.warn('Clerk token for Convex failed')
-          }
-          return null
+        const token = await fetchClerkJwt(forceRefreshToken)
+        if (token) {
+          convexTokenReady.value = true
+          return token
         }
+        convexTokenReady.value = false
+        if (import.meta.env.DEV && !warnedTokenFailure.value) {
+          warnedTokenFailure.value = true
+          console.warn(
+            'Clerk did not return a Convex JWT. In the Clerk dashboard, add a JWT template named "convex" and set CLERK_JWT_ISSUER_DOMAIN in Convex env vars.',
+          )
+        }
+        return null
       },
-      () => {},
+      () => {
+        convexTokenReady.value = false
+      },
     )
   },
   { immediate: true, flush: 'post' },

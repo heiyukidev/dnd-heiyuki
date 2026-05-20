@@ -4,19 +4,27 @@ import { Show, SignInButton, useAuth } from '@clerk/vue'
 import { useRouter } from 'vue-router'
 import { api } from '../../convex/_generated/api'
 import { useConvexClient } from '../composables/convexClient'
+import { useConvexAuth } from '../composables/convexAuth'
 import { useConvexQuery } from '../composables/useConvexQuery'
 import { sortSessionsForHome } from '../lib/sessionSort'
 
 const client = useConvexClient()
 const router = useRouter()
 const { userId, isSignedIn } = useAuth()
+const { clerkLoaded, clerkSignedIn, convexTokenReady } = useConvexAuth()
 const title = ref('New session')
 const createSessionError = ref<string | null>(null)
+const createSessionBusy = ref(false)
+
+const canCreateSession = computed(
+  () =>
+    clerkLoaded.value && clerkSignedIn.value && convexTokenReady.value && !createSessionBusy.value,
+)
 
 const { data: mySessionsRaw, error: mySessionsError } = useConvexQuery(
   client,
   api.sessions.listMySessions,
-  () => (isSignedIn.value ? {} : 'skip'),
+  () => (convexTokenReady.value ? {} : 'skip'),
 )
 
 const mySessionsLoading = computed(
@@ -29,13 +37,25 @@ const mySessions = computed(() =>
 
 async function onCreateSession() {
   createSessionError.value = null
+  if (!convexTokenReady.value) {
+    createSessionError.value =
+      'Still connecting to the server. If this persists, configure the Clerk JWT template named "convex" (see Convex + Clerk docs).'
+    return
+  }
+  createSessionBusy.value = true
   try {
     const { sessionId } = await client.mutation(api.sessions.createSession, {
       title: title.value.trim() || 'Untitled session',
     })
     await router.push({ name: 'session', params: { id: sessionId } })
-  } catch {
-    createSessionError.value = 'Could not create session. Try again.'
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : ''
+    createSessionError.value =
+      msg.includes('Unauthorized') || msg.includes('Not authenticated')
+        ? 'Not authenticated with the game server. Check Clerk sign-in and the "convex" JWT template in Clerk.'
+        : `Could not create session. ${msg || 'Try again.'}`
+  } finally {
+    createSessionBusy.value = false
   }
 }
 
@@ -59,7 +79,28 @@ function joinHref(token: string) {
           <span>Title</span>
           <input v-model="title" type="text" autocomplete="off" />
         </label>
-        <button type="button" class="btn-primary" @click="onCreateSession">Create session</button>
+        <button
+          type="button"
+          class="btn-primary"
+          :disabled="!canCreateSession"
+          @click="onCreateSession"
+        >
+          {{
+            !clerkLoaded
+              ? 'Loading sign-in…'
+              : !clerkSignedIn
+                ? 'Sign in to create'
+                : !convexTokenReady
+                  ? 'Connecting…'
+                  : createSessionBusy
+                    ? 'Creating…'
+                    : 'Create session'
+          }}
+        </button>
+        <p v-if="clerkSignedIn && clerkLoaded && !convexTokenReady" class="muted tiny">
+          Waiting for Convex auth. Add a Clerk JWT template named
+          <span class="mono">convex</span> if this does not clear.
+        </p>
         <p v-if="createSessionError" class="error">{{ createSessionError }}</p>
       </section>
       <section class="card">

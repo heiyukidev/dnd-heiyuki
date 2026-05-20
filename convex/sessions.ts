@@ -717,7 +717,11 @@ export const removeSessionCharacter = mutation({
 export const listMySessions = query({
   args: v.object({}),
   handler: async (ctx) => {
-    const clerkUserId = await requireIdentitySubject(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (identity === null) {
+      return []
+    }
+    const clerkUserId = identity.subject
     const memberships = await ctx.db
       .query('sessionMembers')
       .withIndex('by_clerkUserId', (q) => q.eq('clerkUserId', clerkUserId))
