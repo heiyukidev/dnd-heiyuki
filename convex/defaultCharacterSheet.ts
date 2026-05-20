@@ -4,12 +4,23 @@ function blankAbility(): { score: string; mod: string } {
   return { score: '', mod: '' }
 }
 
-function blankSave(): { mod: string; prof: boolean } {
-  return { mod: '', prof: false }
+function blankSave(): { mod: string; prof: boolean; profPin: boolean } {
+  return { mod: '', prof: false, profPin: false }
 }
 
-function blankSkill(): { mod: string; prof: boolean } {
-  return { mod: '', prof: false }
+function blankSkill(): { mod: string; prof: boolean; profPin: boolean; expertise: boolean } {
+  return { mod: '', prof: false, profPin: false, expertise: false }
+}
+
+function blankAbilityScoresInt(): Record<string, number | undefined> {
+  return {
+    str: undefined,
+    dex: undefined,
+    con: undefined,
+    int: undefined,
+    wis: undefined,
+    cha: undefined,
+  }
 }
 
 export function createDefaultConvexSheetPayload() {
@@ -25,9 +36,15 @@ export function createDefaultConvexSheetPayload() {
       inspiration: false,
       proficiencyBonus: '',
       passivePerception: '',
-      armorClass: '',
+      armorClass: undefined as number | undefined,
       initiative: '',
-      speed: '',
+      speed: undefined as number | undefined,
+      speedNotes: '',
+      statOverrides: {},
+      abilityBaseScores: blankAbilityScoresInt(),
+      racialBonuses: blankAbilityScoresInt(),
+      activeEffects: [] as [],
+      hitDiePool: [] as [],
       hitDice: '',
       deathSaveSuccess1: false,
       deathSaveSuccess2: false,

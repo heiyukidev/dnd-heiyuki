@@ -140,6 +140,10 @@ const sheetPanelOpen = ref(false)
 const activeTab = ref<SidebarTabId>('map')
 const turnOrderDragFrom = ref<number | null>(null)
 const turnOrderActionError = ref<string | null>(null)
+const combatActionError = ref<string | null>(null)
+
+const combatRoundActive = computed(() => turnOrderData.value?.combatRoundActive === true)
+const combatRoundNumber = computed(() => turnOrderData.value?.combatRoundNumber ?? 1)
 
 const canEditBattleMap = computed(
   () => bundle.value?.membership?.role === 'dm' && bundle.value?.session?.status === 'live',
@@ -530,6 +534,54 @@ async function removeCharacterFromTurnOrder(characterId: Id<'sessionCharacters'>
     })
   } catch {
     turnOrderActionError.value = 'Could not update turn order.'
+  }
+}
+
+async function startCombatRound() {
+  if (sessionId.value === null || !canEditBattleMap.value) {
+    return
+  }
+  combatActionError.value = null
+  try {
+    await client.mutation(api.sessions.startCombat, { sessionId: sessionId.value })
+  } catch {
+    combatActionError.value = 'Could not start combat.'
+  }
+}
+
+async function advanceCombatRound() {
+  if (sessionId.value === null || !canEditBattleMap.value) {
+    return
+  }
+  combatActionError.value = null
+  try {
+    await client.mutation(api.sessions.advanceCombatRound, { sessionId: sessionId.value })
+  } catch {
+    combatActionError.value = 'Could not advance round.'
+  }
+}
+
+async function endCombatRound() {
+  if (sessionId.value === null || !canEditBattleMap.value) {
+    return
+  }
+  combatActionError.value = null
+  try {
+    await client.mutation(api.sessions.endCombat, { sessionId: sessionId.value })
+  } catch {
+    combatActionError.value = 'Could not end combat.'
+  }
+}
+
+async function runNewFight() {
+  if (sessionId.value === null || !canEditBattleMap.value) {
+    return
+  }
+  combatActionError.value = null
+  try {
+    await client.mutation(api.sessions.newFight, { sessionId: sessionId.value })
+  } catch {
+    combatActionError.value = 'Could not start new fight.'
   }
 }
 
@@ -1106,6 +1158,32 @@ async function removeSessionFigure(characterId: Id<'sessionCharacters'>) {
                   </button>
                 </div>
                 <div class="float-panel-body thin-scroll">
+                  <div v-if="turnOrderData !== undefined" class="combat-clock">
+                    <p class="combat-clock-round">
+                      Round
+                      <strong>{{ combatRoundNumber }}</strong>
+                      <span v-if="combatRoundActive" class="combat-clock-active">(active)</span>
+                      <span v-else class="muted">(paused)</span>
+                    </p>
+                    <div v-if="canEditBattleMap" class="combat-clock-actions">
+                      <button type="button" class="btn-small" @click="startCombatRound">
+                        Start
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-small"
+                        :disabled="!combatRoundActive"
+                        @click="advanceCombatRound"
+                      >
+                        Advance
+                      </button>
+                      <button type="button" class="btn-small" @click="endCombatRound">End</button>
+                      <button type="button" class="btn-small" @click="runNewFight">
+                        New fight
+                      </button>
+                    </div>
+                    <p v-if="combatActionError" class="error tiny">{{ combatActionError }}</p>
+                  </div>
                   <p v-if="turnOrderQueryError" class="error">
                     Could not load turn order. {{ turnOrderQueryError.message }}
                   </p>

@@ -54,7 +54,7 @@ A D&D-style archetype package (including baseline stats the table cares about) c
 _Avoid_: Saying "class" without context when you mean this archetype — not a programming **class**.
 
 **PHB class roster (v1)**:
-For v1 the product treats the _Player’s Handbook_ **twelve base classes** as the single canonical roster. Class on a **Character** lives only on the **Character sheet** as multiclass rows (`classLevels`); the table is not offering other official books’ classes (for example Artificer) until that choice is revisited. Stored multiclass rows keep a **stable class key** from that roster only—**not** a separate free-text class display string; PHB labels are derived when rendering. Rows that still carry legacy free-text values **resolve best-effort** to a roster key (for example case-insensitive match on key or label); **unmappable rows are dropped** on load without blocking the sheet, and the next successful save persists the cleaned rows so the **Dungeon Master** can re-add anything missing using the roster pickers.
+For v1 the product treats the _Player’s Handbook_ **twelve base classes** as the single canonical roster. Class on a **Character** lives only on the **Character sheet** as rows on **classes & levels** (`classLevels`); multiple rows may be stored in v1, but **Multiclass (v2)** governs automated combination rules. The table is not offering other official books’ classes (for example Artificer) until that choice is revisited. Stored multiclass rows keep a **stable class key** from that roster only—**not** a separate free-text class display string; PHB labels are derived when rendering. Rows that still carry legacy free-text values **resolve best-effort** to a roster key (for example case-insensitive match on key or label); **unmappable rows are dropped** on load without blocking the sheet, and the next successful save persists the cleaned rows so the **Dungeon Master** can re-add anything missing using the roster pickers.
 _Avoid_: Using “PHB class” to mean “any 5e class the group might play at the table” when you mean this **PHB class roster (v1)** product list.
 
 **PHB race roster (v1)**:
@@ -82,10 +82,117 @@ The **Session character**’s sheet data (abilities, class rows, equipment, and 
 The **Character sheet** presentation and field groupings the product targets, aligned with the D&D 5e PHB **Character sheet** for naming and familiar section order. Domain experts may still say “5e sheet” in conversation.
 
 **Sheet numbers (v1)**:
-Most values on a **Character sheet** (totals, modifiers, DCs, passives, and similar) are whatever participants enter—the typed fields stay **authoritative** in v1, and the product does **not** overwrite them from equipment, stats, or a full auto-5e engine. Narrow **read-only hints** may appear next to some fields instead: **Experience points** vs the next _Player’s Handbook_ cumulative threshold using parsed XP and summed **classLevels** (it does **not** auto-level the **Session character**); **Armor class** from SRD **equipped** armor, shield, and **Dexterity** (see **Armor class (v1)**); **walking speed** in feet (see **Speed (v1)**); **maximum hit points** for **single-class** PHB fixed hit points plus **Constitution** each level (see **Hit points (v1)**). Those hints do **not** enforce complete 5e math (for example **multiclass** max HP, rolled HP, feats, or items) or **Battle map** movement—the table still decides what goes in the main fields.
+Most values on a **Character sheet** (totals, modifiers, DCs, passives, and similar) are whatever participants enter—the typed fields stay **authoritative** in v1, and the product does **not** overwrite them from equipment, stats, or a full auto-5e engine. Narrow **read-only hints** may appear next to some fields instead: **Experience points** vs the next _Player’s Handbook_ cumulative threshold using parsed XP and summed **classLevels** (it does **not** auto-level the **Session character**); **Armor class** from SRD **equipped** armor, shield, and **Dexterity** (see **Armor class (v1)**); **walking speed** in feet (see **Speed (v1)**); **maximum hit points** for **single-class** PHB fixed hit points plus **Constitution** each level (see **Hit points (v1)**). Those hints do **not** enforce complete 5e math (for example **Multiclass (v2)** max HP, rolled HP, feats, or items) or **Battle map** movement—the table still decides what goes in the main fields. As fields enroll in the **Derived stat pipeline**, they follow **Calculated sheet stat** + **Stat override** instead of hint-only display (see **Armor class (v1)** for the intended end state on AC).
+
+**Calculated sheet stat**:
+A **Character sheet** combat number the product derives from modeled inputs (for example **classes & levels**, ability scores, **Equipment (v1)**, **PHB race roster (v1)**) and writes into the stored field by default.
+_Avoid_: “Hint” for a value that already replaces the stored field under the **Derived stat pipeline**.
+
+**Stat override**:
+A per-field flag that the stored value is pinned by the table and must not be replaced by the **Derived stat pipeline** until cleared—used for magic, temporary effects, feats, DM rulings, or gaps in modeled rules.
+_Avoid_: Treating every manual edit as permanent; participants should be able to return to the calculated default.
+
+**Derived stat pipeline**:
+The product rules layer that produces **Calculated sheet stat** values and refreshes enrolled fields on autosave when inputs change, unless a **Stat override** is active on that field. When **Active effect (sheet)** rows are present, their **Effect definition** modifiers run after base class/gear/race math and before **Stat override** on each enrolled stat.
+
+**Active effect (sheet)**:
+A row on the **Character sheet** meaning “this modifier package is on right now,” stored as instances (for example `activeEffects[]`) each referencing an **Effect definition** by stable key. Optional link to an SRD spell `catalogIndex` when the buff came from a spell; same shape later for feats, items, or DM-granted buffs.
+_Avoid_: Storing full spell rules prose on the row—instances point at definitions, not duplicate text.
+
+**Effect definition**:
+Bundled, versioned rules data (SRD-safe) keyed by `effectKey` that describes how to change **Calculated sheet stat**s using a **modifier operation list** (not prose parsing): an ordered array of typed ops, for example `{ "op": "acFloor", "value": 16 }`. Each `op` is a known instruction the **Derived stat pipeline** understands; new combat rules add ops in code plus definitions, not expression strings. v1 of the effect model targets **full combat-header coverage**: armor class, walking speed, maximum and current hit points, saving throws, skills, ability scores and modifiers, **Proficiency bonus (sheet)**, and related totals—so any SRD spell that matters in combat can be represented **once** a definition exists. Optional fields include default `durationRounds` for **Active effect duration (sheet)**. The first shipped bundle is **Effect vertical slice (v1)** (ten spells, ten ops—see [ADR 0003](docs/adr/0003-effect-vertical-slice-ten-ops-ten-spells.md)). Not participant-editable; definitions ship with the app like equipment JSON.
+_Avoid_: Calling a spell name in a text area an **Effect definition**—that remains plain text until tied to a keyed definition. Avoid `eval`-style expression fields (for example `"max(ac, 16)"`).
+
+**Modifier operation (v1 vertical slice)**:
+One of ten typed `op` strings the pipeline implements first: `acSet`, `acFloor`, `acBonus`, `speedAdjust`, `maxHpBonus`, `saveBonusAll`, `skillBonus`, `initiativeBonus`, `abilityModBonus`, `tempHpGrant`. Shapes and stacking rules are fixed in [ADR 0003](docs/adr/0003-effect-vertical-slice-ten-ops-ten-spells.md). `initiativeBonus` and `abilityModBonus` are in the interpreter for header coverage but have no spell in **Effect vertical slice (v1)** yet.
+_Avoid_: Dice or prose-derived ops in this slice (for example `+1d4`); add new op kinds in a later ADR.
+
+**Effect vertical slice (v1)**:
+The first ten SRD spells that ship bundled **Effect definition**s in v1 (`effectKey` = spell `index`): `barkskin`, `mage-armor`, `shield-of-faith`, `shield`, `haste`, `longstrider`, `aid`, `pass-without-trace`, `warding-bond`, `false-life`. All other catalog spells list without pipeline math until authored.
+_Avoid_: Treating catalog presence as automated combat stats for spells outside this set.
+
+**Spell duration default (v1)**:
+Bundled `durationRounds` on **Effect definition** (combat approximations: 1 round ≈ one turn, 1 minute ≈ 10 rounds, 1 hour ≈ 60, 8 hours ≈ 600). `null` means no auto-expiry on **advance round**—instances stay until removed or the **Dungeon Master** sets `endsAtRound`. Per-spell defaults are in [ADR 0003](docs/adr/0003-effect-vertical-slice-ten-ops-ten-spells.md).
+_Avoid_: Parsing SRD duration strings at runtime in v1.
+
+**Temp HP grant (sheet)**:
+A one-time bump to current hit points when an **Active effect (sheet)** with `tempHpGrant` is added (`false-life` in **Effect vertical slice (v1)** uses a flat value, not a roll). Does not re-apply on stat recalc or **advance round**; does not raise **Maximum hit points (sheet)**.
+_Avoid_: Treating `tempHpGrant` like `maxHpBonus` or re-granting temp HP every save.
+
+**SRD spell catalog (v1)**:
+Structured SRD spell list (like **Equipment (v1)**): pick by `catalogIndex`, fill name/level/school on the sheet. When a spell alters combat stats, **effectKey** equals that spell’s SRD `index` (one definition per spell, 1:1) so players see the same name/key in the catalog, on **Active effect (sheet)** rows, and in rules data. Spells without a shipped definition yet appear in the catalog only—no pipeline change until the matching definition ships. Book-only and homebrew spells stay manual text or ad hoc instances until given their own keys.
+_Avoid_: Shared opaque effect keys (for example `ac-floor-16`) when a spell name is what players recognize at the table.
+
+**Spell system (v1)**:
+The product layer for **spellbook + resources** on a **Character sheet**—structured spell rows from **SRD spell catalog (v1)**, optional slot tracking, and a **Cast** action that adds or refreshes **Active effect (sheet)** when a bundled **Effect definition** exists. It does **not** own combat math; **Derived stat pipeline** and **Effect definition** ops stay in the effect layer. Replacing free-text **Spellcasting** lists is in scope; concentration automation, upcasting, and class-derived slot totals are out unless a later slice explicitly adds them.
+_Avoid_: Calling combat-header effect toggles “the spell system”—those are shortcuts; normal play is pick from the character’s spell list then **Cast**.
+
+**Spell list (sheet)**:
+Structured rows on the **Character sheet** (v1 spell inventory), each referencing **SRD spell catalog (v1)** by `catalogIndex` when possible, with optional free-text name for homebrew. Optional per-row **`isPrepared`** flag: omitted or true means the spell appears in the **Cast** picker; false keeps the row on the sheet (for example spellbook entries not prepared today) but hides it from **Cast**. One array only—no separate known vs prepared lists in v1.
+_Avoid_: Two parallel lists (`spellsKnown` + `spellsPrepared`) in v1 unless a later slice explicitly adds dual-list UX.
+
+**Spell effect key**:
+For SRD spells with combat automation, `effectKey` is the spell’s SRD `index` slug (same string as **SRD spell catalog (v1)** `catalogIndex`). **Active effect (sheet)** instances use that key; **Effect definition** lookup is 1:1.
+
+**Effect stacking (sheet)**:
+When several **Active effect (sheet)** rows modify the same stat, the **Derived stat pipeline** applies **Effect definition** operations in phases (not last-write-wins). For armor class in v1: mundane gear + Dex, then take the **highest** result among **set formula** effects (`acSet`, for example Mage Armor), then apply each **floor** (`acFloor`, for example Barkskin), then sum **bonuses** (`acBonus`, for example Shield of Faith and Haste). For **Walking speed (sheet)** in v1: mundane speed (race, armor, class features), then each `speedAdjust` in definition order on the running total (`multiply` then `add` per op). **Maximum hit points (sheet)** sums all `maxHpBonus`; save and skill mods sum matching `saveBonusAll` / `skillBonus` ops. **Stat override** on that stat still wins if pinned. Stricter PHB non-stacking (incompatible armor calculations) may add `stackingGroup` on definitions later.
+
+**Active effect duration (sheet)**:
+How long an **Active effect (sheet)** row stays on. Each instance stores `startedRound` and `endsAtRound`. **Effect definition** supplies a default `durationRounds`; the **Dungeon Master** may edit `endsAtRound` on the instance when table pacing differs. On **advance round**, remove instances where `endsAtRound < newRound`, then recalculate stats. Instances with no round end (manual-only definitions) stay until removed by hand. Mid-fight add uses the current **round number** as `startedRound`. Round counts use the table’s bundled SRD conversion (for example approximations for “1 minute” in combat)—not live parsing of spell prose.
+
+**New fight (effects)**:
+When the **Dungeon Master** runs **New fight**, clear **Active effect (sheet)** on every **Session character** in that **Session**, reset **Combat round clock (session)** (inactive or round 1 per implementation), and recalculate enrolled stats. **End combat** pauses the clock only—does **not** clear effects.
+
+**Active effect editing (sheet)**:
+Adding or removing **Active effect (sheet)** rows follows **Character sheet editing (v1)** (bound **Player** or **Dungeon Master** for any **Session character**). Editing `endsAtRound` on an instance is **Dungeon Master**–only so players can toggle Barkskin on/off without silently extending duration.
+
+**Multiclass (v2)**:
+A **Character sheet** with more than one row on **classes & levels** (two or more PHB classes, or multiple die sizes / combined class rules). The sheet may still **store** multiple class rows in v1, but v1 **Derived stat pipeline** automation assumes **single-class** where noted; full multiclass behavior (proficiency union, **Hit die pool** per die size, multiclass max HP, cross-class expertise slots, and similar) is **v2**, not v1.
+_Avoid_: Shipping multiclass-derived totals in v1 while calling the product “single-class only.”
+
+**Ability base score (sheet)**:
+The participant- or preset-filled ability value before **Racial ability bonus (sheet)**—for example from point buy, rolled scores, or **Standard array abilities preset (v1)**.
+_Avoid_: Calling this “final score” when racial bonuses still apply.
+
+**Racial ability bonus (sheet)**:
+Per-ability increments from **PHB race roster (v1)** (and participant choices for flexible races such as Half-Elf). The **Derived stat pipeline** updates these when `race` changes without overwriting **Ability base score (sheet)**.
+
+**Ability score (sheet)**:
+Effective value used for modifiers: **Ability base score (sheet)** plus **Racial ability bonus (sheet)** (each treated as integers when valid). **Ability modifier (sheet)** derives from this total unless **Stat override** on the modifier. Editing the displayed score may update base, pin base from race recalc, or both—exact UX is implementation detail; storage keeps base and racial bonus separate.
+_Avoid_: Treating **Ability modifier** as an independent second source of truth without an override flag.
+
+**Ability modifier (sheet)**:
+For each ability, `floor((ability score − 10) / 2)` from the stored **Ability score (sheet)** by default. When the table pins a different value, that cell is under **Stat override** until cleared.
+_Avoid_: “Modifier” meaning proficiency bonus or save bonus—use **Proficiency bonus** or name the specific total.
+
+**Proficiency bonus (sheet)**:
+A **Calculated sheet stat** from total character level (sum of **classes & levels**, PHB thresholds +2 through +6). Class features that change how proficiency applies on specific rolls (for example expertise, Jack of All Trades) are modeled on those rows, not by changing this header value. Tables pin a different header value with **Stat override** when needed.
+_Avoid_: Putting double proficiency or half-proficiency into this field instead of on the relevant save or skill.
+
+**Class proficiency (sheet)**:
+The save and skill proficiency flags the **Derived stat pipeline** derives from **classes & levels** using PHB class tables. In v1 this applies only for **single-class** (exactly one class row); **Multiclass (v2)** adds the union of proficiencies from all class rows.
+_Avoid_: “Proficiency” without saying whether you mean the checkbox, the bonus value, or **Proficiency bonus (sheet)**.
+
+**Proficiency pin**:
+When a participant toggles a save or skill proficiency checkbox away from the current **Class proficiency (sheet)** value, that row’s prof flag is pinned until cleared or reset from class—so later class edits do not change it until unpinned.
+_Avoid_: Calling every manual checkbox click a **Stat override**; numeric overrides and proficiency pins are separate mechanisms on the same **Derived stat pipeline** model.
+
+**Save modifier (sheet)**:
+A **Calculated sheet stat** per saving throw: linked **Ability modifier (sheet)** plus **Proficiency bonus (sheet)** when that save’s prof flag is on (from **Class proficiency (sheet)** unless **Proficiency pin**). Pinned totals use **Stat override** on that row’s mod.
+_Avoid_: Storing proficiency bonus again inside each save row.
+
+**Skill modifier (sheet)**:
+A **Calculated sheet stat** per skill: linked **Ability modifier (sheet)** plus **Proficiency bonus (sheet)** when proficient, plus another full **Proficiency bonus (sheet)** when **Expertise (sheet)** is on for that skill. Pinned totals use **Stat override** on that row’s mod.
+
+**Expertise (sheet)**:
+A per-skill flag meaning the character adds double **Proficiency bonus (sheet)** on that skill (not on saves). Only applies when the skill is proficient.
+
+**Expertise slot (sheet)**:
+How many skills may have **Expertise (sheet)** at once, derived from **classes & levels** via PHB class rules. Participants assign flags manually up to that cap among proficient skills; changing flags off defaults uses the same pin spirit as **Proficiency pin**.
+_Avoid_: Unlimited expertise toggles with no slot accounting.
 
 **Standard array abilities preset (v1)**:
-When **classes & levels** resolves to **exactly one** PHB roster row with level at least **1**, and **every** ability **score** and **modifier** cell on the sheet is still blank, the product **one time** fills the six abilities using the _Player’s Handbook_ **standard array** (15, 14, 13, 12, 10, 8) with a **fixed allocation per class** (for example **Wizard** always receives the same assignment). This is a convenience default only: it does **not** apply **racial** ability adjustments, it does **not** run for **multiclass** (more than one class row), and participants may change any number afterward—the typed fields remain **authoritative** (same spirit as **Sheet numbers (v1)**).
+When **classes & levels** resolves to **exactly one** PHB roster row with level at least **1**, and **every** ability **score** and **modifier** cell on the sheet is still blank, the product **one time** fills the six **Ability base score (sheet)** values using the _Player’s Handbook_ **standard array** (15, 14, 13, 12, 10, 8) with a **fixed allocation per class** (for example **Wizard** always receives the same assignment); matching **Ability modifier (sheet)** values follow from the formula unless later overridden. This is a convenience default only: it does **not** apply **racial** ability adjustments, it does **not** run for **Multiclass (v2)** (more than one class row), and participants may change scores or pin modifier overrides afterward.
 
 **Character sheet editing (v1)**:
 In a live **Session**, the **Dungeon Master** may edit every **Character sheet** field the product exposes for any **Session character**. An admitted **Player** may edit **Character sheet** fields only for the **Session character** they are **bound** to; they do not edit other figures’ sheets. **Archived session** freezes these edits like all other live mutations.
@@ -106,24 +213,73 @@ The product does not offer import of **Character sheet** data from external char
 The **Character sheet** mixes **structured fields** for the compact, always-present combat-facing header (for example identity line, armor class, hit points, speed, initiative, ability scores, proficiency bonus, hit dice, death saves—exact set follows the PHB-style layout) with **multi-line text areas** for list-heavy PHB blocks (attacks and spellcasting summary, features and traits, personality text, spell lists, and similar) so v1 stays easy to ship without modeling every line item as its own record. Those multi-line areas accept **plain text** only in v1—line breaks are fine; the product does not interpret Markdown or other rich markup for rendering. Deeper structure or formatted text for those lists can arrive later if the table needs it.
 
 **Equipment (v1)**:
-Equipment is split for the sheet UI: **`equippedLoadout`** holds at most one bundled **SRD / OGL** item per **equip slot**—optional catalog slugs (`weapon`, `armor`, `shield`, `gear`; each a lowercase kebab **`catalogIndex`** or absent / “none” in the UI). **`equipmentItems`** is the **carried** list (consumables, **other**, and uncategorized rows): each row has client-stable `id`, `name`, optional free-text `quantity`, optional `weightLb` (filled from the catalog when a row is catalog-backed and otherwise treated as plain text if ever present), optional `category` (the carried editor exposes consumable / other / unset only), optional **`catalogIndex`**, and optional **`equipped`** (still in the schema; not shown in the current carried layout—slots replace the old “equip checkbox” story for weapon/armor/shield/gear). Carried **name** choices come from SRD catalog subsets that omit the four equip-slot categories except the consumable-only list when the row is consumable. On load, legacy rows whose `category` was a slot category are migrated into **`equippedLoadout`** when possible (first match per slot), with any extras reclassified to **other** so nothing is silently dropped. The in-repo catalog is **SRD-only on purpose** so the product does not ship proprietary PHB/DMG-style item dumps (see **Wizards of the Coast and IP guardrails**). Blank-name rows are dropped on persist. Optional free-text **equipment notes** remain in the legacy `equipment` field (for example container contents or narrative). The typed **Armor class** line stays authoritative; an optional hint may use **equipped** armor and shield from this equipment model (see **Armor class (v1)**).
+Equipment is split for the sheet UI: **`equippedLoadout`** holds at most one bundled **SRD / OGL** item per **equip slot**—optional catalog slugs (`weapon`, `armor`, `shield`, `gear`; each a lowercase kebab **`catalogIndex`** or absent / “none” in the UI). **`equipmentItems`** is the **carried** list (consumables, **other**, and uncategorized rows): each row has client-stable `id`, `name`, optional free-text `quantity`, optional `weightLb` (filled from the catalog when a row is catalog-backed and otherwise treated as plain text if ever present), optional `category` (the carried editor exposes consumable / other / unset only), optional **`catalogIndex`**, and optional **`equipped`** (still in the schema; not shown in the current carried layout—slots replace the old “equip checkbox” story for weapon/armor/shield/gear). Carried **name** choices come from SRD catalog subsets that omit the four equip-slot categories except the consumable-only list when the row is consumable. On load, legacy rows whose `category` was a slot category are migrated into **`equippedLoadout`** when possible (first match per slot), with any extras reclassified to **other** so nothing is silently dropped. The in-repo catalog is **SRD-only on purpose** so the product does not ship proprietary PHB/DMG-style item dumps (see **Wizards of the Coast and IP guardrails**). Blank-name rows are dropped on persist. Optional free-text **equipment notes** remain in the legacy `equipment` field (for example container contents or narrative). **Armor class (sheet)** uses **equipped** armor and shield from this equipment model when the pipeline slice ships (see **Armor class (v1)** legacy).
+
+**Armor class (sheet)**:
+A **Calculated sheet stat** stored as an integer on `sheet.armorClass`, from SRD **equipped** armor, shield, and **Dexterity** (**Ability modifier (sheet)**) via the existing mundane AC rules. **Stat override** pins a different integer for Barkskin, magic armor, natural armor, and other unmodeled effects. Supersedes hint-only **Armor class (v1)** when the AC / speed / max HP pipeline slice ships.
 
 **Armor class (v1)**:
-**Armor class** on the **Character sheet** is whatever total the table agrees is correct for the moment—entered as **plain text** (usually a number, sometimes a note). The product does **not** overwrite that field from equipment or stats; a **read-only** hint may show an SRD-only total from **equipped** armor, shield, and **Dexterity** for convenience—natural armor, class features, magic, and temp effects stay manual, same spirit as **Speed (v1)**.
+Legacy: typed authoritative field plus read-only hint. Replaced by **Armor class (sheet)** for enrolled sheets.
+
+**Initiative modifier (sheet)**:
+A **Calculated sheet stat** in the combat header: default value is the **Dexterity** **Ability modifier (sheet)** (class features such as Alert may be added in code later). **Stat override** pins a different value for feats, magic, or table choice. Rolled initiative totals and advantage notes stay outside this field—in **Turn order** and table talk, not as a second queue source.
+_Avoid_: Treating this field as the result of an initiative **Table roll**; it is the modifier added to the d20.
 
 **Initiative (v1)**:
-The **Initiative** field in the combat-facing header is **plain text** the table maintains as **combat-order support**—for example a modifier, the last rolled total, advantage or other roll notes, or a scratch value—not a stat the product derives from **Dexterity**, features, or equipment. It is **not** a second source of truth for who goes when: reordering **Turn order** does **not** read or update this field, and editing the field does **not** change **Turn order**. **Turn order** for a fight remains a **Dungeon Master**-ordered list that reflects whatever **Table roll**s or table talk the group used (see **Turn order**), not an automated initiative sort.
+Superseded for enrolled sheets by **Initiative modifier (sheet)**. Reordering **Turn order** does **not** read or update this field, and editing it does **not** change **Turn order**. **Turn order** remains a **Dungeon Master**-ordered list, not an automated initiative sort.
+
+**Passive Perception (sheet)**:
+A **Calculated sheet stat**: `10 +` the **Skill modifier (sheet)** for Perception, using that row’s total (including **Expertise (sheet)** and **Stat override** on the skill). **Stat override** on passive when feats or effects change passive without changing the skill line.
+_Avoid_: Maintaining a separate manual Perception math path that can drift from the Perception skill row.
+
+**Walking speed (sheet)**:
+A **Calculated sheet stat** for **walking speed in feet** stored as an integer on `sheet.speed` (feet only): PHB roster **race** base, −10 ft for **heavy** armor when **Strength** **Ability score (sheet)** is below the SRD armor `str_minimum` (dwarf omits this reduction), plus modeled **Monk Unarmored Movement** / **Barbarian Fast Movement** when applicable—same narrow rules as legacy **Speed (v1)** hints. **Stat override** pins a different walking speed. Non-walking movement (fly, swim, climb, mounts) belongs in **Speed notes (sheet)**, not mixed into the integer. **Map placement** does **not** enforce movement (see **Map placement**).
+
+**Speed notes (sheet)**:
+Optional plain-text line beside **Walking speed (sheet)** for fly/swim/climb and similar (for example `fly 60`). Does not affect **Derived stat pipeline** math in v1.
 
 **Speed (v1)**:
-In D&D-style play, **speed** is how far a creature can usually move on its own turn (commonly given in feet per round, before halving for difficult terrain or other effects), as set by ancestry, class features, armor, spells, and conditions. On the **Character sheet** the typed **speed** stays **plain text** the table keeps as the authoritative value for whatever they track (walking plus swim/fly notes, spells, temporary effects)—the product **does not** overwrite it from other fields (same spirit as **Armor class (v1)**’s separation of manual totals from hints). A **read-only** **walking speed** hint in feet may appear next to the field as a convenience: PHB roster **race** base (25 ft for dwarf/halfling/gnome, 30 ft for others; empty or unrecognized **race** falls back to 30 ft for the hint only), −10 ft when wearing **heavy** body armor whose SRD **`str_minimum`** exceeds the **`Strength` score** (from `score` only; missing/invalid score counts as **0** for that comparison)—**dwarf** ancestry omits that reduction in this hint—and optional **Monk Unarmored Movement** / **Barbarian Fast Movement** where the modeled rules apply. The hint is **narrow**: SRD-catalog **equipped** armor and shield slots only—no encumbrance, other items, spells, conditions, subclass riders, terrain, climbing, mounts, speeds other than walking, nor full rules fidelity to every edge case. **Map placement** and token moves on the **Battle map** do **not** enforce **speed**, movement ranges, or pathing (see **Map placement**).
+Legacy: plain-text **speed** plus walking hint. Replaced by **Walking speed (sheet)** for enrolled sheets when the AC / speed / max HP pipeline slice ships.
+
+**AC speed max HP enrollment (sheet)**:
+No legacy migration: greenfield **Session** data only. On enrollment, `armorClass` and `speed` are integers from calculators; **Speed notes (sheet)** starts empty. `maxHp` follows **Maximum hit points (sheet)** rules. Any obsolete test characters may be deleted rather than converted.
+
+**Maximum hit points (sheet)**:
+On the **Session character**’s `maxHp` (same authority as **Hit points (v1)**—not a second sheet-only copy). The UI **always** shows a calculated line (for example `Calculated: 32` or `Calculated: —`) so participants see what the pipeline derived even when it does not apply that value. When the calculator returns a number (**single-class** in v1 of this slice: PHB fixed HP per level + **Constitution** **Ability modifier (sheet)** each level), that value is the default stored `maxHp` unless **Stat override** is active. When the calculator cannot derive (including **Multiclass (v2)** until that ships), the product **does not** overwrite stored `maxHp`—manual max stays authoritative while the calculated line still appears. **Stat override** for Tough, items, and other extras. **Multiclass (v2)** will extend the calculator so the calculated line can show a real total instead of **—**. After a successful recalc without override, if **current hit points** exceed the new maximum, set **current hit points** to the new maximum (clamp only—no free healing when max increases).
 
 **Hit points (v1)**:
-Each **Session character** carries exactly one authoritative **current hit points** and **maximum hit points** pair for the **Session**; the **Character sheet**’s hit point block is that same pair in the UI, not a second copy that could disagree with tokens, **Turn order**, or other surfaces.
-An optional **read-only** hint may appear under **maximum hit points** for **single-class** builds on the PHB roster only: it follows the _Player’s Handbook_ **fixed hit points** rule—**maximum** hit die at 1st level in that class, then for each additional character level the **average hit die result rounded up** (the PHB average column for that die size), plus the **Constitution** modifier **each** level. It does **not** use rolled HP at level-up.
-The hint shows **—** for **multiclass** rows (level order is not stored), missing or invalid class data, or other cases it cannot derive; it does **not** include Toughness, Draconic Sorcery, magic items, or similar extras—the typed **maximum hit points** stays authoritative.
+Each **Session character** carries exactly one authoritative **current hit points** and **maximum hit points** pair for the **Session**; the **Character sheet** hit point block is that pair in the UI. **Current hit points** stay participant-edited in v1 except the max-HP clamp described under **Maximum hit points (sheet)**. **Maximum hit points** uses **Maximum hit points (sheet)** when the AC / speed / max HP pipeline slice ships (replaces max HP hint-only behavior).
+
+**Hit die pool (sheet)**:
+Structured hit dice tracked **by die size**—each row has a **total** count and a **spent** count. **Total** is a **Calculated sheet stat** from **classes & levels** unless **Pool pin** on that row’s total (for example bonus hit dice). **Spent** is participant-edited; when **total** drops, **spent** clamps to `min(spent, total)`. Remaining dice for a size is `total − spent`.
+_Avoid_: One **Hit dice (v1)** free-text field as the source of truth once this model ships.
+
+**Hit die pool single-class scope (v1)**:
+The first shipped **Hit die pool (sheet)** applies only when **classes & levels** resolves to **exactly one** PHB class row with level at least **1**—one die type, one pool row, `total` equals that row’s level. **Multiclass (v2)** adds multiple rows by die size and die-size pickers for **Short rest spend (sheet)**; until then, multiclass sheets keep legacy **Hit dice (v1)** text or no structured pool (implementation must not guess wrong totals).
+_Avoid_: Designing pickers and per-size rows for **Multiclass (v2)** in the same slice as single-class rest actions.
+
+**Pool pin**:
+On a **Hit die pool (sheet)** row, pins the **total** so **classes & levels** changes do not recalculate it until cleared—same override spirit as **Stat override**, scoped to pool totals.
+
+**Long rest (sheet)**:
+A **Character sheet** action on one **Session character** that sets **spent** to `0` on every **Hit die pool (sheet)** row. Does not change **current hit points** or **maximum hit points** in v1—the table still adjusts HP separately.
+_Avoid_: Calling it a full 5e long rest automation when only hit dice pools reset.
+
+**Short rest spend (sheet)**:
+A **Character sheet** action that spends **one** hit die (only when `spent < total`): increment **spent** by 1 and show a read-only healing reminder (`dX + Constitution modifier`) without automatically changing **current hit points**. Under **Hit die pool single-class scope (v1)**, there is no die-size picker—only the single pool row.
+_Avoid_: Spending multiple dice in one action unless a future feature explicitly models it.
+
+**Hit die pool editing (sheet)**:
+**Short rest spend (sheet)**, **Long rest (sheet)**, and editing **spent** follow **Character sheet editing (v1)** (bound **Player** or **Dungeon Master** for any). **Pool pin** on **total** is **Dungeon Master**–only. **Total** changes come from **classes & levels** (DM-only) unless pinned—not direct participant typing in v1.
+
+**Hit die pool migration (sheet)**:
+Greenfield only (same as **AC speed max HP enrollment (sheet)**): initialize the pool from **classes & levels** with **spent** `0` when **Hit die pool single-class scope (v1)** applies. Do not parse legacy `hitDice` text.
+
+**Hit die pool display (sheet)**:
+Combat header shows each pool as `{die} {remaining}/{total}` (for example `d10 2/5`) where **remaining** is `total − spent`. Under **Hit die pool single-class scope (v1)** that is a single line; **Multiclass (v2)** may show one line per die size.
 
 **Hit dice (v1)**:
-The **Hit dice** field in the combat-facing header is **plain text** for the table to track **Hit Dice** for **short rests**—for example dice remaining, dice spent since the last long rest, or a shorthand breakdown when **multiclass** mixes die sizes. The product does **not** derive, spend, or validate that pool from **Classes & levels** in v1; it is separate from **current hit points** and from the max HP hint (see **Hit points (v1)**).
+Superseded by **Hit die pool (sheet)** for enrolled sheets. Legacy plain-text `hitDice` may remain during migration only.
 
 **Session character display name (v1)**:
 Each **Session character** has a single table-facing **display name** in v1; it is the same string on the **Battle map**, in **Turn order** and other participant-visible lists, and on the **Character sheet** header—there is no separate shorter token label or formal name field that may disagree.
@@ -133,7 +289,17 @@ A dice resolution the **Dungeon Master** triggers for everyone at the **Session*
 _Avoid_: Generating the final value only on the client in a way that could disagree with what others see.
 
 **Turn order**:
-A **Dungeon Master**-controlled, manually reorderable list for the current fight (v1): entries are **Session character**s in one **mixed** strip—party members and **NPC**s together—reflecting who acts when, ordered after whatever **Table roll**s or table talk the group uses. The app does not auto-enforce full D&D initiative rules; the **Dungeon Master** is the source of truth for sequence. Newly added **Session character**s are not automatically inserted into **Turn order** in v1. Between fights, v1 gives the **Dungeon Master** an explicit control (for example **New fight**) to clear **Turn order**, **Spotlight**, and **Map placement** together before building the next encounter’s list.
+A **Dungeon Master**-controlled, manually reorderable list for the current fight (v1): entries are **Session character**s in one **mixed** strip—party members and **NPC**s together—reflecting who acts when, ordered after whatever **Table roll**s or table talk the group uses. The app does not auto-enforce full D&D initiative rules; the **Dungeon Master** is the source of truth for sequence. Newly added **Session character**s are not automatically inserted into **Turn order** in v1. Between fights, v1 gives the **Dungeon Master** an explicit control (for example **New fight**) to clear **Turn order**, **Spotlight**, **Map placement**, and **Combat round clock** together before building the next encounter’s list.
+
+**Combat round clock**:
+Shared **Session** state (**Combat round clock (session)**): whether combat timing is active, the current **round number** (integer ≥ 1 while active), and **Dungeon Master**–only controls to **start combat** (set active, round = 1), **advance round** (+1 while active), and **end combat** (set inactive—pause timing). Visible to all participants in the **Session play shell** (for example near **Turn order**). **Turn order** reorder and **Spotlight** do **not** advance the round. Drives **Active effect duration (sheet)** for round-based expiry.
+_Avoid_: Inferring rounds from “everyone in **Turn order** went once”—action surge, held actions, and table pacing do not match that reliably.
+
+**Combat round clock (session)**:
+Authoritative fields on the **Session** document: combat active flag + current round. Not per-device; archived **Session**s freeze the last values read-only.
+
+**Combat round clock (UI)**:
+**Round number** and **Dungeon Master** start / advance / end combat controls live in the **Turn order** overlay (visible to all participants). **Active effect (sheet)** chips live on the **Character sheet** combat header so stats and buffs stay together.
 
 **Spotlight**:
 A **Dungeon Master** action in v1 that quickly **highlights** one **Session character** on the table so everyone sees whose moment is in focus (paired with **Turn order** but not the same thing: order is the queue, **Spotlight** is the immediate visual cue). When that figure has **map placement**, **Spotlight** uses **motion or a pulse** on their token and **hex** on the **Battle map** to draw the table’s attention, then leaves a **calm persistent** cue on that token and **hex** until **Spotlight** moves to a different **Session character**; when **unplaced**, the highlight appears only outside the grid (for example in the **Turn order** overlay) wherever the product already surfaces **Spotlight**.
@@ -191,6 +357,7 @@ Where the product ships **game content** (for example **equipment** tied to `cat
 
 - **Schema**: Replace `isNpc` with `isPlayable` (or equivalent) on `sessionCharacters`; domain language is **Playable** / **non-playable**, set at create via checkbox (v1).
 - **`characterClassKey`**: Remove; class lives only in `sheet.classLevels` (see **PHB class roster (v1)**).
+- **Multiclass**: Multiple `classLevels` rows may exist in v1 storage; **Derived stat pipeline** combination rules (proficiency union, hit die pools, multiclass max HP, and similar) are **Multiclass (v2)**—resolved.
 
 ## Example dialogue
 

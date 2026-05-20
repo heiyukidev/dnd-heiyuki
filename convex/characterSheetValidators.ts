@@ -86,6 +86,7 @@ const saveRow = v.optional(
   v.object({
     mod: v.optional(v.string()),
     prof: v.optional(v.boolean()),
+    profPin: v.optional(v.boolean()),
   }),
 )
 
@@ -93,8 +94,120 @@ const skillRow = v.optional(
   v.object({
     mod: v.optional(v.string()),
     prof: v.optional(v.boolean()),
+    profPin: v.optional(v.boolean()),
+    expertise: v.optional(v.boolean()),
   }),
 )
+
+const abilityScoreInt = v.optional(v.number())
+
+const abilityScoresIntShape = {
+  str: abilityScoreInt,
+  dex: abilityScoreInt,
+  con: abilityScoreInt,
+  int: abilityScoreInt,
+  wis: abilityScoreInt,
+  cha: abilityScoreInt,
+} as const
+
+const abilityOverrideRow = v.optional(
+  v.object({
+    score: v.optional(v.boolean()),
+    mod: v.optional(v.boolean()),
+  }),
+)
+
+const saveOverrideRow = v.optional(v.object({ mod: v.optional(v.boolean()) }))
+
+const skillOverrideRow = v.optional(v.object({ mod: v.optional(v.boolean()) }))
+
+const statOverridesValidator = v.optional(
+  v.object({
+    armorClass: v.optional(v.boolean()),
+    speed: v.optional(v.boolean()),
+    maxHp: v.optional(v.boolean()),
+    proficiencyBonus: v.optional(v.boolean()),
+    passivePerception: v.optional(v.boolean()),
+    initiative: v.optional(v.boolean()),
+    abilities: v.optional(
+      v.object({
+        str: abilityOverrideRow,
+        dex: abilityOverrideRow,
+        con: abilityOverrideRow,
+        int: abilityOverrideRow,
+        wis: abilityOverrideRow,
+        cha: abilityOverrideRow,
+      }),
+    ),
+    saves: v.optional(
+      v.object({
+        str: saveOverrideRow,
+        dex: saveOverrideRow,
+        con: saveOverrideRow,
+        int: saveOverrideRow,
+        wis: saveOverrideRow,
+        cha: saveOverrideRow,
+      }),
+    ),
+    skills: v.optional(
+      v.object({
+        acrobatics: skillOverrideRow,
+        animalHandling: skillOverrideRow,
+        arcana: skillOverrideRow,
+        athletics: skillOverrideRow,
+        deception: skillOverrideRow,
+        history: skillOverrideRow,
+        insight: skillOverrideRow,
+        intimidation: skillOverrideRow,
+        investigation: skillOverrideRow,
+        medicine: skillOverrideRow,
+        nature: skillOverrideRow,
+        perception: skillOverrideRow,
+        performance: skillOverrideRow,
+        persuasion: skillOverrideRow,
+        religion: skillOverrideRow,
+        sleightOfHand: skillOverrideRow,
+        stealth: skillOverrideRow,
+        survival: skillOverrideRow,
+      }),
+    ),
+  }),
+)
+
+const activeEffectValidator = v.object({
+  id: v.string(),
+  effectKey: v.string(),
+  catalogIndex: v.optional(v.string()),
+  startedRound: v.optional(v.number()),
+  endsAtRound: v.optional(v.union(v.number(), v.null())),
+})
+
+const hitDiePoolRowValidator = v.object({
+  dieSides: v.number(),
+  total: v.number(),
+  spent: v.number(),
+  poolPin: v.optional(v.boolean()),
+})
+
+/** AC / speed accept number or legacy string on patch; sanitize normalizes to integer. */
+const sheetIntFieldValidator = v.optional(v.union(v.number(), v.string()))
+
+function parseOptionalIntField(raw: unknown): number | undefined {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return Math.trunc(raw)
+  }
+  if (typeof raw === 'string') {
+    const s = trim(raw)
+    if (s.length === 0) {
+      return undefined
+    }
+    const n = Number(s)
+    if (Number.isFinite(n)) {
+      return Math.trunc(n)
+    }
+  }
+  return undefined
+}
 
 const abilitiesShape = {
   str: abilityRow,
@@ -257,6 +370,83 @@ export function sanitizeCharacterSheetForPersist(
   } else if (rawLoadout !== undefined) {
     delete next.equippedLoadout
   }
+  const acInt = parseOptionalIntField(next.armorClass)
+  if (acInt !== undefined) {
+    next.armorClass = clamp(acInt, 0, 999)
+  } else if (next.armorClass !== undefined) {
+    delete next.armorClass
+  }
+  const speedInt = parseOptionalIntField(next.speed)
+  if (speedInt !== undefined) {
+    next.speed = clamp(speedInt, 0, 9999)
+  } else if (next.speed !== undefined) {
+    delete next.speed
+  }
+  const rawEffects = next.activeEffects
+  if (rawEffects !== undefined && !Array.isArray(rawEffects)) {
+    delete next.activeEffects
+  }
+  if (Array.isArray(rawEffects)) {
+    next.activeEffects = compact(
+      map(rawEffects, (entry) => {
+        if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+          return undefined
+        }
+        const obj = entry as Record<string, unknown>
+        const id = trim(String(obj.id ?? '')).slice(0, 128)
+        const effectKey = trim(String(obj.effectKey ?? '')).slice(0, 128)
+        if (id.length === 0 || effectKey.length === 0) {
+          return undefined
+        }
+        const row: Record<string, unknown> = { id, effectKey }
+        const catIdx = obj.catalogIndex
+        if (catIdx !== undefined && catIdx !== null) {
+          const slug = trim(String(catIdx)).slice(0, EQUIPMENT_ITEM_CATALOG_INDEX_MAX)
+          if (isValidCatalogIndexSlug(slug)) {
+            row.catalogIndex = slug
+          }
+        }
+        if (typeof obj.startedRound === 'number' && Number.isFinite(obj.startedRound)) {
+          row.startedRound = Math.trunc(obj.startedRound)
+        }
+        if (obj.endsAtRound === null) {
+          row.endsAtRound = null
+        } else if (typeof obj.endsAtRound === 'number' && Number.isFinite(obj.endsAtRound)) {
+          row.endsAtRound = Math.trunc(obj.endsAtRound)
+        }
+        return row
+      }),
+    )
+  }
+  const rawPool = next.hitDiePool
+  if (rawPool !== undefined && !Array.isArray(rawPool)) {
+    delete next.hitDiePool
+  }
+  if (Array.isArray(rawPool)) {
+    next.hitDiePool = compact(
+      map(rawPool, (entry) => {
+        if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+          return undefined
+        }
+        const obj = entry as Record<string, unknown>
+        const dieSides = Number(obj.dieSides)
+        const total = Number(obj.total)
+        const spent = Number(obj.spent)
+        if (!Number.isFinite(dieSides) || !Number.isFinite(total) || !Number.isFinite(spent)) {
+          return undefined
+        }
+        const row: Record<string, unknown> = {
+          dieSides: clamp(Math.trunc(dieSides), 1, 100),
+          total: clamp(Math.trunc(total), 0, 99),
+          spent: clamp(Math.trunc(spent), 0, 99),
+        }
+        if (obj.poolPin === true) {
+          row.poolPin = true
+        }
+        return row
+      }),
+    )
+  }
   return next
 }
 
@@ -380,9 +570,16 @@ export const characterSheetValidator = v.object({
   proficiencyBonus: v.optional(v.string()),
   passivePerception: v.optional(v.string()),
 
-  armorClass: v.optional(v.string()),
+  armorClass: sheetIntFieldValidator,
   initiative: v.optional(v.string()),
-  speed: v.optional(v.string()),
+  speed: sheetIntFieldValidator,
+  speedNotes: v.optional(v.string()),
+
+  statOverrides: statOverridesValidator,
+  abilityBaseScores: v.optional(v.object(abilityScoresIntShape)),
+  racialBonuses: v.optional(v.object(abilityScoresIntShape)),
+  activeEffects: v.optional(v.array(activeEffectValidator)),
+  hitDiePool: v.optional(v.array(hitDiePoolRowValidator)),
 
   hitDice: v.optional(v.string()),
   deathSaveSuccess1: v.optional(v.boolean()),
@@ -435,9 +632,16 @@ export const characterSheetPatchValidator = v.object({
   proficiencyBonus: v.optional(v.string()),
   passivePerception: v.optional(v.string()),
 
-  armorClass: v.optional(v.string()),
+  armorClass: sheetIntFieldValidator,
   initiative: v.optional(v.string()),
-  speed: v.optional(v.string()),
+  speed: sheetIntFieldValidator,
+  speedNotes: v.optional(v.string()),
+
+  statOverrides: statOverridesValidator,
+  abilityBaseScores: v.optional(v.object(abilityScoresIntShape)),
+  racialBonuses: v.optional(v.object(abilityScoresIntShape)),
+  activeEffects: v.optional(v.array(activeEffectValidator)),
+  hitDiePool: v.optional(v.array(hitDiePoolRowValidator)),
 
   hitDice: v.optional(v.string()),
   deathSaveSuccess1: v.optional(v.boolean()),

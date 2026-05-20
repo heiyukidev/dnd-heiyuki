@@ -1,11 +1,14 @@
 import { compact, concat, filter, get, includes, keyBy, map, sortBy, trim, uniqBy } from 'lodash'
 
 import type { EquipmentCategoryKey } from '../../convex/characterSheetValidators'
+import { effectKeysWithDefinitions } from '../characterSheet/effects/effectDefinitions'
 import equipmentJson from '../data/srd/5e-SRD-Equipment.json'
 import magicItemsJson from '../data/srd/5e-SRD-Magic-Items.json'
+import spellsJson from '../data/srd/5e-SRD-Spells.json'
 
 type RawEquipment = (typeof equipmentJson)[number]
 type RawMagicItem = (typeof magicItemsJson)[number]
+type RawSpell = (typeof spellsJson)[number]
 
 export type SrdCatalogEntry = {
   index: string
@@ -13,6 +16,14 @@ export type SrdCatalogEntry = {
   kind: 'equipment' | 'magic-item'
   weightLb?: string
   sheetCategory: EquipmentCategoryKey
+}
+
+export type SrdSpellCatalogEntry = {
+  index: string
+  name: string
+  level: number
+  school: string
+  hasEffectDefinition: boolean
 }
 
 function formatWeightLb(raw: unknown): string | undefined {
@@ -170,4 +181,50 @@ export function searchSrdCatalog(query: string, limit = 20): SrdCatalogEntry[] {
     const i = entry.index.toLowerCase()
     return includes(n, q) || includes(i, q)
   }).slice(0, capped)
+}
+
+const EFFECT_SPELL_KEYS = new Set(effectKeysWithDefinitions())
+
+function rawSpellEntries(): SrdSpellCatalogEntry[] {
+  return compact(
+    map(spellsJson as RawSpell[], (entry) => {
+      const index = trim(String(get(entry, 'index') ?? ''))
+      const name = trim(String(get(entry, 'name') ?? ''))
+      if (index.length === 0 || name.length === 0) {
+        return undefined
+      }
+      const levelRaw = get(entry, 'level')
+      const level =
+        typeof levelRaw === 'number' && Number.isFinite(levelRaw) ? Math.trunc(levelRaw) : 0
+      const school = trim(
+        String(get(entry, ['school', 'name']) ?? get(entry, ['school', 'index']) ?? ''),
+      )
+      return {
+        index,
+        name,
+        level,
+        school,
+        hasEffectDefinition: EFFECT_SPELL_KEYS.has(index),
+      }
+    }),
+  )
+}
+
+export const SRD_SPELL_CATALOG: SrdSpellCatalogEntry[] = sortBy(rawSpellEntries(), [
+  (e) => e.level,
+  (e) => e.name.toLowerCase(),
+])
+
+const SRD_SPELL_BY_INDEX = keyBy(SRD_SPELL_CATALOG, (e) => e.index)
+
+export function getSrdSpellCatalogEntryByIndex(index: string): SrdSpellCatalogEntry | undefined {
+  return SRD_SPELL_BY_INDEX[index]
+}
+
+export function listSrdSpellCatalog(): SrdSpellCatalogEntry[] {
+  return SRD_SPELL_CATALOG
+}
+
+export function listSrdSpellsWithEffectDefinitions(): SrdSpellCatalogEntry[] {
+  return filter(SRD_SPELL_CATALOG, (e) => e.hasEffectDefinition)
 }

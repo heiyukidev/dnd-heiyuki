@@ -1,6 +1,19 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { assign, cloneDeep, concat, debounce, filter, keyBy, map, startCase, trim } from 'lodash'
+import {
+  assign,
+  cloneDeep,
+  concat,
+  debounce,
+  filter,
+  get,
+  head,
+  keyBy,
+  map,
+  size,
+  startCase,
+  trim,
+} from 'lodash'
 import type { Id } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
 import {
@@ -14,6 +27,7 @@ import {
 import {
   createDefaultSheet,
   hydrateSheetFromServer,
+  prepareSheetPatchForConvex,
   type CharacterSheetForm,
 } from '../characterSheet/defaults'
 import { maybeApplyStandardArrayAbilitiesToSheet } from '../characterSheet/standardArrayAbilitiesByClass'
@@ -31,9 +45,19 @@ import {
   parseExperiencePointsField,
 } from '../characterSheet/xpThresholds'
 import {
+  applyDerivedPipeline,
+  expertiseSlotsForSheet,
+} from '../characterSheet/derived/applyDerivedPipeline'
+import type { AbilityKey } from '../characterSheet/derived/types'
+import {
+  defaultEndsAtRound,
+  getEffectDefinition,
+} from '../characterSheet/effects/effectDefinitions'
+import {
   getSrdCatalogEntryByIndex,
   listSrdCatalogForCarriedItemSelect,
   listSrdCatalogForEquipSlot,
+  listSrdSpellsWithEffectDefinitions,
   type SrdCatalogEntry,
 } from '../catalog/srdCatalog'
 
@@ -58,6 +82,7 @@ const draft = reactive({
   name: '',
   hp: 0,
   maxHp: 0,
+  tempHp: 0,
   sheet: createDefaultSheet() as CharacterSheetForm,
 })
 
@@ -75,6 +100,86 @@ function skillRef(key: keyof CharacterSheetForm['skills']) {
 
 const localDirty = ref(false)
 const saveError = ref<string | null>(null)
+const previousActiveEffectIds = ref<string[]>([])
+const localSheetRevision = ref(0)
+
+const effectSpellOptions = listSrdSpellsWithEffectDefinitions()
+
+const combatRoundNumber = computed(() => bundle.value?.combatRoundNumber ?? 1)
+
+const expertiseSlotLimit = computed(() => expertiseSlotsForSheet(draft.sheet))
+
+const expertiseSlotsUsed = computed(() =>
+  size(filter(SKILL_ROWS, (row) => draft.sheet.skills[row.key]?.expertise === true)),
+)
+
+function ensureStatOverrides() {
+  if (draft.sheet.statOverrides === undefined) {
+    draft.sheet.statOverrides = {}
+  }
+  return draft.sheet.statOverrides
+}
+
+function isFieldOverridden(...path: string[]): boolean {
+  let cur: unknown = draft.sheet.statOverrides
+  for (const p of path) {
+    if (cur === null || cur === undefined || typeof cur !== 'object') {
+      return false
+    }
+    cur = get(cur as object, p)
+  }
+  return cur === true
+}
+
+function toggleTopLevelOverride(field: keyof NonNullable<CharacterSheetForm['statOverrides']>) {
+  const o = ensureStatOverrides()
+  if (o[field] === true) {
+    delete o[field]
+  } else {
+    assign(o, { [field]: true })
+  }
+  runLocalPipeline()
+  touch()
+}
+
+function toggleNestedOverride(
+  section: 'abilities' | 'saves' | 'skills',
+  key: string,
+  field: string,
+) {
+  const o = ensureStatOverrides()
+  if (o[section] === undefined) {
+    assign(o, { [section]: {} })
+  }
+  const sectionObj = o[section] as Record<string, Record<string, boolean>>
+  if (sectionObj[key] === undefined) {
+    sectionObj[key] = {}
+  }
+  const cur = sectionObj[key]![field] === true
+  sectionObj[key]![field] = !cur
+  if (!sectionObj[key]![field]) {
+    delete sectionObj[key]![field]
+  }
+  runLocalPipeline()
+  touch()
+}
+
+function runLocalPipeline() {
+  const result = applyDerivedPipeline(
+    cloneDeep(draft.sheet),
+    { hp: draft.hp, maxHp: draft.maxHp, tempHp: draft.tempHp },
+    { previousActiveEffectIds: previousActiveEffectIds.value },
+  )
+  assign(draft.sheet, result.sheet)
+  draft.hp = result.stats.hp
+  draft.maxHp = result.stats.maxHp
+  draft.tempHp = result.stats.tempHp ?? 0
+}
+
+function normalizeClassLevelsForV1() {
+  const first = head(draft.sheet.classLevels)
+  draft.sheet.classLevels = first === undefined ? [{ class: '', level: 1 }] : [first]
+}
 
 function hydrateFromBundle() {
   const b = bundle.value
@@ -84,7 +189,12 @@ function hydrateFromBundle() {
   draft.name = b.character.name
   draft.hp = b.character.stats.hp
   draft.maxHp = b.character.stats.maxHp
+  draft.tempHp = b.character.stats.tempHp ?? 0
   draft.sheet = hydrateSheetFromServer(b.character.sheet)
+  normalizeClassLevelsForV1()
+  localSheetRevision.value = b.character.sheetRevision ?? 0
+  previousActiveEffectIds.value = map(b.character.sheet?.activeEffects ?? [], (e) => e.id)
+  runLocalPipeline()
 }
 
 const canEdit = computed(() => bundle.value?.canEdit === true)
@@ -161,22 +271,6 @@ function classLevelReadonlyLabel(classKey: string): string {
     return '—'
   }
   return phbClassByKey[k]?.label ?? classKey
-}
-
-function addClassLevelRow() {
-  if (!canEditClassLevels.value) {
-    return
-  }
-  draft.sheet.classLevels = concat(draft.sheet.classLevels, [{ class: '', level: 1 }])
-  touch()
-}
-
-function removeClassLevelRow(index: number) {
-  if (!canEditClassLevels.value) {
-    return
-  }
-  draft.sheet.classLevels = filter(draft.sheet.classLevels, (_, i) => i !== index)
-  touch()
 }
 
 function addEquipmentRow(category?: EquipmentCategoryKey) {
@@ -321,24 +415,177 @@ function equipmentWeightDisplay(row: CharacterSheetForm['equipmentItems'][number
   return w.length > 0 ? w : '—'
 }
 
+function onBaseScoreInput(key: AbilityKey, ev: Event) {
+  if (!canEdit.value) {
+    return
+  }
+  const v = trim((ev.target as HTMLInputElement).value)
+  if (draft.sheet.abilityBaseScores === undefined) {
+    draft.sheet.abilityBaseScores = {}
+  }
+  if (v === '') {
+    delete draft.sheet.abilityBaseScores[key]
+  } else {
+    const n = Number(v)
+    if (Number.isFinite(n)) {
+      draft.sheet.abilityBaseScores[key] = Math.trunc(n)
+    }
+  }
+  runLocalPipeline()
+  touch()
+}
+
+function baseScoreDisplay(key: AbilityKey): string {
+  const v = draft.sheet.abilityBaseScores?.[key]
+  return v === undefined ? '' : String(v)
+}
+
+function toggleSaveProfPin(key: AbilityKey) {
+  const row = saveRef(key)
+  row.profPin = row.profPin !== true
+  if (row.profPin !== true) {
+    runLocalPipeline()
+  }
+  touch()
+}
+
+function toggleSkillProfPin(key: keyof CharacterSheetForm['skills']) {
+  const row = skillRef(key)
+  row.profPin = row.profPin !== true
+  if (row.profPin !== true) {
+    runLocalPipeline()
+  }
+  touch()
+}
+
+function onSkillExpertiseChange(key: keyof CharacterSheetForm['skills']) {
+  const row = skillRef(key)
+  if (row.expertise === true && expertiseSlotsUsed.value > expertiseSlotLimit.value) {
+    row.expertise = false
+    return
+  }
+  runLocalPipeline()
+  touch()
+}
+
+function toggleActiveEffect(effectKey: string) {
+  if (!canEdit.value) {
+    return
+  }
+  if (draft.sheet.activeEffects === undefined) {
+    draft.sheet.activeEffects = []
+  }
+  const existing = draft.sheet.activeEffects.find((e) => e.effectKey === effectKey)
+  if (existing !== undefined) {
+    draft.sheet.activeEffects = filter(draft.sheet.activeEffects, (e) => e.effectKey !== effectKey)
+  } else {
+    const def = getEffectDefinition(effectKey)
+    const started = combatRoundNumber.value
+    const endsAt = def !== undefined ? defaultEndsAtRound(started, def.durationRounds) : null
+    draft.sheet.activeEffects = concat(draft.sheet.activeEffects, [
+      {
+        id: crypto.randomUUID(),
+        effectKey,
+        catalogIndex: effectKey,
+        startedRound: started,
+        endsAtRound: endsAt,
+      },
+    ])
+  }
+  runLocalPipeline()
+  touch()
+}
+
+function isActiveEffectOn(effectKey: string): boolean {
+  return (draft.sheet.activeEffects ?? []).some((e) => e.effectKey === effectKey)
+}
+
+function onEffectEndsAtRoundChange(effectId: string, ev: Event) {
+  if (!viewerIsDm.value) {
+    return
+  }
+  const raw = trim((ev.target as HTMLInputElement).value)
+  const row = (draft.sheet.activeEffects ?? []).find((e) => e.id === effectId)
+  if (row === undefined) {
+    return
+  }
+  if (raw === '') {
+    row.endsAtRound = null
+  } else {
+    const n = Number(raw)
+    if (Number.isFinite(n)) {
+      row.endsAtRound = Math.trunc(n)
+    }
+  }
+  touch()
+}
+
+function hitDiePoolRows(): NonNullable<CharacterSheetForm['hitDiePool']> {
+  return draft.sheet.hitDiePool ?? []
+}
+
+function hitDieRemaining(row: { total: number; spent: number }): number {
+  return Math.max(0, row.total - row.spent)
+}
+
+function shortRestSpend() {
+  if (!canEdit.value) {
+    return
+  }
+  const pool = hitDiePoolRows()
+  if (pool.length !== 1) {
+    return
+  }
+  const row = pool[0]!
+  if (row.spent >= row.total) {
+    return
+  }
+  row.spent += 1
+  touch()
+}
+
+function longRestHitDice() {
+  if (!canEdit.value) {
+    return
+  }
+  for (const row of hitDiePoolRows()) {
+    row.spent = 0
+  }
+  touch()
+}
+
+function shortRestHealingReminder(): string {
+  const pool = hitDiePoolRows()
+  if (pool.length !== 1) {
+    return ''
+  }
+  const row = pool[0]!
+  const conMod = trim(String(draft.sheet.abilities.con?.mod ?? '+0'))
+  return `Heal d${row.dieSides} ${conMod} (manual HP)`
+}
+
 const scheduleSave = debounce(async () => {
   saveError.value = null
   if (!canEdit.value) {
     return
   }
+  runLocalPipeline()
   const hp = Math.min(99999, Math.max(0, Math.floor(Number(draft.hp)) || 0))
   const maxHp = Math.min(99999, Math.max(0, Math.floor(Number(draft.maxHp)) || 0))
+  const tempHp = Math.min(99999, Math.max(0, Math.floor(Number(draft.tempHp)) || 0))
   draft.hp = hp
   draft.maxHp = maxHp
+  draft.tempHp = tempHp
   try {
     await client.mutation(api.sessions.patchSessionCharacterSheet, {
       sessionId: props.sessionId,
       characterId: props.characterId,
       name: draft.name.trim(),
-      stats: { hp: draft.hp, maxHp: draft.maxHp },
-      sheetPatch: cloneDeep(draft.sheet),
+      stats: { hp: draft.hp, maxHp: draft.maxHp, tempHp: draft.tempHp },
+      sheetPatch: prepareSheetPatchForConvex(draft.sheet),
     })
     localDirty.value = false
+    previousActiveEffectIds.value = map(draft.sheet.activeEffects ?? [], (e) => e.id)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Could not save sheet.'
     saveError.value = msg
@@ -350,6 +597,7 @@ function touch() {
   if (!canEdit.value) {
     return
   }
+  runLocalPipeline()
   localDirty.value = true
   scheduleSave()
 }
@@ -358,6 +606,13 @@ watch(
   () => bundle.value,
   (b) => {
     if (!b) {
+      return
+    }
+    const serverRevision = b.character.sheetRevision ?? 0
+    if (serverRevision !== localSheetRevision.value) {
+      scheduleSave.cancel()
+      localDirty.value = false
+      hydrateFromBundle()
       return
     }
     if (localDirty.value) {
@@ -480,22 +735,23 @@ onBeforeUnmount(() => {
               Dungeon Master sets classes; you can view them here.
             </p>
             <div class="cs-class-list">
-              <div
-                v-for="(row, index) in draft.sheet.classLevels"
-                :key="index"
-                class="cs-class-row"
-              >
-                <select v-if="canEditClassLevels" v-model="row.class" class="input" @change="touch">
+              <div class="cs-class-row">
+                <select
+                  v-if="canEditClassLevels"
+                  v-model="draft.sheet.classLevels[0]!.class"
+                  class="input"
+                  @change="touch"
+                >
                   <option value="">Choose class…</option>
                   <option v-for="opt in CHARACTER_CLASS_OPTIONS" :key="opt.key" :value="opt.key">
                     {{ opt.label }}
                   </option>
                 </select>
                 <span v-else class="cs-class-readonly">{{
-                  classLevelReadonlyLabel(row.class)
+                  classLevelReadonlyLabel(draft.sheet.classLevels[0]?.class ?? '')
                 }}</span>
                 <input
-                  v-model.number="row.level"
+                  v-model.number="draft.sheet.classLevels[0]!.level"
                   class="input cs-class-level"
                   type="number"
                   min="1"
@@ -504,24 +760,7 @@ onBeforeUnmount(() => {
                   :disabled="!canEditClassLevels"
                   @input="touch"
                 />
-                <button
-                  v-if="canEditClassLevels"
-                  type="button"
-                  class="cs-icon-btn"
-                  aria-label="Remove class row"
-                  @click="removeClassLevelRow(index)"
-                >
-                  ×
-                </button>
               </div>
-              <button
-                v-if="canEditClassLevels"
-                type="button"
-                class="cs-link-btn"
-                @click="addClassLevelRow"
-              >
-                Add class
-              </button>
             </div>
           </div>
         </div>
@@ -529,41 +768,115 @@ onBeforeUnmount(() => {
 
       <section class="cs-section">
         <h3 class="cs-heading">Combat</h3>
+        <div v-if="effectSpellOptions.length" class="cs-effects">
+          <span class="cs-label">Active effects</span>
+          <div class="cs-effect-chips">
+            <label v-for="spell in effectSpellOptions" :key="spell.index" class="cs-effect-chip">
+              <input
+                type="checkbox"
+                :checked="isActiveEffectOn(spell.index)"
+                :disabled="!canEdit"
+                @change="toggleActiveEffect(spell.index)"
+              />
+              <span>{{ spell.name }}</span>
+            </label>
+          </div>
+          <ul v-if="(draft.sheet.activeEffects ?? []).length" class="cs-effect-meta">
+            <li v-for="eff in draft.sheet.activeEffects" :key="eff.id" class="cs-effect-meta-row">
+              <span>{{ eff.effectKey }}</span>
+              <label v-if="viewerIsDm" class="cs-inline tiny">
+                Ends round
+                <input
+                  class="input input-narrow"
+                  type="number"
+                  min="1"
+                  :value="eff.endsAtRound ?? ''"
+                  @change="onEffectEndsAtRoundChange(eff.id, $event)"
+                />
+              </label>
+            </li>
+          </ul>
+        </div>
         <div class="cs-grid cs-grid--3">
-          <!-- AC input is manual-only; computed SRD hint below avoids overwriting Barkskin/temp tweaks. -->
           <label class="cs-field">
-            <span class="cs-label">Armor class</span>
+            <span class="cs-label"
+              >Armor class
+              <button
+                type="button"
+                class="cs-pin-btn"
+                :class="{ active: isFieldOverridden('armorClass') }"
+                :disabled="!canEdit"
+                @click="toggleTopLevelOverride('armorClass')"
+              >
+                Pin
+              </button></span
+            >
             <input
-              v-model="draft.sheet.armorClass"
+              v-model.number="draft.sheet.armorClass"
               class="input"
-              type="text"
-              :disabled="!canEdit"
+              type="number"
+              min="0"
+              :disabled="!canEdit || !isFieldOverridden('armorClass')"
               @input="touch"
             />
             <span class="muted tiny">Calculated: {{ calculatedArmorClass }}</span>
           </label>
           <label class="cs-field">
-            <span class="cs-label">Initiative</span>
+            <span class="cs-label"
+              >Initiative
+              <button
+                type="button"
+                class="cs-pin-btn"
+                :class="{ active: isFieldOverridden('initiative') }"
+                :disabled="!canEdit"
+                @click="toggleTopLevelOverride('initiative')"
+              >
+                Pin
+              </button></span
+            >
             <input
               v-model="draft.sheet.initiative"
               class="input"
               type="text"
-              :disabled="!canEdit"
+              :disabled="!canEdit || !isFieldOverridden('initiative')"
               @input="touch"
             />
           </label>
           <label class="cs-field">
-            <span class="cs-label">Speed</span>
+            <span class="cs-label"
+              >Speed (ft)
+              <button
+                type="button"
+                class="cs-pin-btn"
+                :class="{ active: isFieldOverridden('speed') }"
+                :disabled="!canEdit"
+                @click="toggleTopLevelOverride('speed')"
+              >
+                Pin
+              </button></span
+            >
             <input
-              v-model="draft.sheet.speed"
+              v-model.number="draft.sheet.speed"
               class="input"
-              type="text"
-              :disabled="!canEdit"
+              type="number"
+              min="0"
+              :disabled="!canEdit || !isFieldOverridden('speed')"
               @input="touch"
             />
             <span class="muted tiny">Calculated: {{ calculatedWalkingSpeed }}</span>
           </label>
         </div>
+        <label class="cs-field cs-field--wide">
+          <span class="cs-label">Speed notes</span>
+          <input
+            v-model="draft.sheet.speedNotes"
+            class="input"
+            type="text"
+            placeholder="fly 60, swim 30…"
+            :disabled="!canEdit"
+            @input="touch"
+          />
+        </label>
         <div class="cs-grid cs-grid--3 cs-tight">
           <label class="cs-field">
             <span class="cs-label">Current hit points</span>
@@ -576,11 +889,12 @@ onBeforeUnmount(() => {
               :disabled="!canEdit"
               @input="touch"
             />
+            <span v-if="draft.tempHp > 0" class="muted tiny">+ {{ draft.tempHp }} temp</span>
           </label>
           <label class="cs-field">
-            <span class="cs-label">Max hit points</span>
+            <span class="cs-label">Temp hit points</span>
             <input
-              v-model.number="draft.maxHp"
+              v-model.number="draft.tempHp"
               class="input"
               type="number"
               min="0"
@@ -588,19 +902,61 @@ onBeforeUnmount(() => {
               :disabled="!canEdit"
               @input="touch"
             />
-            <span class="muted tiny">Calculated: {{ calculatedMaxHitPointsDisplay }}</span>
           </label>
           <label class="cs-field">
-            <span class="cs-label">Hit dice</span>
+            <span class="cs-label"
+              >Max hit points
+              <button
+                type="button"
+                class="cs-pin-btn"
+                :class="{ active: isFieldOverridden('maxHp') }"
+                :disabled="!canEdit"
+                @click="toggleTopLevelOverride('maxHp')"
+              >
+                Pin
+              </button></span
+            >
             <input
-              v-model="draft.sheet.hitDice"
+              v-model.number="draft.maxHp"
               class="input"
-              type="text"
-              :disabled="!canEdit"
+              type="number"
+              min="0"
+              max="99999"
+              :disabled="!canEdit || !isFieldOverridden('maxHp')"
               @input="touch"
             />
-            <span class="muted tiny">Plain text for your short-rest Hit Die pool.</span>
+            <span class="muted tiny">Calculated: {{ calculatedMaxHitPointsDisplay }}</span>
           </label>
+          <div class="cs-field">
+            <span class="cs-label">Hit die pool</span>
+            <template v-if="hitDiePoolRows().length">
+              <p v-for="row in hitDiePoolRows()" :key="row.dieSides" class="tiny">
+                d{{ row.dieSides }} {{ hitDieRemaining(row) }}/{{ row.total }}
+              </p>
+              <div class="cs-row cs-row--wrap">
+                <button
+                  type="button"
+                  class="cs-link-btn"
+                  :disabled="!canEdit || hitDiePoolRows().length !== 1"
+                  @click="shortRestSpend"
+                >
+                  Short rest
+                </button>
+                <button
+                  type="button"
+                  class="cs-link-btn"
+                  :disabled="!canEdit"
+                  @click="longRestHitDice"
+                >
+                  Long rest
+                </button>
+              </div>
+              <p v-if="shortRestHealingReminder()" class="muted tiny">
+                {{ shortRestHealingReminder() }}
+              </p>
+            </template>
+            <p v-else class="muted tiny">— (multiclass or no class)</p>
+          </div>
         </div>
         <div class="cs-row cs-row--wrap">
           <label class="cs-inline">
@@ -613,22 +969,44 @@ onBeforeUnmount(() => {
             <span>Inspiration</span>
           </label>
           <label class="cs-field cs-field--narrow">
-            <span class="cs-label">Proficiency bonus</span>
+            <span class="cs-label"
+              >Proficiency bonus
+              <button
+                type="button"
+                class="cs-pin-btn"
+                :class="{ active: isFieldOverridden('proficiencyBonus') }"
+                :disabled="!canEdit"
+                @click="toggleTopLevelOverride('proficiencyBonus')"
+              >
+                Pin
+              </button></span
+            >
             <input
               v-model="draft.sheet.proficiencyBonus"
               class="input"
               type="text"
-              :disabled="!canEdit"
+              :disabled="!canEdit || !isFieldOverridden('proficiencyBonus')"
               @input="touch"
             />
           </label>
           <label class="cs-field cs-field--narrow">
-            <span class="cs-label">Passive perception</span>
+            <span class="cs-label"
+              >Passive perception
+              <button
+                type="button"
+                class="cs-pin-btn"
+                :class="{ active: isFieldOverridden('passivePerception') }"
+                :disabled="!canEdit"
+                @click="toggleTopLevelOverride('passivePerception')"
+              >
+                Pin
+              </button></span
+            >
             <input
               v-model="draft.sheet.passivePerception"
               class="input"
               type="text"
-              :disabled="!canEdit"
+              :disabled="!canEdit || !isFieldOverridden('passivePerception')"
               @input="touch"
             />
           </label>
@@ -687,25 +1065,38 @@ onBeforeUnmount(() => {
       <div class="cs-columns">
         <section class="cs-section">
           <h3 class="cs-heading">Abilities</h3>
-          <div class="cs-ability-head">
+          <p class="muted tiny">
+            Base scores (before racial); effective score/mod update from pipeline.
+          </p>
+          <div class="cs-ability-head cs-ability-head--4">
             <span></span>
+            <span class="tiny muted">Base</span>
             <span class="tiny muted">Score</span>
             <span class="tiny muted">Mod</span>
           </div>
-          <div v-for="row in ABILITY_ROWS" :key="row.key" class="cs-ability-row">
+          <div v-for="row in ABILITY_ROWS" :key="row.key" class="cs-ability-row cs-ability-row--4">
             <span class="cs-ability-label">{{ row.label }}</span>
+            <input
+              :value="baseScoreDisplay(row.key)"
+              class="input input-narrow"
+              type="number"
+              min="1"
+              max="30"
+              :disabled="!canEdit"
+              @input="onBaseScoreInput(row.key, $event)"
+            />
             <input
               v-model="abilityRef(row.key).score"
               class="input input-narrow"
               type="text"
-              :disabled="!canEdit"
+              :disabled="!canEdit || !isFieldOverridden('abilities', row.key, 'score')"
               @input="touch"
             />
             <input
               v-model="abilityRef(row.key).mod"
               class="input input-narrow"
               type="text"
-              :disabled="!canEdit"
+              :disabled="!canEdit || !isFieldOverridden('abilities', row.key, 'mod')"
               @input="touch"
             />
           </div>
@@ -714,7 +1105,7 @@ onBeforeUnmount(() => {
         <section class="cs-section">
           <h3 class="cs-heading">Saving throws</h3>
           <div v-for="row in ABILITY_ROWS" :key="`save-${row.key}`" class="cs-save-row">
-            <label class="cs-inline">
+            <label class="cs-prof-check" title="Proficient">
               <input
                 v-model="saveRef(row.key).prof"
                 type="checkbox"
@@ -723,11 +1114,21 @@ onBeforeUnmount(() => {
               />
             </label>
             <span class="cs-save-label">{{ row.label }}</span>
+            <button
+              type="button"
+              class="cs-prof-pin"
+              :class="{ active: saveRef(row.key).profPin === true }"
+              :disabled="!canEdit"
+              title="Pin proficiency (ignore class changes)"
+              @click="toggleSaveProfPin(row.key)"
+            >
+              Pin
+            </button>
             <input
               v-model="saveRef(row.key).mod"
-              class="input input-narrow"
+              class="input input-narrow cs-mod-input"
               type="text"
-              :disabled="!canEdit"
+              :disabled="!canEdit || !isFieldOverridden('saves', row.key, 'mod')"
               @input="touch"
             />
           </div>
@@ -736,9 +1137,17 @@ onBeforeUnmount(() => {
 
       <section class="cs-section">
         <h3 class="cs-heading">Skills</h3>
+        <p v-if="expertiseSlotLimit > 0" class="muted tiny">
+          Expertise slots: {{ expertiseSlotsUsed }} / {{ expertiseSlotLimit }}
+        </p>
         <div class="cs-skill-table">
-          <div v-for="row in SKILL_ROWS" :key="row.key" class="cs-skill-row">
-            <label class="cs-inline">
+          <div
+            v-for="row in SKILL_ROWS"
+            :key="row.key"
+            class="cs-skill-row"
+            :class="{ 'cs-skill-row--expertise': expertiseSlotLimit > 0 }"
+          >
+            <label class="cs-prof-check" title="Proficient">
               <input
                 v-model="skillRef(row.key).prof"
                 type="checkbox"
@@ -746,12 +1155,35 @@ onBeforeUnmount(() => {
                 @change="touch"
               />
             </label>
+            <label
+              v-if="expertiseSlotLimit > 0"
+              class="cs-prof-check"
+              title="Expertise (double proficiency)"
+            >
+              <input
+                v-model="skillRef(row.key).expertise"
+                type="checkbox"
+                :disabled="!canEdit || !skillRef(row.key).prof"
+                @change="onSkillExpertiseChange(row.key)"
+              />
+              <span class="cs-prof-check-label">×2</span>
+            </label>
             <span class="cs-skill-label">{{ row.label }}</span>
+            <button
+              type="button"
+              class="cs-prof-pin"
+              :class="{ active: skillRef(row.key).profPin === true }"
+              :disabled="!canEdit"
+              title="Pin proficiency (ignore class changes)"
+              @click="toggleSkillProfPin(row.key)"
+            >
+              Pin
+            </button>
             <input
               v-model="skillRef(row.key).mod"
-              class="input input-narrow"
+              class="input input-narrow cs-mod-input"
               type="text"
-              :disabled="!canEdit"
+              :disabled="!canEdit || !isFieldOverridden('skills', row.key, 'mod')"
               @input="touch"
             />
           </div>
@@ -1138,7 +1570,7 @@ onBeforeUnmount(() => {
 }
 .cs-class-row {
   display: grid;
-  grid-template-columns: 1fr 72px 28px;
+  grid-template-columns: 1fr 72px;
   gap: 0.35rem;
   align-items: center;
 }
@@ -1218,13 +1650,13 @@ onBeforeUnmount(() => {
 }
 .cs-ability-head {
   display: grid;
-  grid-template-columns: 1fr 64px 64px;
+  grid-template-columns: minmax(0, 1fr) 52px 52px 52px;
   gap: 0.35rem;
   margin-bottom: 0.25rem;
 }
 .cs-ability-row {
   display: grid;
-  grid-template-columns: 1fr 64px 64px;
+  grid-template-columns: minmax(0, 1fr) 52px 52px 52px;
   gap: 0.35rem;
   align-items: center;
   margin-bottom: 0.25rem;
@@ -1232,15 +1664,28 @@ onBeforeUnmount(() => {
 .cs-ability-label {
   font-size: 0.85rem;
 }
+.cs-prof-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  margin: 0;
+}
+.cs-prof-check-label {
+  font-size: 0.65rem;
+  color: var(--muted, #888);
+  line-height: 1;
+}
 .cs-save-row {
   display: grid;
-  grid-template-columns: 28px 1fr 64px;
-  gap: 0.35rem;
+  grid-template-columns: 24px minmax(0, 1fr) auto 52px;
+  gap: 0.35rem 0.5rem;
   align-items: center;
   margin-bottom: 0.25rem;
 }
 .cs-save-label {
   font-size: 0.85rem;
+  min-width: 0;
 }
 .cs-skill-table {
   display: flex;
@@ -1249,12 +1694,40 @@ onBeforeUnmount(() => {
 }
 .cs-skill-row {
   display: grid;
-  grid-template-columns: 28px 1fr 64px;
-  gap: 0.35rem;
+  grid-template-columns: 24px minmax(0, 1fr) auto 52px;
+  gap: 0.35rem 0.5rem;
   align-items: center;
+}
+.cs-skill-row--expertise {
+  grid-template-columns: 24px 36px minmax(0, 1fr) auto 52px;
 }
 .cs-skill-label {
   font-size: 0.82rem;
+  min-width: 0;
+}
+.cs-prof-pin {
+  padding: 0.1rem 0.35rem;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  border: 1px solid var(--border, #444);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted, #888);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cs-prof-pin:hover:not(:disabled) {
+  color: var(--text, #eee);
+  border-color: var(--muted, #666);
+}
+.cs-prof-pin.active {
+  background: var(--accent-dim, #334);
+  border-color: var(--accent, #88a);
+  color: var(--text, #eee);
+}
+.cs-mod-input {
+  justify-self: end;
+  text-align: center;
 }
 .cs-equipped-block {
   margin-top: 0.75rem;
@@ -1319,5 +1792,45 @@ onBeforeUnmount(() => {
 }
 .tiny {
   font-size: 0.75rem;
+}
+.cs-pin-btn {
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.65rem;
+  border: 1px solid var(--border, #444);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+.cs-pin-btn.active {
+  background: var(--accent-dim, #334);
+  border-color: var(--accent, #88a);
+}
+.cs-effect-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0.5rem;
+}
+.cs-effect-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--border, #444);
+  border-radius: 4px;
+}
+.cs-effect-meta {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+}
+.cs-effect-meta-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
 }
 </style>

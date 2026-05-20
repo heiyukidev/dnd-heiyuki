@@ -32,6 +32,7 @@ export function canonicalSessionCharacterDocument(
     name: c.name,
     isPlayable: sessionCharacterIsPlayable(c),
     stats: c.stats,
+    ...(c.sheetRevision !== undefined ? { sheetRevision: c.sheetRevision } : {}),
     ...(c.boundClerkUserId !== undefined ? { boundClerkUserId: c.boundClerkUserId } : {}),
     ...(isPlacedCharacter(c) ? { mapCol: c.mapCol, mapRow: c.mapRow } : {}),
     ...(sheetOut !== undefined ? { sheet: sheetOut } : {}),
@@ -57,7 +58,14 @@ export async function patchSessionCharacterCanonical(
   updates: Partial<
     Pick<
       Doc<'sessionCharacters'>,
-      'name' | 'stats' | 'sheet' | 'boundClerkUserId' | 'mapCol' | 'mapRow' | 'isPlayable'
+      | 'name'
+      | 'stats'
+      | 'sheet'
+      | 'boundClerkUserId'
+      | 'mapCol'
+      | 'mapRow'
+      | 'isPlayable'
+      | 'sheetRevision'
     >
   >,
 ): Promise<void> {

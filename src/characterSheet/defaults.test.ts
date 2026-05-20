@@ -7,10 +7,8 @@ describe('hydrateSheetFromServer', () => {
       classAndLevel: '  Wizard  ',
     } as never)
     expect(out.classLevels).toEqual([{ class: 'wizard', level: 1 }])
-    expect(out.abilities.int.score).toBe('15')
-    expect(out.abilities.int.mod).toBe('+2')
-    expect(out.abilities.str.score).toBe('8')
-    expect(out.abilities.str.mod).toBe('-1')
+    expect(out.abilityBaseScores?.int).toBe(15)
+    expect(out.abilityBaseScores?.str).toBe(8)
   })
 
   it('drops unmappable legacy classAndLevel without blocking', () => {
@@ -75,35 +73,38 @@ describe('hydrateSheetFromServer', () => {
     expect(out.equippedLoadout.weapon).toBe('longsword')
   })
 
-  it('fills standard-array abilities for a single resolved PHB class when abilities are blank', () => {
+  it('fills standard-array base scores for a single resolved PHB class when abilities are blank', () => {
     const out = hydrateSheetFromServer({
       classLevels: [{ class: 'fighter', level: 1 }],
     } as never)
-    expect(out.abilities.str.score).toBe('15')
-    expect(out.abilities.str.mod).toBe('+2')
-    expect(out.abilities.int.score).toBe('8')
+    expect(out.abilityBaseScores?.str).toBe(15)
+    expect(out.abilityBaseScores?.int).toBe(8)
   })
 
-  it('does not preset abilities when more than one class row exists', () => {
+  it('does not preset base scores when more than one class row exists', () => {
     const out = hydrateSheetFromServer({
       classLevels: [
         { class: 'fighter', level: 2 },
         { class: 'wizard', level: 1 },
       ],
     } as never)
-    expect(out.abilities.str.score).toBe('')
+    expect(out.abilityBaseScores?.str).toBeUndefined()
   })
 
-  it('does not overwrite abilities when any ability cell is already set', () => {
-    const base = createDefaultSheet()
+  it('does not overwrite base scores when customized away from any preset', () => {
     const out = hydrateSheetFromServer({
       classLevels: [{ class: 'wizard', level: 1 }],
-      abilities: {
-        ...base.abilities,
-        int: { score: '16', mod: '+3' },
-      },
+      abilityBaseScores: { int: 16, str: 8, dex: 14, con: 13, wis: 12, cha: 10 },
     } as never)
-    expect(out.abilities.int.score).toBe('16')
-    expect(out.abilities.str.score).toBe('')
+    expect(out.abilityBaseScores?.int).toBe(16)
+  })
+
+  it('maps legacy string armor class and speed to integers', () => {
+    const out = hydrateSheetFromServer({
+      armorClass: '16',
+      speed: '30',
+    } as never)
+    expect(out.armorClass).toBe(16)
+    expect(out.speed).toBe(30)
   })
 })

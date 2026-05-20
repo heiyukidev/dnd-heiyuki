@@ -1,0 +1,58 @@
+[
+  {
+    "effectKey": "barkskin",
+    "durationRounds": 10,
+    "modifiers": [{ "op": "acFloor", "value": 16 }]
+  },
+  {
+    "effectKey": "mage-armor",
+    "durationRounds": null,
+    "modifiers": [{ "op": "acSet", "base": 13, "addDexMod": true }]
+  },
+  {
+    "effectKey": "shield-of-faith",
+    "durationRounds": 10,
+    "modifiers": [{ "op": "acBonus", "value": 2 }]
+  },
+  {
+    "effectKey": "shield",
+    "durationRounds": 1,
+    "modifiers": [{ "op": "acBonus", "value": 5 }]
+  },
+  {
+    "effectKey": "haste",
+    "durationRounds": 10,
+    "modifiers": [
+      { "op": "acBonus", "value": 2 },
+      { "op": "speedAdjust", "multiply": 2 }
+    ]
+  },
+  {
+    "effectKey": "longstrider",
+    "durationRounds": 600,
+    "modifiers": [{ "op": "speedAdjust", "add": 10 }]
+  },
+  {
+    "effectKey": "aid",
+    "durationRounds": 600,
+    "modifiers": [{ "op": "maxHpBonus", "value": 5 }]
+  },
+  {
+    "effectKey": "pass-without-trace",
+    "durationRounds": 10,
+    "modifiers": [{ "op": "skillBonus", "skill": "stealth", "value": 10 }]
+  },
+  {
+    "effectKey": "warding-bond",
+    "durationRounds": 60,
+    "modifiers": [
+      { "op": "acBonus", "value": 1 },
+      { "op": "saveBonusAll", "value": 1 }
+    ]
+  },
+  {
+    "effectKey": "false-life",
+    "durationRounds": null,
+    "modifiers": [{ "op": "tempHpGrant", "value": 12 }]
+  }
+]

@@ -14,6 +14,8 @@ import {
 } from '../../convex/characterSheetValidators'
 import { getSrdCatalogEntryByIndex } from '../catalog/srdCatalog'
 import { maybeApplyStandardArrayAbilitiesToSheet } from './standardArrayAbilitiesByClass'
+import type { AbilityKey } from './derived/types'
+import { ABILITY_KEYS } from './derived/types'
 
 type ServerSheet = NonNullable<Doc<'sessionCharacters'>['sheet']>
 
@@ -31,6 +33,23 @@ export type CharacterEquipmentRow = {
 
 export type EquippedLoadout = Partial<Record<EquipmentEquipSlotKey, string>>
 
+export type ActiveEffectRow = {
+  id: string
+  effectKey: string
+  catalogIndex?: string
+  startedRound?: number
+  endsAtRound?: number | null
+}
+
+export type HitDiePoolFormRow = {
+  dieSides: number
+  total: number
+  spent: number
+  poolPin?: boolean
+}
+
+export type StatOverridesForm = NonNullable<ServerSheet['statOverrides']>
+
 export type CharacterSheetForm = Omit<
   ServerSheet,
   'abilities' | 'saves' | 'skills' | 'classLevels' | 'race' | 'equipmentItems'
@@ -42,6 +61,14 @@ export type CharacterSheetForm = Omit<
   race: PhbRaceKey | ''
   equipmentItems: CharacterEquipmentRow[]
   equippedLoadout: EquippedLoadout
+  armorClass?: number
+  speed?: number
+  speedNotes?: string
+  statOverrides?: StatOverridesForm
+  abilityBaseScores?: Partial<Record<AbilityKey, number>>
+  racialBonuses?: Partial<Record<AbilityKey, number>>
+  activeEffects?: ActiveEffectRow[]
+  hitDiePool?: HitDiePoolFormRow[]
 }
 
 const LEGACY_CLASS_AND_LEVEL = 'classAndLevel' as const
@@ -177,6 +204,42 @@ function migrateEquipmentLoadoutAndItems(
   return { items: working, equippedLoadout: loadout }
 }
 
+function parseLegacyIntField(raw: unknown): number | undefined {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return Math.trunc(raw)
+  }
+  if (typeof raw === 'string') {
+    const s = trim(raw)
+    if (s.length === 0) {
+      return undefined
+    }
+    const n = Number(s)
+    if (Number.isFinite(n)) {
+      return Math.trunc(n)
+    }
+  }
+  return undefined
+}
+
+function initAbilityBaseScoresFromCells(form: CharacterSheetForm): void {
+  if (form.abilityBaseScores === undefined) {
+    form.abilityBaseScores = {}
+  }
+  for (const k of ABILITY_KEYS) {
+    if (form.abilityBaseScores[k] !== undefined) {
+      continue
+    }
+    const scoreStr = trim(String(form.abilities[k]?.score ?? ''))
+    if (scoreStr.length === 0) {
+      continue
+    }
+    const n = Number(scoreStr)
+    if (Number.isFinite(n)) {
+      form.abilityBaseScores[k] = Math.trunc(n)
+    }
+  }
+}
+
 export function hydrateSheetFromServer(sheet: ServerSheet | null | undefined): CharacterSheetForm {
   const base = createDefaultSheet()
   const merged = merge({}, base, sheet ?? {})
@@ -201,7 +264,34 @@ export function hydrateSheetFromServer(sheet: ServerSheet | null | undefined): C
     race: resolvePhbRaceKey(trim(String(merged.race ?? ''))) ?? '',
     equipmentItems: items,
     equippedLoadout,
+    armorClass: parseLegacyIntField(get(sheet, 'armorClass') ?? get(merged, 'armorClass')),
+    speed: parseLegacyIntField(get(sheet, 'speed') ?? get(merged, 'speed')),
+    speedNotes: trim(String(get(merged, 'speedNotes') ?? '')),
+    statOverrides: (get(merged, 'statOverrides') ?? {}) as StatOverridesForm,
+    abilityBaseScores: (get(merged, 'abilityBaseScores') ?? {}) as Partial<
+      Record<AbilityKey, number>
+    >,
+    racialBonuses: (get(merged, 'racialBonuses') ?? {}) as Partial<Record<AbilityKey, number>>,
+    activeEffects: Array.isArray(get(merged, 'activeEffects'))
+      ? (get(merged, 'activeEffects') as ActiveEffectRow[])
+      : [],
+    hitDiePool: Array.isArray(get(merged, 'hitDiePool'))
+      ? (get(merged, 'hitDiePool') as HitDiePoolFormRow[])
+      : [],
   } as CharacterSheetForm
+  initAbilityBaseScoresFromCells(form)
   maybeApplyStandardArrayAbilitiesToSheet(form)
   return form
+}
+
+/** Truncate enrolled integer sheet fields before Convex patch (avoids 10.0 float validation quirks). */
+export function prepareSheetPatchForConvex(sheet: CharacterSheetForm): CharacterSheetForm {
+  const patch = merge({}, sheet)
+  if (typeof patch.armorClass === 'number' && Number.isFinite(patch.armorClass)) {
+    patch.armorClass = Math.trunc(patch.armorClass)
+  }
+  if (typeof patch.speed === 'number' && Number.isFinite(patch.speed)) {
+    patch.speed = Math.trunc(patch.speed)
+  }
+  return patch
 }

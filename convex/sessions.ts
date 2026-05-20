@@ -1,4 +1,17 @@
-import { filter, find, flatten, includes, map, merge, omit, orderBy, sortBy, times } from 'lodash'
+import {
+  filter,
+  find,
+  flatten,
+  get,
+  includes,
+  keyBy,
+  map,
+  merge,
+  omit,
+  orderBy,
+  sortBy,
+  times,
+} from 'lodash'
 import { v } from 'convex/values'
 import { CHARACTER_CLASS_OPTIONS, resolvePhbClassKey } from './characterClasses'
 import {
@@ -7,6 +20,8 @@ import {
   validateCharacterSheetForPersist,
 } from './characterSheetValidators'
 import { createDefaultConvexSheetPayload } from './defaultCharacterSheet'
+import { applyDerivedPipeline, expireActiveEffectsForRound } from './derivedPipeline'
+import type { ActiveEffectInstance } from './derivedPipeline'
 import {
   canonicalSessionCharacterDocument,
   canonicalSessionCharacterReplace,
@@ -120,6 +135,103 @@ async function writeCharacterWithoutPlacement(ctx: MutationCtx, c: Doc<'sessionC
     ...(doc.boundClerkUserId !== undefined ? { boundClerkUserId: doc.boundClerkUserId } : {}),
     ...(doc.sheet !== undefined ? { sheet: doc.sheet } : {}),
   })
+}
+
+function activeEffectRowsFromSheet(
+  sheet: Doc<'sessionCharacters'>['sheet'],
+): ActiveEffectInstance[] {
+  const raw = get(sheet, 'activeEffects')
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  return raw.filter(
+    (row): row is ActiveEffectInstance =>
+      row !== null &&
+      typeof row === 'object' &&
+      typeof get(row, 'id') === 'string' &&
+      typeof get(row, 'effectKey') === 'string',
+  )
+}
+
+function activeEffectIdsFromSheet(sheet: Doc<'sessionCharacters'>['sheet']): string[] {
+  return map(activeEffectRowsFromSheet(sheet), (row) => row.id)
+}
+
+function sanitizePlayerActiveEffectsPatch(
+  serverSheet: Doc<'sessionCharacters'>['sheet'],
+  patchEffects: unknown,
+): unknown {
+  if (patchEffects === undefined) {
+    return undefined
+  }
+  if (!Array.isArray(patchEffects)) {
+    return patchEffects
+  }
+  const serverById = keyBy(activeEffectRowsFromSheet(serverSheet), (row) => row.id)
+  return map(patchEffects, (entry) => {
+    if (entry === null || typeof entry !== 'object') {
+      return entry
+    }
+    const eff = entry as ActiveEffectInstance
+    const server = serverById[eff.id]
+    if (server === undefined) {
+      return eff
+    }
+    return {
+      ...eff,
+      startedRound: server.startedRound,
+      endsAtRound: server.endsAtRound,
+    }
+  })
+}
+
+function normalizeStatsPatch(
+  stats: { hp: number; maxHp: number; tempHp?: number },
+  existing: Doc<'sessionCharacters'>['stats'],
+): Doc<'sessionCharacters'>['stats'] {
+  const tempHp = stats.tempHp ?? existing.tempHp ?? 0
+  if (!Number.isInteger(tempHp) || tempHp < 0 || tempHp > 99999) {
+    throw new Error('Invalid stats')
+  }
+  return { hp: stats.hp, maxHp: stats.maxHp, tempHp }
+}
+
+function nextSheetRevision(character: Doc<'sessionCharacters'>): number {
+  return (character.sheetRevision ?? 0) + 1
+}
+
+async function recalcCharacterSheetWithPipeline(
+  ctx: MutationCtx,
+  character: Doc<'sessionCharacters'>,
+  previousActiveEffectIds?: readonly string[],
+): Promise<{
+  sheet: Doc<'sessionCharacters'>['sheet']
+  stats: Doc<'sessionCharacters'>['stats']
+  sheetRevision: number
+}> {
+  const sheetRec = merge({}, character.sheet ?? createDefaultConvexSheetPayload()) as Record<
+    string,
+    unknown
+  >
+  const sanitized = sanitizeCharacterSheetForPersist(sheetRec)
+  const sheet = (sanitized ?? sheetRec) as Record<string, unknown>
+  const stats = {
+    hp: character.stats.hp,
+    maxHp: character.stats.maxHp,
+    tempHp: character.stats.tempHp ?? 0,
+  }
+  const prevIds = previousActiveEffectIds ?? activeEffectIdsFromSheet(character.sheet)
+  const result = applyDerivedPipeline(sheet, stats, { previousActiveEffectIds: prevIds })
+  validateCharacterSheetForPersist(result.sheet as Record<string, unknown>)
+  return {
+    sheet: result.sheet as Doc<'sessionCharacters'>['sheet'],
+    stats: {
+      hp: result.stats.hp,
+      maxHp: result.stats.maxHp,
+      tempHp: result.stats.tempHp ?? 0,
+    },
+    sheetRevision: nextSheetRevision(character),
+  }
 }
 
 async function requireMemberForSession(ctx: SessionReadCtx, sessionId: Id<'sessions'>) {
@@ -675,7 +787,7 @@ export const createSessionCharacter = mutation({
       sessionId,
       name: trimmed,
       isPlayable,
-      stats: { hp: 10, maxHp: 10 },
+      stats: { hp: 10, maxHp: 10, tempHp: 0 },
       sheet: sheetPersist as Doc<'sessionCharacters'>['sheet'],
     })
     return { characterId }
@@ -772,7 +884,14 @@ export const getSessionTurnOrder = query({
       }),
       (e) => e !== null,
     ) as Array<{ characterId: Id<'sessionCharacters'>; name: string; isPlayable: boolean }>
-    return { entries }
+    return {
+      entries,
+      combatRoundActive: session.combatRoundActive === true,
+      combatRoundNumber:
+        typeof session.combatRoundNumber === 'number' && session.combatRoundNumber >= 1
+          ? session.combatRoundNumber
+          : 1,
+    }
   },
 })
 
@@ -854,8 +973,14 @@ export const getSessionCharacterSheetForViewer = query({
         isPlayable: sessionCharacterIsPlayable(character),
         stats: character.stats,
         sheet: character.sheet,
+        sheetRevision: character.sheetRevision ?? 0,
       },
       sessionStatus: session.status,
+      combatRoundActive: session.combatRoundActive === true,
+      combatRoundNumber:
+        typeof session.combatRoundNumber === 'number' && session.combatRoundNumber >= 1
+          ? session.combatRoundNumber
+          : 1,
       canEdit: live,
       viewerRole,
     }
@@ -1005,9 +1130,102 @@ export const setSessionCharacterMapPlacement = mutation({
   },
 })
 
+export const startCombat = mutation({
+  args: { sessionId: v.id('sessions') },
+  handler: async (ctx, { sessionId }) => {
+    await requireDmLiveSession(ctx, sessionId)
+    await ctx.db.patch(sessionId, { combatRoundActive: true, combatRoundNumber: 1 })
+    return { ok: true as const }
+  },
+})
+
+export const advanceCombatRound = mutation({
+  args: { sessionId: v.id('sessions') },
+  handler: async (ctx, { sessionId }) => {
+    const { session } = await requireDmLiveSession(ctx, sessionId)
+    if (session.combatRoundActive !== true) {
+      throw new Error('Combat is not active')
+    }
+    const newRound = (session.combatRoundNumber ?? 1) + 1
+    const chars = await ctx.db
+      .query('sessionCharacters')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
+      .collect()
+    for (const c of chars) {
+      const sheetRec = merge({}, c.sheet ?? {}) as Record<string, unknown>
+      const effects = get(sheetRec, 'activeEffects')
+      if (Array.isArray(effects)) {
+        sheetRec.activeEffects = expireActiveEffectsForRound(
+          effects as ActiveEffectInstance[],
+          newRound,
+        )
+      }
+      const prevIds = activeEffectIdsFromSheet(c.sheet)
+      const { sheet, stats, sheetRevision } = await recalcCharacterSheetWithPipeline(
+        ctx,
+        { ...c, sheet: sheetRec as Doc<'sessionCharacters'>['sheet'] },
+        prevIds,
+      )
+      await patchSessionCharacterCanonical(ctx, c._id, { sheet, stats, sheetRevision })
+    }
+    await ctx.db.patch(sessionId, { combatRoundNumber: newRound })
+    return { ok: true as const, round: newRound }
+  },
+})
+
+export const endCombat = mutation({
+  args: { sessionId: v.id('sessions') },
+  handler: async (ctx, { sessionId }) => {
+    await requireDmLiveSession(ctx, sessionId)
+    await ctx.db.patch(sessionId, { combatRoundActive: false })
+    return { ok: true as const }
+  },
+})
+
+export const newFight = mutation({
+  args: { sessionId: v.id('sessions') },
+  handler: async (ctx, { sessionId }) => {
+    await requireDmLiveSession(ctx, sessionId)
+    await ctx.db.patch(sessionId, {
+      turnOrderCharacterIds: [],
+      combatRoundActive: false,
+      combatRoundNumber: 1,
+    })
+    const chars = await ctx.db
+      .query('sessionCharacters')
+      .withIndex('by_session', (q) => q.eq('sessionId', sessionId))
+      .collect()
+    for (const c of chars) {
+      const sheetRec = merge({}, c.sheet ?? createDefaultConvexSheetPayload()) as Record<
+        string,
+        unknown
+      >
+      sheetRec.activeEffects = []
+      const sanitized = sanitizeCharacterSheetForPersist(sheetRec)
+      let nextChar = c
+      if (isPlacedCharacter(c)) {
+        await writeCharacterWithoutPlacement(ctx, c)
+        const refreshed = await ctx.db.get(c._id)
+        if (refreshed !== null) {
+          nextChar = refreshed
+        }
+      }
+      const prevIds = activeEffectIdsFromSheet(c.sheet)
+      const { sheet, stats, sheetRevision } = await recalcCharacterSheetWithPipeline(
+        ctx,
+        { ...nextChar, sheet: sanitized as Doc<'sessionCharacters'>['sheet'] },
+        prevIds,
+      )
+      await patchSessionCharacterCanonical(ctx, c._id, { sheet, stats, sheetRevision })
+    }
+    return { ok: true as const }
+  },
+})
+
 const statsPatchValidator = v.object({
   hp: v.number(),
   maxHp: v.number(),
+  tempHp: v.optional(v.number()),
 })
 
 export const patchSessionCharacterSheet = mutation({
@@ -1042,6 +1260,8 @@ export const patchSessionCharacterSheet = mutation({
       throw new Error('Character not found')
     }
 
+    const prevEffectIds = activeEffectIdsFromSheet(character.sheet)
+
     const isDm = membership.role === 'dm'
     const isBoundPlayer =
       membership.role === 'player' && membership.boundCharacterId === characterId
@@ -1069,15 +1289,21 @@ export const patchSessionCharacterSheet = mutation({
       ) {
         throw new Error('Invalid stats')
       }
-      updates.stats = { hp: stats.hp, maxHp: stats.maxHp }
+      updates.stats = normalizeStatsPatch(stats, character.stats)
     }
     if (sheetPatch !== undefined) {
       const patchForMerge = isBoundPlayer && !isDm ? omit(sheetPatch, 'classLevels') : sheetPatch
       const patchRec = patchForMerge as Record<string, unknown>
+      if (!isDm && patchRec.activeEffects !== undefined) {
+        patchRec.activeEffects = sanitizePlayerActiveEffectsPatch(
+          character.sheet,
+          patchRec.activeEffects,
+        )
+      }
       const merged = merge(
         {},
         character.sheet ?? {},
-        omit(patchRec, ['equipmentItems', 'classLevels']),
+        omit(patchRec, ['equipmentItems', 'classLevels', 'activeEffects']),
       ) as Record<string, unknown>
       if (patchRec.equipmentItems !== undefined) {
         merged.equipmentItems = patchRec.equipmentItems
@@ -1085,9 +1311,26 @@ export const patchSessionCharacterSheet = mutation({
       if (patchRec.classLevels !== undefined) {
         merged.classLevels = patchRec.classLevels
       }
+      if (patchRec.activeEffects !== undefined) {
+        merged.activeEffects = patchRec.activeEffects
+      }
       const finalized = sanitizeCharacterSheetForPersist(merged)
       validateCharacterSheetForPersist(finalized)
-      updates.sheet = finalized as Doc<'sessionCharacters'>['sheet']
+      const baseStats = updates.stats ?? {
+        hp: character.stats.hp,
+        maxHp: character.stats.maxHp,
+        tempHp: character.stats.tempHp ?? 0,
+      }
+      const piped = applyDerivedPipeline(finalized ?? merged, baseStats, {
+        previousActiveEffectIds: prevEffectIds,
+      })
+      updates.sheet = piped.sheet as Doc<'sessionCharacters'>['sheet']
+      updates.stats = {
+        hp: piped.stats.hp,
+        maxHp: piped.stats.maxHp,
+        tempHp: piped.stats.tempHp ?? 0,
+      }
+      updates.sheetRevision = nextSheetRevision(character)
     }
     if (Object.keys(updates).length === 0) {
       return { ok: true as const }

@@ -14,6 +14,7 @@ const memberRole = v.union(v.literal('dm'), v.literal('player'))
 const statsValidator = v.object({
   hp: v.number(),
   maxHp: v.number(),
+  tempHp: v.optional(v.number()),
 })
 
 export default defineSchema({
@@ -29,6 +30,10 @@ export default defineSchema({
     mapRows: v.optional(v.number()),
     /** Ordered **Session character** ids for **Turn order** (manual **Dungeon Master** queue). */
     turnOrderCharacterIds: v.optional(v.array(v.id('sessionCharacters'))),
+    /** **Combat round clock (session)** — active flag. */
+    combatRoundActive: v.optional(v.boolean()),
+    /** Current combat round (≥1 while active). */
+    combatRoundNumber: v.optional(v.number()),
   }).index('by_joinToken', ['joinToken']),
 
   joinRequests: defineTable({
@@ -64,6 +69,8 @@ export default defineSchema({
     characterClassKey: v.optional(characterClassKeyValidator),
     stats: statsValidator,
     boundClerkUserId: v.optional(v.string()),
+    /** Bumped on server-side sheet recalc so clients re-hydrate after combat mutations. */
+    sheetRevision: v.optional(v.number()),
     /** Odd-r offset column within session map footprint; unset means unplaced. */
     mapCol: v.optional(v.number()),
     mapRow: v.optional(v.number()),
