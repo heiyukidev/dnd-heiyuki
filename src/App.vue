@@ -13,18 +13,19 @@ const sessionPlayShell = computed(() => route.name === 'session')
     <p class="shell-msg">Loading sign-in…</p>
   </ClerkLoading>
   <ClerkLoaded>
-    <ConvexClerkAuth />
-    <div class="app-layout">
-      <header class="top-nav">
-        <RouterLink to="/" class="brand">Heiyuki</RouterLink>
-        <nav>
-          <RouterLink to="/">Home</RouterLink>
-        </nav>
-      </header>
-      <main class="main" :class="{ 'main--session-play': sessionPlayShell }">
-        <router-view />
-      </main>
-    </div>
+    <ConvexClerkAuth>
+      <div class="app-layout">
+        <header class="top-nav">
+          <RouterLink to="/" class="brand">Heiyuki</RouterLink>
+          <nav>
+            <RouterLink to="/">Home</RouterLink>
+          </nav>
+        </header>
+        <main class="main" :class="{ 'main--session-play': sessionPlayShell }">
+          <router-view />
+        </main>
+      </div>
+    </ConvexClerkAuth>
   </ClerkLoaded>
 </template>
 

@@ -10,8 +10,10 @@ import { sortSessionsForHome } from '../lib/sessionSort'
 
 const client = useConvexClient()
 const router = useRouter()
-const { userId, isSignedIn } = useAuth()
-const { clerkLoaded, clerkSignedIn, convexTokenReady } = useConvexAuth()
+const { userId, isSignedIn, isLoaded } = useAuth()
+const { convexTokenReady } = useConvexAuth()
+const clerkLoaded = isLoaded
+const clerkSignedIn = isSignedIn
 const title = ref('New session')
 const createSessionError = ref<string | null>(null)
 const createSessionBusy = ref(false)

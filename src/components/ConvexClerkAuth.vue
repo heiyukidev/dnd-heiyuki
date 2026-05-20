@@ -97,4 +97,6 @@ watch(
 )
 </script>
 
-<template></template>
+<template>
+  <slot />
+</template>
