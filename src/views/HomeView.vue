@@ -18,15 +18,21 @@ const title = ref('New session')
 const createSessionError = ref<string | null>(null)
 const createSessionBusy = ref(false)
 
-const canCreateSession = computed(
-  () =>
-    clerkLoaded.value && clerkSignedIn.value && convexTokenReady.value && !createSessionBusy.value,
-)
-
 const { data: mySessionsRaw, error: mySessionsError } = useConvexQuery(
   client,
   api.sessions.listMySessions,
   () => (clerkSignedIn.value && clerkLoaded.value ? {} : 'skip'),
+)
+
+/** Sessions loaded ⇒ Convex accepted our JWT even if the prime probe lagged. */
+const convexReachable = computed(
+  () =>
+    convexTokenReady.value || (mySessionsRaw.value !== undefined && mySessionsError.value === null),
+)
+
+const canCreateSession = computed(
+  () =>
+    clerkLoaded.value && clerkSignedIn.value && convexReachable.value && !createSessionBusy.value,
 )
 
 const mySessionsLoading = computed(
@@ -39,7 +45,7 @@ const mySessions = computed(() =>
 
 async function onCreateSession() {
   createSessionError.value = null
-  if (!convexTokenReady.value) {
+  if (!convexReachable.value) {
     createSessionError.value =
       'Still connecting to the server. If this persists, configure the Clerk JWT template named "convex" (see Convex + Clerk docs).'
     return
@@ -92,14 +98,14 @@ function joinHref(token: string) {
               ? 'Loading sign-in…'
               : !clerkSignedIn
                 ? 'Sign in to create'
-                : !convexTokenReady
+                : !convexReachable
                   ? 'Connecting…'
                   : createSessionBusy
                     ? 'Creating…'
                     : 'Create session'
           }}
         </button>
-        <p v-if="clerkSignedIn && clerkLoaded && !convexTokenReady" class="muted tiny">
+        <p v-if="clerkSignedIn && clerkLoaded && !convexReachable" class="muted tiny">
           Waiting for Convex auth. Add a Clerk JWT template named
           <span class="mono">convex</span> if this does not clear.
         </p>

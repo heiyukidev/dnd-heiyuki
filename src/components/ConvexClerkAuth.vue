@@ -82,14 +82,11 @@ watch(
         convexTokenReady.value = false
       },
     )
-    // Prime auth without waiting for a query/mutation (avoids "Connecting…" deadlock).
+    // Prime auth early; only flip to ready on success (never clear true — a late
+    // failed prime used to race behind a successful query and force "Connecting…").
     void fetchClerkJwt(false).then((token) => {
-      convexTokenReady.value = token !== null
-      if (!token && import.meta.env.DEV && !warnedTokenFailure.value) {
-        warnedTokenFailure.value = true
-        console.warn(
-          'Clerk did not return a Convex JWT. In the Clerk dashboard, add a JWT template named "convex" and set CLERK_JWT_ISSUER_DOMAIN in Convex env vars.',
-        )
+      if (token !== null) {
+        convexTokenReady.value = true
       }
     })
   },
