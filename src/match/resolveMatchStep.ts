@@ -1,5 +1,20 @@
-import { cloneDeep, filter, flatMap, forEach, get, map, min, range, some } from 'lodash'
+import {
+  cloneDeep,
+  filter,
+  flatMap,
+  forEach,
+  get,
+  map,
+  min,
+  range,
+  some,
+} from 'lodash'
 
+import {
+  resolveAllFireCapableEffectiveStats,
+  rewriteNextReadyAtForEffectiveCooldown,
+} from './effectiveStats'
+import type { EffectiveSlotStats } from './effectiveStats'
 import type {
   AnimationHint,
   ItemCatalog,
@@ -10,6 +25,7 @@ import type {
   ResolveMatchStepInput,
   SeatIndex,
 } from './types'
+import { isFireCapableItem } from './types'
 
 export const DEFAULT_MATCH_TIME_CAP_MS = 60_000
 export const MATCH_LIFE_CAP = 100
@@ -66,9 +82,102 @@ function advanceUnknownReadySlots(
 ): void {
   forEach(seats, (seat) => {
     forEach(seat.slots, (slot) => {
-      if (slot.nextReadyAt <= t && catalog[slot.itemKey] === undefined) {
+      if (
+        slot.nextReadyAt !== undefined &&
+        slot.nextReadyAt <= t &&
+        catalog[slot.itemKey] === undefined
+      ) {
         slot.nextReadyAt = timeCapAt
       }
+    })
+  })
+}
+
+function priorEffectiveCooldownMsForSlot(
+  slot: LoadoutSlot,
+  catalog: ItemCatalog,
+  priorEffectiveStats: EffectiveSlotStats[][] | undefined,
+  seat: SeatIndex,
+  slotIndex: number,
+): number | undefined {
+  const fromPriorStats = get(priorEffectiveStats, [seat, slotIndex, 'cooldownMs'])
+  if (typeof fromPriorStats === 'number') {
+    return fromPriorStats
+  }
+  if (slot.lastChargeCooldownMs !== undefined) {
+    return slot.lastChargeCooldownMs
+  }
+  const baseCooldownMs = catalog[slot.itemKey]?.cooldownMs
+  return typeof baseCooldownMs === 'number' ? baseCooldownMs : undefined
+}
+
+export function reEvalFireCapableSlotSchedules(
+  seats: [MatchSeatState, MatchSeatState],
+  now: number,
+  catalog: ItemCatalog,
+  priorEffectiveStats?: EffectiveSlotStats[][],
+): EffectiveSlotStats[][] {
+  const newEffectiveStats = resolveAllFireCapableEffectiveStats(seats, catalog)
+
+  forEach([0, 1] as SeatIndex[], (seat) => {
+    forEach(seats[seat].slots, (slot, slotIndex) => {
+      if (slot.nextReadyAt === undefined || slot.nextReadyAt <= now) {
+        return
+      }
+      const def = catalog[slot.itemKey]
+      if (!isFireCapableItem(def)) {
+        return
+      }
+
+      const newEffectiveCooldownMs = get(newEffectiveStats, [seat, slotIndex, 'cooldownMs'])
+      if (newEffectiveCooldownMs === undefined) {
+        return
+      }
+
+      const priorEffectiveCooldownMs = priorEffectiveCooldownMsForSlot(
+        slot,
+        catalog,
+        priorEffectiveStats,
+        seat,
+        slotIndex,
+      )
+      if (
+        priorEffectiveCooldownMs === undefined ||
+        priorEffectiveCooldownMs === newEffectiveCooldownMs
+      ) {
+        return
+      }
+
+      slot.nextReadyAt = rewriteNextReadyAtForEffectiveCooldown({
+        now,
+        priorEffectiveCooldownMs,
+        newEffectiveCooldownMs,
+        nextReadyAt: slot.nextReadyAt,
+      })
+      slot.lastChargeCooldownMs = newEffectiveCooldownMs
+    })
+  })
+
+  return newEffectiveStats
+}
+
+export function seedFireCapableSlotSchedulesAtMatchStart(
+  seats: [MatchSeatState, MatchSeatState],
+  matchStartedAt: number,
+  catalog: ItemCatalog,
+): void {
+  const effectiveStats = resolveAllFireCapableEffectiveStats(seats, catalog)
+
+  forEach([0, 1] as SeatIndex[], (seat) => {
+    forEach(seats[seat].slots, (slot, slotIndex) => {
+      const def = catalog[slot.itemKey]
+      if (!isFireCapableItem(def)) {
+        return
+      }
+      const effectiveCooldownMs =
+        get(effectiveStats, [seat, slotIndex, 'cooldownMs']) ?? def.cooldownMs
+      slot.nextReadyAt = matchStartedAt + effectiveCooldownMs
+      slot.lastChargeCooldownMs = effectiveCooldownMs
     })
   })
 }
@@ -78,25 +187,28 @@ function collectReadyFires(
   t: number,
   seatResolveOrder: [SeatIndex, SeatIndex],
   catalog: ItemCatalog,
+  effectiveStats: EffectiveSlotStats[][],
 ): MatchFire[] {
   return flatMap(seatResolveOrder, (seat) => {
     const slots = get(seats[seat], 'slots', []) as LoadoutSlot[]
     return filter(
       map(range(slots.length), (slotIndex) => {
         const slot = slots[slotIndex]
-        if (slot === undefined || slot.nextReadyAt > t) {
+        if (slot === undefined || slot.nextReadyAt === undefined || slot.nextReadyAt > t) {
           return null
         }
         const def = catalog[slot.itemKey]
-        if (def === undefined) {
+        if (!isFireCapableItem(def)) {
           return null
         }
+        const effectivePotency =
+          get(effectiveStats, [seat, slotIndex, 'potency']) ?? def.potency
         return {
           seat,
           slotIndex,
           itemKey: slot.itemKey,
           effect: def.effect,
-          potency: def.potency,
+          potency: effectivePotency,
         } satisfies MatchFire
       }),
       (fire): fire is MatchFire => fire !== null,
@@ -133,7 +245,12 @@ function nextWakeAtForContinue(
   seats: [MatchSeatState, MatchSeatState],
   timeCapAt: number,
 ): number {
-  const readyTimes = flatMap(seats, (seat) => map(seat.slots, (slot) => slot.nextReadyAt))
+  const readyTimes = flatMap(seats, (seat) =>
+    filter(
+      map(seat.slots, (slot) => slot.nextReadyAt),
+      (value): value is number => value !== undefined,
+    ),
+  )
   const soonestReady = min(readyTimes)
   const candidates = filter(
     [soonestReady, timeCapAt],
@@ -160,7 +277,9 @@ export function resolveMatchStep(input: ResolveMatchStepInput): MatchUpdate {
 
   advanceUnknownReadySlots(seats, t, timeCapAt, input.catalog)
 
-  const fires = collectReadyFires(seats, t, input.seatResolveOrder, input.catalog)
+  const effectiveStats = reEvalFireCapableSlotSchedules(seats, t, input.catalog)
+
+  const fires = collectReadyFires(seats, t, input.seatResolveOrder, input.catalog, effectiveStats)
   const animationHints: AnimationHint[] = map(fires, (fire) => ({
     kind: fire.effect,
     seat: fire.seat,
@@ -170,10 +289,12 @@ export function resolveMatchStep(input: ResolveMatchStepInput): MatchUpdate {
   for (const fire of fires) {
     applyEffect(seats, fire.seat, fire.effect, fire.potency)
     const def = input.catalog[fire.itemKey]
-    const cooldownMs = def?.cooldownMs ?? 0
+    const effectiveCooldownMs =
+      get(effectiveStats, [fire.seat, fire.slotIndex, 'cooldownMs']) ?? def?.cooldownMs ?? 0
     seats[fire.seat].slots[fire.slotIndex] = {
       itemKey: fire.itemKey,
-      nextReadyAt: t + cooldownMs,
+      nextReadyAt: t + effectiveCooldownMs,
+      lastChargeCooldownMs: effectiveCooldownMs,
     }
   }
 
@@ -205,7 +326,12 @@ export function earliestWakeAt(
   timeCapMs: number = DEFAULT_MATCH_TIME_CAP_MS,
 ): number {
   const timeCapAt = matchStartedAt + timeCapMs
-  const readyTimes = flatMap(seats, (seat) => map(seat.slots, (slot) => slot.nextReadyAt))
+  const readyTimes = flatMap(seats, (seat) =>
+    filter(
+      map(seat.slots, (slot) => slot.nextReadyAt),
+      (value): value is number => value !== undefined,
+    ),
+  )
   const soonestReady = min(readyTimes)
   if (soonestReady === undefined) {
     return timeCapAt
@@ -217,5 +343,9 @@ export function seatsHaveReadyAt(
   seats: [MatchSeatState, MatchSeatState],
   t: number,
 ): boolean {
-  return some(seats, (seat) => some(seat.slots, (slot) => slot.nextReadyAt <= t))
+  return some(
+    seats,
+    (seat) =>
+      some(seat.slots, (slot) => slot.nextReadyAt !== undefined && slot.nextReadyAt <= t),
+  )
 }

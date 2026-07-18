@@ -1,4 +1,4 @@
-import { find, map, range, sample, shuffle, sortBy } from 'lodash'
+import { find, forEach, map, range, sample, shuffle, sortBy } from 'lodash'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
@@ -10,6 +10,7 @@ import {
   MATCH_LIFE_CAP,
   earliestWakeAt,
   resolveMatchStep,
+  seedFireCapableSlotSchedulesAtMatchStart,
   type ItemKey,
   type MatchSeatState,
   type SeatIndex,
@@ -58,15 +59,8 @@ function rollItemKey(): ItemKey {
   return sample(ITEM_KEYS) ?? ITEM_KEYS[0]
 }
 
-function rollLoadoutSlots(matchStartedAt: number): MatchSeatState['slots'] {
-  return map(range(LOADOUT_SLOT_COUNT), () => {
-    const itemKey = rollItemKey()
-    const cooldownMs = ITEM_CATALOG[itemKey].cooldownMs
-    return {
-      itemKey,
-      nextReadyAt: matchStartedAt + cooldownMs,
-    }
-  })
+function rollLoadoutSlots(): MatchSeatState['slots'] {
+  return map(range(LOADOUT_SLOT_COUNT), () => ({ itemKey: rollItemKey() }))
 }
 
 function engineSeatsFromStored(
@@ -211,16 +205,20 @@ export const startMatch = mutation({
         clerkUserId: hostMember.clerkUserId,
         life: MATCH_LIFE_CAP,
         shield: 0,
-        slots: rollLoadoutSlots(matchStartedAt),
+        slots: rollLoadoutSlots(),
       },
       {
         clerkUserId: guestMember.clerkUserId,
         life: MATCH_LIFE_CAP,
         shield: 0,
-        slots: rollLoadoutSlots(matchStartedAt),
+        slots: rollLoadoutSlots(),
       },
     ]
     const engineSeats = engineSeatsFromStored(matchSeats)
+    seedFireCapableSlotSchedulesAtMatchStart(engineSeats, matchStartedAt, ITEM_CATALOG)
+    forEach([0, 1] as const, (index) => {
+      matchSeats[index].slots = engineSeats[index].slots
+    })
     const firstWakeAt = earliestWakeAt(engineSeats, matchStartedAt)
 
     const wakeJobId = await ctx.scheduler.runAt(firstWakeAt, internal.match.wakeMatch, {

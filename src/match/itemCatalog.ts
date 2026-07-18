@@ -43,6 +43,27 @@ export const ITEM_CATALOG = {
     potency: 16,
     cooldownMs: 5_500,
   },
+  haste_charm: {
+    key: 'haste_charm',
+    name: 'Haste Charm',
+    passive: {
+      seatTarget: 'own',
+      filter: 'damage',
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.2 }],
+    },
+  },
+  vital_spark: {
+    key: 'vital_spark',
+    name: 'Vital Spark',
+    effect: 'heal',
+    potency: 5,
+    cooldownMs: 3_000,
+    passive: {
+      seatTarget: 'own',
+      filter: 'heal',
+      changes: [{ stat: 'potency', mode: 'flat', value: 2 }],
+    },
+  },
 } as const satisfies ItemCatalog
 
 export type ItemKey = keyof typeof ITEM_CATALOG
@@ -54,4 +75,6 @@ export const ITEM_KEYS = [
   'mend',
   'ward',
   'bulwark',
+  'haste_charm',
+  'vital_spark',
 ] as const satisfies readonly ItemKey[]

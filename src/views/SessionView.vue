@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { find, get, includes, map } from 'lodash'
+import { find, map } from 'lodash'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
+import MatchLoadoutSlot from '../components/MatchLoadoutSlot.vue'
 import { useConvexClient } from '../composables/convexClient'
 import { useConvexQuery } from '../composables/useConvexQuery'
-import { ITEM_CATALOG } from '../match/itemCatalog'
-import type { ItemKey } from '../match/itemCatalog'
+import { LOADOUT_EFFECT_KIND_COLORS } from '../match/loadoutSlotPresentation'
 
 const props = defineProps<{
   id: string
@@ -19,7 +19,8 @@ const sessionId = computed(() => props.id as Id<'sessions'>)
 const actionError = ref<string | null>(null)
 const actionBusy = ref(false)
 const nowMs = ref(Date.now())
-const flashKeys = ref<string[]>([])
+type SlotFlash = { key: string; kindColor: string }
+const flashSlots = ref<SlotFlash[]>([])
 let flashTimer: ReturnType<typeof setTimeout> | null = null
 let rafId = 0
 
@@ -53,24 +54,18 @@ const joinHref = computed(() => {
   return `${window.location.origin}/join/${token}`
 })
 
-function itemName(itemKey: string): string {
-  return get(ITEM_CATALOG, [itemKey as ItemKey, 'name'], itemKey)
+function slotFlashKey(seatIndex: number, slotIndex: number): string {
+  return `${seatIndex}-${slotIndex}-${lastUpdate.value?.atMs ?? ''}`
 }
 
-function itemEffect(itemKey: string): string {
-  return get(ITEM_CATALOG, [itemKey as ItemKey, 'effect'], '')
+function slotFlashColor(seatIndex: number, slotIndex: number): string | null {
+  const key = slotFlashKey(seatIndex, slotIndex)
+  const entry = find(flashSlots.value, (flash) => flash.key === key)
+  return entry?.kindColor ?? null
 }
 
-function cooldownFill(nextReadyAt: number, cooldownMs: number): number {
-  if (cooldownMs <= 0) {
-    return 1
-  }
-  const remaining = Math.max(0, nextReadyAt - nowMs.value)
-  return Math.max(0, Math.min(1, 1 - remaining / cooldownMs))
-}
-
-function slotCooldownMs(itemKey: string): number {
-  return get(ITEM_CATALOG, [itemKey as ItemKey, 'cooldownMs'], 2000)
+function slotIsFlashing(seatIndex: number, slotIndex: number): boolean {
+  return slotFlashColor(seatIndex, slotIndex) !== null
 }
 
 const resultsBanner = computed(() => {
@@ -90,12 +85,15 @@ watch(
     if (hints.length === 0) {
       return
     }
-    flashKeys.value = map(hints, (h) => `${h.seat}-${h.slotIndex}-${lastUpdate.value?.atMs}`)
+    flashSlots.value = map(hints, (h) => ({
+      key: `${h.seat}-${h.slotIndex}-${lastUpdate.value?.atMs}`,
+      kindColor: LOADOUT_EFFECT_KIND_COLORS[h.kind],
+    }))
     if (flashTimer !== null) {
       clearTimeout(flashTimer)
     }
     flashTimer = setTimeout(() => {
-      flashKeys.value = []
+      flashSlots.value = []
     }, 420)
   },
 )
@@ -323,29 +321,18 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
             </div>
 
             <ul class="loadout">
-              <li
+              <MatchLoadoutSlot
                 v-for="(slot, slotIndex) in fighter.slots"
                 :key="`${seatIndex}-${slotIndex}-${slot.itemKey}`"
-                class="slot"
-                :class="{
-                  flash: includes(flashKeys, `${seatIndex}-${slotIndex}-${lastUpdate?.atMs}`),
-                }"
-              >
-                <div class="slot-meta">
-                  <strong>{{ itemName(slot.itemKey) }}</strong>
-                  <span class="muted tiny">{{ itemEffect(slot.itemKey) }}</span>
-                </div>
-                <div class="cooldown-track" aria-hidden="true">
-                  <div
-                    class="cooldown-fill"
-                    :style="{
-                      width: `${
-                        cooldownFill(slot.nextReadyAt, slotCooldownMs(slot.itemKey)) * 100
-                      }%`,
-                    }"
-                  />
-                </div>
-              </li>
+                :item-key="slot.itemKey"
+                :seats="matchSeats"
+                :seat-index="seatIndex"
+                :slot-index="slotIndex"
+                :next-ready-at="slot.nextReadyAt"
+                :now-ms="nowMs"
+                :is-flashing="slotIsFlashing(seatIndex, slotIndex)"
+                :flash-color="slotFlashColor(seatIndex, slotIndex)"
+              />
             </ul>
           </article>
         </div>
@@ -508,8 +495,7 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
   align-items: center;
   font-size: 0.9rem;
 }
-.bar-track,
-.cooldown-track {
+.bar-track {
   height: 10px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--border) 60%, var(--bg));
@@ -537,29 +523,5 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.slot {
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: color-mix(in srgb, var(--bg) 80%, var(--border));
-  transition:
-    border-color 120ms ease,
-    background 120ms ease;
-}
-.slot.flash {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 28%, var(--bg));
-}
-.slot-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.cooldown-fill {
-  height: 100%;
-  background: var(--accent);
-  transition: width 80ms linear;
 }
 </style>

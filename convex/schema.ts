@@ -15,7 +15,8 @@ const seatIndex = v.union(v.literal(0), v.literal(1))
 
 const loadoutSlotValidator = v.object({
   itemKey: v.string(),
-  nextReadyAt: v.number(),
+  nextReadyAt: v.optional(v.number()),
+  lastChargeCooldownMs: v.optional(v.number()),
 })
 
 const engineSeatValidator = v.object({

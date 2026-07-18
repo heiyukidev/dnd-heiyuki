@@ -2,19 +2,58 @@ export type SeatIndex = 0 | 1
 
 export type ItemEffect = 'damage' | 'heal' | 'shield'
 
+export type PassiveSeatTarget = 'own' | 'enemy' | 'both'
+
+export type PassiveFilter = 'all' | ItemEffect
+
+export type PassiveStat = 'cooldown' | 'potency'
+
+export type PassiveChangeMode = 'flat' | 'percent'
+
+export type PassiveStatChange = {
+  stat: PassiveStat
+  mode: PassiveChangeMode
+  value: number
+}
+
+export type PassiveDefinition = {
+  seatTarget: PassiveSeatTarget
+  filter: PassiveFilter
+  changes: readonly PassiveStatChange[]
+}
+
 export type ItemDefinition = {
   key: string
   name: string
+  effect?: ItemEffect
+  potency?: number
+  cooldownMs?: number
+  passive?: PassiveDefinition
+}
+
+export type FireCapableItemDefinition = ItemDefinition & {
   effect: ItemEffect
   potency: number
   cooldownMs: number
+}
+
+export function isFireCapableItem(
+  def: ItemDefinition | undefined,
+): def is FireCapableItemDefinition {
+  return (
+    def !== undefined &&
+    def.effect !== undefined &&
+    def.potency !== undefined &&
+    def.cooldownMs !== undefined
+  )
 }
 
 export type ItemCatalog = Readonly<Record<string, ItemDefinition>>
 
 export type LoadoutSlot = {
   itemKey: string
-  nextReadyAt: number
+  nextReadyAt?: number
+  lastChargeCooldownMs?: number
 }
 
 export type MatchSeatState = {
