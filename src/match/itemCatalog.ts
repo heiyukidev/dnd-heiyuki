@@ -1,0 +1,57 @@
+import type { ItemCatalog } from './types'
+
+export const ITEM_CATALOG = {
+  spark: {
+    key: 'spark',
+    name: 'Spark',
+    effect: 'damage',
+    potency: 8,
+    cooldownMs: 2_000,
+  },
+  cannon: {
+    key: 'cannon',
+    name: 'Cannon',
+    effect: 'damage',
+    potency: 18,
+    cooldownMs: 4_500,
+  },
+  salve: {
+    key: 'salve',
+    name: 'Salve',
+    effect: 'heal',
+    potency: 6,
+    cooldownMs: 2_500,
+  },
+  mend: {
+    key: 'mend',
+    name: 'Mend',
+    effect: 'heal',
+    potency: 14,
+    cooldownMs: 5_000,
+  },
+  ward: {
+    key: 'ward',
+    name: 'Ward',
+    effect: 'shield',
+    potency: 8,
+    cooldownMs: 3_000,
+  },
+  bulwark: {
+    key: 'bulwark',
+    name: 'Bulwark',
+    effect: 'shield',
+    potency: 16,
+    cooldownMs: 5_500,
+  },
+} as const satisfies ItemCatalog
+
+export type ItemKey = keyof typeof ITEM_CATALOG
+
+export const ITEM_KEYS = [
+  'spark',
+  'cannon',
+  'salve',
+  'mend',
+  'ward',
+  'bulwark',
+] as const satisfies readonly ItemKey[]

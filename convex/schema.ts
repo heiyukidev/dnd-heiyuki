@@ -1,7 +1,5 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
-import { characterSheetValidator } from './characterSheetValidators'
-import { characterClassKeyValidator } from './characterClasses'
 
 const sessionStatus = v.union(v.literal('live'), v.literal('archived'))
 const joinRequestStatus = v.union(
@@ -11,10 +9,55 @@ const joinRequestStatus = v.union(
 )
 const memberRole = v.union(v.literal('dm'), v.literal('player'))
 
-const statsValidator = v.object({
-  hp: v.number(),
-  maxHp: v.number(),
-  tempHp: v.optional(v.number()),
+const playPhase = v.union(v.literal('lobby'), v.literal('match'), v.literal('results'))
+
+const seatIndex = v.union(v.literal(0), v.literal(1))
+
+const loadoutSlotValidator = v.object({
+  itemKey: v.string(),
+  nextReadyAt: v.number(),
+})
+
+const engineSeatValidator = v.object({
+  life: v.number(),
+  shield: v.number(),
+  slots: v.array(loadoutSlotValidator),
+})
+
+const matchSeatValidator = v.object({
+  clerkUserId: v.string(),
+  life: v.number(),
+  shield: v.number(),
+  slots: v.array(loadoutSlotValidator),
+})
+
+const matchFireValidator = v.object({
+  seat: seatIndex,
+  slotIndex: v.number(),
+  itemKey: v.string(),
+  effect: v.union(v.literal('damage'), v.literal('heal'), v.literal('shield')),
+  potency: v.number(),
+})
+
+const animationHintValidator = v.object({
+  kind: v.union(v.literal('damage'), v.literal('heal'), v.literal('shield')),
+  seat: seatIndex,
+  slotIndex: v.number(),
+})
+
+const matchOutcomeValidator = v.union(
+  v.object({ type: v.literal('winner'), seat: seatIndex }),
+  v.object({ type: v.literal('draw') }),
+  v.object({ type: v.literal('continue') }),
+)
+
+const matchUpdateValidator = v.object({
+  atMs: v.number(),
+  fires: v.array(matchFireValidator),
+  seats: v.array(engineSeatValidator),
+  animationHints: v.array(animationHintValidator),
+  outcome: matchOutcomeValidator,
+  nextWakeAt: v.optional(v.number()),
 })
 
 export default defineSchema({
@@ -24,16 +67,24 @@ export default defineSchema({
     dmClerkUserId: v.string(),
     joinToken: v.string(),
     createdAt: v.number(),
-    /** Battle map width in hex columns (fixed grid origin; grow appends trailing, shrink strips trailing). */
-    mapCols: v.optional(v.number()),
-    /** Battle map height in hex rows. */
-    mapRows: v.optional(v.number()),
-    /** Ordered **Session character** ids for **Turn order** (manual **Dungeon Master** queue). */
-    turnOrderCharacterIds: v.optional(v.array(v.id('sessionCharacters'))),
-    /** **Combat round clock (session)** — active flag. */
-    combatRoundActive: v.optional(v.boolean()),
-    /** Current combat round (≥1 while active). */
-    combatRoundNumber: v.optional(v.number()),
+    /** Lobby / Match / brief results beat for the item auto-battler play path. */
+    playPhase: v.optional(playPhase),
+    /**
+     * Admitted fighting Players (Host counts). Patched on approve so concurrent
+     * approvals OCC-conflict on the Session doc and cannot seat a third Player.
+     */
+    fightingPlayerCount: v.optional(v.number()),
+    matchStartedAt: v.optional(v.number()),
+    matchSeatResolveOrder: v.optional(v.array(seatIndex)),
+    matchSeats: v.optional(v.array(matchSeatValidator)),
+    matchLastUpdate: v.optional(matchUpdateValidator),
+    matchOutcome: v.optional(
+      v.union(
+        v.object({ type: v.literal('winner'), seat: seatIndex }),
+        v.object({ type: v.literal('draw') }),
+      ),
+    ),
+    matchWakeJobId: v.optional(v.id('_scheduled_functions')),
   }).index('by_joinToken', ['joinToken']),
 
   joinRequests: defineTable({
@@ -49,32 +100,9 @@ export default defineSchema({
     sessionId: v.id('sessions'),
     clerkUserId: v.string(),
     role: memberRole,
-    boundCharacterId: v.optional(v.id('sessionCharacters')),
     sessionNickname: v.optional(v.string()),
-    /** Player’s preferred **Character class** when joining or before a sheet is bound (optional). */
-    preferredCharacterClassKey: v.optional(characterClassKeyValidator),
   })
     .index('by_session', ['sessionId'])
     .index('by_session_and_clerkUserId', ['sessionId', 'clerkUserId'])
     .index('by_clerkUserId', ['clerkUserId']),
-
-  sessionCharacters: defineTable({
-    sessionId: v.id('sessions'),
-    name: v.string(),
-    /** Playable roster flag; authoritative when present. Legacy `isNpc` is migrated on read/write. */
-    isPlayable: v.optional(v.boolean()),
-    /** @deprecated Legacy inversion of `isPlayable`; stripped on canonical replace. */
-    isNpc: v.optional(v.boolean()),
-    /** @deprecated Class lives on `sheet.classLevels`; stripped on canonical replace. */
-    characterClassKey: v.optional(characterClassKeyValidator),
-    stats: statsValidator,
-    boundClerkUserId: v.optional(v.string()),
-    /** Bumped on server-side sheet recalc so clients re-hydrate after combat mutations. */
-    sheetRevision: v.optional(v.number()),
-    /** Odd-r offset column within session map footprint; unset means unplaced. */
-    mapCol: v.optional(v.number()),
-    mapRow: v.optional(v.number()),
-    /** D&D 5e PHB-style **Character sheet** (structured header + plain text blocks); see CONTEXT.md. */
-    sheet: v.optional(characterSheetValidator),
-  }).index('by_session', ['sessionId']),
 })

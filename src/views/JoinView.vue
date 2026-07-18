@@ -35,6 +35,8 @@ const rejectedJoin = computed(
   () => viewer.value?.kind === 'non-member' && viewer.value.rejectedJoin === true,
 )
 
+const sessionFull = computed(() => session.value?.sessionFull === true)
+
 watch(
   () => {
     const s = session.value
@@ -61,7 +63,11 @@ async function onRequestJoin() {
       return
     }
     if (res.status === 'already_pending') {
-      joinMessage.value = 'Your join request is pending approval from the Dungeon Master.'
+      joinMessage.value = 'Your join request is pending approval from the Host.'
+      return
+    }
+    if (res.status === 'session_full') {
+      joinMessage.value = 'Session full (2/2). No spectators in this prototype.'
       return
     }
   } catch (e) {
@@ -72,39 +78,44 @@ async function onRequestJoin() {
 
 <template>
   <div class="page">
-    <h1>Join session</h1>
+    <h1>Join Session</h1>
     <p v-if="!token" class="muted">Missing join link token.</p>
     <template v-else>
       <p v-if="pageStateError" class="error">
-        Could not load session. {{ pageStateError.message }}
+        Could not load Session. {{ pageStateError.message }}
       </p>
-      <p v-else-if="pageState === undefined" class="muted">Loading session…</p>
+      <p v-else-if="pageState === undefined" class="muted">Loading Session…</p>
       <p v-else-if="!session" class="muted">This join link is not valid.</p>
       <template v-else>
         <p class="lead">
           Session:
           <strong>{{ session.title }}</strong>
           <span class="muted"> ({{ session.status }})</span>
+          <span v-if="session.fightingCount !== undefined" class="muted">
+            · {{ session.fightingCount }}/2 Players
+          </span>
         </p>
         <Show when="signed-out">
           <p>Sign in to send a join request.</p>
           <SignInButton />
         </Show>
         <Show when="signed-in">
-          <p v-if="viewer?.kind === 'member'" class="muted">Opening session…</p>
+          <p v-if="viewer?.kind === 'member'" class="muted">Opening Session…</p>
           <template v-else>
             <p v-if="session.status === 'live' && pendingJoin" class="banner">
-              Join request sent. Wait for the Dungeon Master to approve.
+              Join request sent. Wait for the Host to approve.
             </p>
             <p
               v-else-if="session.status === 'live' && rejectedJoin && !pendingJoin"
               class="banner banner-warn"
             >
-              The Dungeon Master did not admit you to this session. You can send another join
-              request.
+              The Host did not admit you to this Session. You can send another join request.
+            </p>
+            <p v-else-if="session.status === 'live' && sessionFull" class="banner banner-warn">
+              Session full (2/2). There are no spectators in this prototype.
             </p>
             <button
-              v-if="session.status === 'live' && !pendingJoin"
+              v-if="session.status === 'live' && !pendingJoin && !sessionFull"
               type="button"
               class="btn-primary"
               @click="onRequestJoin"
@@ -112,7 +123,7 @@ async function onRequestJoin() {
               Request to join
             </button>
             <p v-else-if="session.status !== 'live'" class="muted">
-              This session is archived and is not accepting join requests.
+              This Session is archived and is not accepting join requests.
             </p>
             <p v-if="joinMessage" class="banner">{{ joinMessage }}</p>
           </template>
@@ -150,12 +161,9 @@ async function onRequestJoin() {
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid var(--accent-border);
-  background: var(--accent-bg);
-  color: var(--text-h);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg));
 }
 .banner-warn {
-  border-color: color-mix(in srgb, var(--accent-border) 70%, #c9a227);
-  background: color-mix(in srgb, var(--accent-bg) 85%, #2a2410);
+  background: color-mix(in srgb, #a66 22%, var(--bg));
 }
 </style>

@@ -1,1869 +1,565 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { capitalize, filter, find, includes, map, size, trim } from 'lodash'
-import type { Id } from '../../convex/_generated/dataModel'
+import { find, get, includes, map } from 'lodash'
 import { api } from '../../convex/_generated/api'
-import BattleMapBoard from '../components/BattleMapBoard.vue'
-import CharacterSheetPanel from '../components/CharacterSheetPanel.vue'
+import type { Id } from '../../convex/_generated/dataModel'
 import { useConvexClient } from '../composables/convexClient'
 import { useConvexQuery } from '../composables/useConvexQuery'
+import { ITEM_CATALOG } from '../match/itemCatalog'
+import type { ItemKey } from '../match/itemCatalog'
 
 const props = defineProps<{
   id: string
 }>()
 
-type SidebarTabId = 'map' | 'players' | 'characters' | 'join'
-
-const TAB_DEFS: ReadonlyArray<{
-  id: SidebarTabId
-  label: string
-  short: string
-  dmOnly: boolean
-}> = [
-  { id: 'map', label: 'Map', short: 'M', dmOnly: true },
-  { id: 'players', label: 'Players', short: 'P', dmOnly: true },
-  { id: 'characters', label: 'Characters', short: 'C', dmOnly: true },
-  { id: 'join', label: 'Join', short: 'J', dmOnly: true },
-]
-
-/** **Dungeon Master** leading toolbox overlay expanded (same key as legacy sidebar). */
-const STORAGE_DM = 'heiyuki.sessionSidebar.open.dm'
-const STORAGE_TURN_DM = 'heiyuki.sessionOverlay.turnOpen.dm'
-const STORAGE_TURN_PLAYER = 'heiyuki.sessionOverlay.turnOpen.player'
-
 const client = useConvexClient()
+const sessionId = computed(() => props.id as Id<'sessions'>)
 
-const rawSessionParam = computed(() => (props.id || '').trim())
+const actionError = ref<string | null>(null)
+const actionBusy = ref(false)
+const nowMs = ref(Date.now())
+const flashKeys = ref<string[]>([])
+let flashTimer: ReturnType<typeof setTimeout> | null = null
+let rafId = 0
 
-function parseSessionsRouteId(raw: string): Id<'sessions'> | null {
-  if (!raw || raw.length > 128) {
-    return null
-  }
-  if (!/^[a-z0-9]+$/i.test(raw)) {
-    return null
-  }
-  return raw as Id<'sessions'>
-}
-
-const sessionId = computed(() => parseSessionsRouteId(rawSessionParam.value))
-
-const invalidSessionRoute = computed(() => parseSessionsRouteId(rawSessionParam.value) === null)
-
-const { data: bundle, error: bundleError } = useConvexQuery(
+const { data: playState, error: playStateError } = useConvexQuery(
   client,
-  api.sessions.getMyMembership,
-  () => (sessionId.value !== null ? { sessionId: sessionId.value } : 'skip'),
-)
-
-const { data: playerSheetPreview } = useConvexQuery(
-  client,
-  api.sessions.getPlayerBoundCharacterPreview,
-  () =>
-    bundle.value?.membership?.role === 'player' && sessionId.value !== null
-      ? { sessionId: sessionId.value }
-      : 'skip',
+  api.match.getSessionPlayState,
+  () => ({ sessionId: sessionId.value }),
 )
 
 const { data: joinRequests, error: joinRequestsError } = useConvexQuery(
   client,
   api.sessions.listJoinRequests,
-  () =>
-    bundle.value?.membership?.role === 'dm' && sessionId.value !== null
-      ? { sessionId: sessionId.value }
-      : 'skip',
+  () => (playState.value?.isHost ? { sessionId: sessionId.value } : 'skip'),
 )
 
-const { data: players, error: playersError } = useConvexQuery(
-  client,
-  api.sessions.listSessionPlayersForDm,
-  () =>
-    bundle.value?.membership?.role === 'dm' && sessionId.value !== null
-      ? { sessionId: sessionId.value }
-      : 'skip',
-)
+const session = computed(() => playState.value?.session ?? null)
+const isHost = computed(() => playState.value?.isHost === true)
+const playPhase = computed(() => session.value?.playPhase ?? 'lobby')
+const archived = computed(() => session.value?.status === 'archived')
+const fightingPlayers = computed(() => playState.value?.fightingPlayers ?? [])
+const match = computed(() => playState.value?.match ?? null)
+const matchSeats = computed(() => match.value?.seats ?? null)
+const lastUpdate = computed(() => match.value?.lastUpdate ?? null)
+const outcome = computed(() => match.value?.outcome ?? null)
 
-const { data: characters, error: charactersError } = useConvexQuery(
-  client,
-  api.sessions.listSessionCharactersForDm,
-  () =>
-    bundle.value?.membership?.role === 'dm' && sessionId.value !== null
-      ? { sessionId: sessionId.value }
-      : 'skip',
-)
-
-const { data: battleMap, error: battleMapError } = useConvexQuery(
-  client,
-  api.sessions.getSessionBattleMap,
-  () =>
-    sessionId.value !== null && bundle.value?.membership !== undefined
-      ? { sessionId: sessionId.value }
-      : 'skip',
-)
-
-const { data: turnOrderData, error: turnOrderQueryError } = useConvexQuery(
-  client,
-  api.sessions.getSessionTurnOrder,
-  () =>
-    sessionId.value !== null && bundle.value?.membership !== undefined
-      ? { sessionId: sessionId.value }
-      : 'skip',
-)
-
-const joinRequestsList = computed(() => joinRequests.value ?? [])
-const playersList = computed(() => players.value ?? [])
-const charactersList = computed(() => characters.value ?? [])
-const playableCharactersForBind = computed(() => filter(charactersList.value, (c) => c.isPlayable))
-
-const sidebarTabs = computed(() =>
-  filter(TAB_DEFS, (t) => !t.dmOnly || bundle.value?.membership?.role === 'dm'),
-)
-
-const joinRequestsLoading = computed(
-  () => joinRequests.value === undefined && !joinRequestsError.value,
-)
-
-const approveError = ref<string | null>(null)
-const rosterError = ref<string | null>(null)
-const mapError = ref<string | null>(null)
-const figuresPanelError = ref<string | null>(null)
-const newFigureName = ref('')
-const newFigureIsPlayable = ref(true)
-
-const footprintCols = ref(8)
-const footprintRows = ref(6)
-const selectedMapCharacterId = ref<Id<'sessionCharacters'> | null>(null)
-
-const dmToolboxOpen = ref(true)
-const turnRailOpen = ref(true)
-const sheetPanelOpen = ref(false)
-const activeTab = ref<SidebarTabId>('map')
-const turnOrderDragFrom = ref<number | null>(null)
-const turnOrderActionError = ref<string | null>(null)
-const combatActionError = ref<string | null>(null)
-
-const combatRoundActive = computed(() => turnOrderData.value?.combatRoundActive === true)
-const combatRoundNumber = computed(() => turnOrderData.value?.combatRoundNumber ?? 1)
-
-const canEditBattleMap = computed(
-  () => bundle.value?.membership?.role === 'dm' && bundle.value?.session?.status === 'live',
-)
-
-const canEditSessionRoster = computed(
-  () => bundle.value?.membership?.role === 'dm' && bundle.value?.session?.status === 'live',
-)
-
-watch(
-  () => bundle.value?.membership?.role,
-  (role) => {
-    if (typeof localStorage === 'undefined') {
-      return
-    }
-    if (role === 'dm') {
-      const dmStored = localStorage.getItem(STORAGE_DM)
-      dmToolboxOpen.value = dmStored === null ? true : dmStored === '1'
-      const turnDm = localStorage.getItem(STORAGE_TURN_DM)
-      turnRailOpen.value = turnDm === null ? true : turnDm === '1'
-      return
-    }
-    if (role === 'player') {
-      const turnPl = localStorage.getItem(STORAGE_TURN_PLAYER)
-      turnRailOpen.value = turnPl === null ? true : turnPl === '1'
-    }
-  },
-  { immediate: true },
-)
-
-watch(
-  sidebarTabs,
-  (tabs) => {
-    const ids = map(tabs, (t) => t.id)
-    if (!includes(ids, activeTab.value)) {
-      activeTab.value = 'map'
-    }
-  },
-  { immediate: true },
-)
-
-watch(
-  () => battleMap.value,
-  (m) => {
-    if (m) {
-      footprintCols.value = m.mapCols
-      footprintRows.value = m.mapRows
-    }
-  },
-  { immediate: true },
-)
-
-/** Placed + unplaced counts from the battle map query (DM has unplaced list; total distinguishes “no figures” from “all placed”). */
-const battleMapFigureCounts = computed(() => {
-  const m = battleMap.value
-  if (m === undefined || m === null || m.unplaced === null) {
+const joinHref = computed(() => {
+  const token = session.value?.joinToken
+  if (!token) {
     return null
   }
-  const placed = size(m.tokens)
-  const unplaced = size(m.unplaced)
-  return { placed, unplaced, total: placed + unplaced }
-})
-
-const sessionStatusLabel = computed(() =>
-  bundle.value?.session?.status !== undefined ? capitalize(bundle.value.session.status) : '',
-)
-
-const sessionArchivedHint = computed(() => bundle.value?.session?.status !== 'live')
-
-const turnOrderEntries = computed(() => turnOrderData.value?.entries ?? [])
-
-const isDm = computed(() => bundle.value?.membership?.role === 'dm')
-
-const sheetCharacterId = ref<Id<'sessionCharacters'> | null>(null)
-const sheetSaveError = ref<string | null>(null)
-
-const sheetCharacterIdSelect = computed({
-  get: () => (sheetCharacterId.value !== null ? String(sheetCharacterId.value) : ''),
-  set: (v: string) => {
-    sheetCharacterId.value = v === '' ? null : (v as Id<'sessionCharacters'>)
-  },
-})
-
-watch(
-  () => [sheetPanelOpen.value, isDm.value, charactersList.value, playerSheetPreview.value] as const,
-  () => {
-    if (!sheetPanelOpen.value) {
-      return
-    }
-    sheetSaveError.value = null
-    if (isDm.value) {
-      const ids = map(charactersList.value, (c) => c._id)
-      if (sheetCharacterId.value === null || !includes(ids, sheetCharacterId.value)) {
-        sheetCharacterId.value = ids[0] ?? null
-      }
-      return
-    }
-    const prev = playerSheetPreview.value
-    if (prev?.kind === 'bound') {
-      sheetCharacterId.value = prev.characterId
-    } else {
-      sheetCharacterId.value = null
-    }
-  },
-  { immediate: true },
-)
-
-function openCharacterSheetPanel() {
-  sheetSaveError.value = null
-  sheetPanelOpen.value = true
-}
-
-function openCharacterSheetFor(id: Id<'sessionCharacters'>) {
-  sheetCharacterId.value = id
-  sheetSaveError.value = null
-  sheetPanelOpen.value = true
-}
-
-const playerRecenterCharacterId = computed(() => {
-  const p = playerSheetPreview.value
-  if (p === undefined || p === null || p.kind !== 'bound') {
-    return null
-  }
-  return p.characterId
-})
-
-function persistDmToolbox() {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_DM, dmToolboxOpen.value ? '1' : '0')
-  }
-}
-
-function persistTurnRail() {
-  const role = bundle.value?.membership?.role
-  if (role !== 'dm' && role !== 'player') {
-    return
-  }
-  if (typeof localStorage === 'undefined') {
-    return
-  }
-  const key = role === 'dm' ? STORAGE_TURN_DM : STORAGE_TURN_PLAYER
-  localStorage.setItem(key, turnRailOpen.value ? '1' : '0')
-}
-
-function openDmToolbox() {
-  dmToolboxOpen.value = true
-  persistDmToolbox()
-}
-
-function openTurnRail() {
-  turnRailOpen.value = true
-  persistTurnRail()
-}
-
-function toggleDmToolbox() {
-  dmToolboxOpen.value = !dmToolboxOpen.value
-  persistDmToolbox()
-}
-
-function closeDmToolboxOnBackdrop() {
-  dmToolboxOpen.value = false
-  persistDmToolbox()
-}
-
-function toggleTurnRail() {
-  turnRailOpen.value = !turnRailOpen.value
-  persistTurnRail()
-}
-
-function selectTab(tab: SidebarTabId) {
-  activeTab.value = tab
-  if (!dmToolboxOpen.value) {
-    dmToolboxOpen.value = true
-    persistDmToolbox()
-  }
-}
-
-const joinToken = computed(() => {
-  const s = bundle.value?.session
-  if (!s || !('joinToken' in s)) {
-    return undefined
-  }
-  return (s as { joinToken?: string }).joinToken
-})
-
-function joinHref(token: string) {
   return `${window.location.origin}/join/${token}`
+})
+
+function itemName(itemKey: string): string {
+  return get(ITEM_CATALOG, [itemKey as ItemKey, 'name'], itemKey)
 }
 
-async function approve(requestId: Id<'joinRequests'>) {
-  approveError.value = null
-  const raw = joinApproveCharacterPick.value[String(requestId)] ?? ''
-  const characterId = raw === '' ? undefined : (raw as Id<'sessionCharacters'>)
+function itemEffect(itemKey: string): string {
+  return get(ITEM_CATALOG, [itemKey as ItemKey, 'effect'], '')
+}
+
+function cooldownFill(nextReadyAt: number, cooldownMs: number): number {
+  if (cooldownMs <= 0) {
+    return 1
+  }
+  const remaining = Math.max(0, nextReadyAt - nowMs.value)
+  return Math.max(0, Math.min(1, 1 - remaining / cooldownMs))
+}
+
+function slotCooldownMs(itemKey: string): number {
+  return get(ITEM_CATALOG, [itemKey as ItemKey, 'cooldownMs'], 2000)
+}
+
+const resultsBanner = computed(() => {
+  if (playPhase.value !== 'results' || outcome.value === null) {
+    return null
+  }
+  if (outcome.value.type === 'draw') {
+    return 'Draw'
+  }
+  return `Seat ${outcome.value.seat + 1} wins`
+})
+
+watch(
+  () => lastUpdate.value?.atMs,
+  () => {
+    const hints = lastUpdate.value?.animationHints ?? []
+    if (hints.length === 0) {
+      return
+    }
+    flashKeys.value = map(hints, (h) => `${h.seat}-${h.slotIndex}-${lastUpdate.value?.atMs}`)
+    if (flashTimer !== null) {
+      clearTimeout(flashTimer)
+    }
+    flashTimer = setTimeout(() => {
+      flashKeys.value = []
+    }, 420)
+  },
+)
+
+watch(
+  playPhase,
+  (phase) => {
+    cancelAnimationFrame(rafId)
+    if (phase === 'match') {
+      const tick = () => {
+        nowMs.value = Date.now()
+        rafId = requestAnimationFrame(tick)
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+  },
+  { immediate: true },
+)
+
+onUnmounted(() => {
+  cancelAnimationFrame(rafId)
+  if (flashTimer !== null) {
+    clearTimeout(flashTimer)
+  }
+})
+
+async function onApprove(requestId: Id<'joinRequests'>) {
+  actionError.value = null
+  actionBusy.value = true
   try {
-    await client.mutation(api.sessions.approveJoinRequest, {
-      requestId,
-      ...(characterId !== undefined ? { characterId } : {}),
-    })
-  } catch {
-    approveError.value = 'Could not approve request. Try again.'
+    await client.mutation(api.sessions.approveJoinRequest, { requestId })
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Could not approve join request.'
+  } finally {
+    actionBusy.value = false
   }
 }
 
-async function rejectRequest(requestId: Id<'joinRequests'>) {
-  approveError.value = null
+async function onReject(requestId: Id<'joinRequests'>) {
+  actionError.value = null
+  actionBusy.value = true
   try {
     await client.mutation(api.sessions.rejectJoinRequest, { requestId })
-  } catch {
-    approveError.value = 'Could not reject request. Try again.'
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Could not reject join request.'
+  } finally {
+    actionBusy.value = false
   }
 }
 
-const nicknameDraft = ref<Record<string, string>>({})
-const characterPick = ref<Record<string, string>>({})
-/** Playable character to bind when approving a join request (per request id). */
-const joinApproveCharacterPick = ref<Record<string, string>>({})
-
-watch(
-  () => playersList.value,
-  (list) => {
-    nicknameDraft.value = Object.fromEntries(
-      map(list, (p) => [p.clerkUserId, p.sessionNickname ?? '']),
-    )
-    characterPick.value = Object.fromEntries(
-      map(list, (p) => [p.clerkUserId, p.boundCharacterId ?? '']),
-    )
-  },
-  { immediate: true },
-)
-
-function displayPlayerLabel(clerkUserId: string) {
-  const row = find(playersList.value, (x) => x.clerkUserId === clerkUserId)
-  const nick = row?.sessionNickname?.trim()
-  if (nick) {
-    return nick
-  }
-  return clerkUserId
-}
-
-function characterOptionLabel(
-  c: {
-    _id: Id<'sessionCharacters'>
-    name: string
-    isPlayable: boolean
-    classSummary?: string
-    boundClerkUserId?: string
-  },
-  playerClerkUserId: string,
-) {
-  let s = c.name
-  if (!c.isPlayable) {
-    s += ' (non-playable)'
-  }
-  if (c.classSummary !== undefined && trim(c.classSummary).length > 0) {
-    s += ` · ${c.classSummary}`
-  }
-  if (c.boundClerkUserId !== undefined && c.boundClerkUserId !== playerClerkUserId) {
-    s += ' — bound elsewhere'
-  }
-  return s
-}
-
-async function saveNickname(clerkUserId: string) {
-  if (sessionId.value === null) {
-    return
-  }
-  rosterError.value = null
-  const raw = nicknameDraft.value[clerkUserId] ?? ''
-  const trimmed = raw.trim()
+async function onStartMatch() {
+  actionError.value = null
+  actionBusy.value = true
   try {
-    await client.mutation(api.sessions.setPlayerSessionNickname, {
-      sessionId: sessionId.value,
-      playerClerkUserId: clerkUserId,
-      sessionNickname: trimmed === '' ? null : trimmed,
-    })
-  } catch {
-    rosterError.value = 'Could not save nickname.'
+    await client.mutation(api.match.startMatch, { sessionId: sessionId.value })
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Could not start Match.'
+  } finally {
+    actionBusy.value = false
   }
 }
 
-async function applyBattleFootprint() {
-  if (sessionId.value === null || !canEditBattleMap.value) {
-    return
-  }
-  mapError.value = null
+async function onEndSession() {
+  actionError.value = null
+  actionBusy.value = true
   try {
-    await client.mutation(api.sessions.setBattleMapFootprint, {
-      sessionId: sessionId.value,
-      mapCols: footprintCols.value,
-      mapRows: footprintRows.value,
-    })
-  } catch {
-    mapError.value = 'Could not update map size.'
+    await client.mutation(api.match.endSession, { sessionId: sessionId.value })
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Could not end Session.'
+  } finally {
+    actionBusy.value = false
   }
 }
 
-function selectMapCharacter(id: Id<'sessionCharacters'>) {
-  selectedMapCharacterId.value = id
+function seatLabelForClerk(clerkUserId: string): string {
+  const row = find(fightingPlayers.value, (p) => p.clerkUserId === clerkUserId)
+  if (row === undefined) {
+    return 'Player'
+  }
+  if (row.sessionNickname) {
+    return row.sessionNickname
+  }
+  return row.role === 'host' ? 'Host' : `Seat ${row.seatLabel}`
 }
 
-function onTurnRowClickSelect(characterId: Id<'sessionCharacters'>) {
-  if (!canEditBattleMap.value) {
-    return
-  }
-  selectMapCharacter(characterId)
-}
-
-function onTurnDragStart(index: number, e: DragEvent) {
-  if (!canEditBattleMap.value) {
-    return
-  }
-  turnOrderDragFrom.value = index
-  e.dataTransfer?.setData('text/plain', String(index))
-}
-
-function onTurnDragOver(e: DragEvent) {
-  if (!canEditBattleMap.value) {
-    return
-  }
-  e.preventDefault()
-}
-
-async function onTurnDrop(toIndex: number, e: DragEvent) {
-  e.preventDefault()
-  if (!canEditBattleMap.value || sessionId.value === null) {
-    return
-  }
-  const fromStr = e.dataTransfer?.getData('text/plain') ?? ''
-  const fromParsed = Number.parseInt(fromStr, 10)
-  const from = Number.isFinite(fromParsed) ? fromParsed : turnOrderDragFrom.value
-  turnOrderDragFrom.value = null
-  if (from === null || from === undefined || Number.isNaN(from)) {
-    return
-  }
-  if (from === toIndex) {
-    return
-  }
-  const ids = map(turnOrderEntries.value, (row) => row.characterId)
-  if (from < 0 || from >= ids.length || toIndex < 0 || toIndex >= ids.length) {
-    return
-  }
-  const next = [...ids]
-  const [moved] = next.splice(from, 1)
-  next.splice(toIndex, 0, moved)
-  turnOrderActionError.value = null
-  try {
-    await client.mutation(api.sessions.setSessionTurnOrder, {
-      sessionId: sessionId.value,
-      characterIds: next,
-    })
-  } catch {
-    turnOrderActionError.value = 'Could not reorder turn order.'
-  }
-}
-
-async function appendCharacterToTurnOrder(characterId: Id<'sessionCharacters'>) {
-  if (sessionId.value === null || !canEditSessionRoster.value) {
-    return
-  }
-  const ids = map(turnOrderEntries.value, (row) => row.characterId)
-  if (includes(ids, characterId)) {
-    return
-  }
-  turnOrderActionError.value = null
-  try {
-    await client.mutation(api.sessions.setSessionTurnOrder, {
-      sessionId: sessionId.value,
-      characterIds: [...ids, characterId],
-    })
-  } catch {
-    turnOrderActionError.value = 'Could not add to turn order.'
-  }
-}
-
-async function removeCharacterFromTurnOrder(characterId: Id<'sessionCharacters'>) {
-  if (sessionId.value === null || !canEditSessionRoster.value) {
-    return
-  }
-  const ids = filter(
-    map(turnOrderEntries.value, (row) => row.characterId),
-    (id) => id !== characterId,
-  )
-  turnOrderActionError.value = null
-  try {
-    await client.mutation(api.sessions.setSessionTurnOrder, {
-      sessionId: sessionId.value,
-      characterIds: ids,
-    })
-  } catch {
-    turnOrderActionError.value = 'Could not update turn order.'
-  }
-}
-
-async function startCombatRound() {
-  if (sessionId.value === null || !canEditBattleMap.value) {
-    return
-  }
-  combatActionError.value = null
-  try {
-    await client.mutation(api.sessions.startCombat, { sessionId: sessionId.value })
-  } catch {
-    combatActionError.value = 'Could not start combat.'
-  }
-}
-
-async function advanceCombatRound() {
-  if (sessionId.value === null || !canEditBattleMap.value) {
-    return
-  }
-  combatActionError.value = null
-  try {
-    await client.mutation(api.sessions.advanceCombatRound, { sessionId: sessionId.value })
-  } catch {
-    combatActionError.value = 'Could not advance round.'
-  }
-}
-
-async function endCombatRound() {
-  if (sessionId.value === null || !canEditBattleMap.value) {
-    return
-  }
-  combatActionError.value = null
-  try {
-    await client.mutation(api.sessions.endCombat, { sessionId: sessionId.value })
-  } catch {
-    combatActionError.value = 'Could not end combat.'
-  }
-}
-
-async function runNewFight() {
-  if (sessionId.value === null || !canEditBattleMap.value) {
-    return
-  }
-  combatActionError.value = null
-  try {
-    await client.mutation(api.sessions.newFight, { sessionId: sessionId.value })
-  } catch {
-    combatActionError.value = 'Could not start new fight.'
-  }
-}
-
-async function onBattleHexClick(col: number, row: number) {
-  if (
-    sessionId.value === null ||
-    selectedMapCharacterId.value === null ||
-    !canEditBattleMap.value
-  ) {
-    return
-  }
-  mapError.value = null
-  try {
-    await client.mutation(api.sessions.setSessionCharacterMapPlacement, {
-      sessionId: sessionId.value,
-      characterId: selectedMapCharacterId.value,
-      placement: { kind: 'hex', col, row },
-    })
-  } catch {
-    mapError.value = 'Could not place there (occupied or invalid).'
-  }
-}
-
-async function unplaceSelectedMapCharacter() {
-  if (
-    sessionId.value === null ||
-    selectedMapCharacterId.value === null ||
-    !canEditBattleMap.value
-  ) {
-    return
-  }
-  mapError.value = null
-  try {
-    await client.mutation(api.sessions.setSessionCharacterMapPlacement, {
-      sessionId: sessionId.value,
-      characterId: selectedMapCharacterId.value,
-      placement: { kind: 'clear' },
-    })
-    selectedMapCharacterId.value = null
-  } catch {
-    mapError.value = 'Could not remove from map.'
-  }
-}
-
-async function applyCharacter(clerkUserId: string) {
-  if (sessionId.value === null) {
-    return
-  }
-  rosterError.value = null
-  const pick = characterPick.value[clerkUserId] ?? ''
-  try {
-    await client.mutation(api.sessions.assignPlayerCharacter, {
-      sessionId: sessionId.value,
-      playerClerkUserId: clerkUserId,
-      characterId: pick === '' ? null : (pick as Id<'sessionCharacters'>),
-    })
-  } catch {
-    rosterError.value = 'Could not update character assignment.'
-  }
-}
-
-async function addSessionFigure() {
-  if (sessionId.value === null || !canEditSessionRoster.value) {
-    return
-  }
-  const name = trim(newFigureName.value)
-  if (name.length === 0) {
-    figuresPanelError.value = 'Enter a character name.'
-    return
-  }
-  figuresPanelError.value = null
-  try {
-    await client.mutation(api.sessions.createSessionCharacter, {
-      sessionId: sessionId.value,
-      name,
-      isPlayable: newFigureIsPlayable.value,
-    })
-    newFigureName.value = ''
-    newFigureIsPlayable.value = true
-  } catch {
-    figuresPanelError.value = 'Could not add character.'
-  }
-}
-
-async function removeSessionFigure(characterId: Id<'sessionCharacters'>) {
-  if (sessionId.value === null || !canEditSessionRoster.value) {
-    return
-  }
-  figuresPanelError.value = null
-  try {
-    await client.mutation(api.sessions.removeSessionCharacter, {
-      sessionId: sessionId.value,
-      characterId,
-    })
-    if (selectedMapCharacterId.value === characterId) {
-      selectedMapCharacterId.value = null
-    }
-  } catch {
-    figuresPanelError.value = 'Could not remove character.'
-  }
-}
+const pendingRequests = computed(() => joinRequests.value ?? [])
 </script>
 
 <template>
-  <div class="session-root">
-    <p v-if="invalidSessionRoute" class="muted session-fallback">
-      This session link is not valid. Check the URL or open the session from your home page.
+  <div class="page">
+    <p class="nav">
+      <RouterLink to="/">← Home</RouterLink>
     </p>
-    <p v-else-if="bundleError" class="error session-fallback">
-      Could not load this session. {{ bundleError.message }}
-    </p>
-    <p v-else-if="bundle === undefined" class="muted session-fallback">Loading…</p>
-    <p v-else-if="!bundle.session" class="muted session-fallback">
-      You do not have access to this session, or it does not exist.
-    </p>
-    <template v-else>
-      <div class="session-shell">
-        <header class="session-topbar">
-          <div class="session-topbar-lead">
-            <span class="session-title">{{ bundle.session.title }}</span>
-            <span class="session-topbar-meta">
-              <span class="status-soft">{{ sessionStatusLabel }}</span>
-              <span v-if="sessionArchivedHint" class="read-only-soft">Read-only table</span>
+
+    <p v-if="playStateError" class="error">Could not load Session. {{ playStateError.message }}</p>
+    <p v-else-if="playState === undefined" class="muted">Loading Session…</p>
+    <p v-else-if="playState === null" class="muted">You are not a Player in this Session.</p>
+
+    <template v-else-if="session">
+      <header class="header">
+        <h1>{{ session.title }}</h1>
+        <p class="muted">
+          <span v-if="archived">Archived session</span>
+          <span v-else-if="playPhase === 'lobby'">Lobby</span>
+          <span v-else-if="playPhase === 'match'">Match</span>
+          <span v-else>Results</span>
+          · {{ fightingPlayers.length }}/2 Players
+          <span v-if="isHost"> · Host</span>
+        </p>
+      </header>
+
+      <p v-if="actionError" class="error">{{ actionError }}</p>
+
+      <section v-if="playPhase === 'lobby'" class="panel">
+        <h2>Lobby</h2>
+        <ul class="seats">
+          <li v-for="seat in [0, 1]" :key="seat" class="seat-row">
+            <span class="seat-label">Seat {{ seat + 1 }}</span>
+            <span v-if="fightingPlayers[seat]" class="seat-player">
+              {{
+                fightingPlayers[seat].sessionNickname ||
+                (fightingPlayers[seat].role === 'host' ? 'Host' : 'Player')
+              }}
+              <span v-if="fightingPlayers[seat].isYou" class="you"> (you)</span>
+              <span v-if="fightingPlayers[seat].role === 'host'" class="muted"> · Host</span>
             </span>
-          </div>
-          <div class="session-topbar-trail">
-            <button
-              v-if="bundle.membership?.role === 'player'"
-              type="button"
-              class="sheet-entry-btn"
-              @click="openCharacterSheetPanel"
-            >
-              Character sheet
-            </button>
-            <button
-              v-else-if="isDm"
-              type="button"
-              class="sheet-entry-btn"
-              @click="openCharacterSheetPanel"
-            >
-              Character sheet
-            </button>
-            <RouterLink class="home-link" to="/">Home</RouterLink>
-          </div>
-        </header>
+            <span v-else class="muted">Waiting…</span>
+          </li>
+        </ul>
 
-        <div class="session-body">
-          <div class="session-map-shell">
-            <div
-              v-if="isDm && dmToolboxOpen"
-              class="session-dm-backdrop"
-              aria-hidden="true"
-              @click="closeDmToolboxOnBackdrop"
-            />
-            <div class="session-map-fill">
-              <div class="session-stage">
-                <p v-if="battleMapError" class="stage-message error">
-                  Could not load battle map. {{ battleMapError.message }}
-                </p>
-                <p v-else-if="battleMap === undefined" class="stage-message muted">
-                  Loading battle map…
-                </p>
-                <BattleMapBoard
-                  v-else-if="battleMap"
-                  :map-cols="battleMap.mapCols"
-                  :map-rows="battleMap.mapRows"
-                  :tokens="battleMap.tokens"
-                  :selected-character-id="selectedMapCharacterId"
-                  :can-interact="canEditBattleMap"
-                  :session-role="bundle.membership?.role"
-                  :player-recenter-character-id="playerRecenterCharacterId"
-                  class="stage-map"
-                  @hex-click="onBattleHexClick"
-                  @token-click="selectMapCharacter"
-                />
-              </div>
-              <p v-if="battleMap" class="battle-map-legend muted tiny" role="note">
-                <span class="battle-map-legend__label">Battle map</span>
-                <span class="battle-map-legend__sep" aria-hidden="true">·</span>
-                <span
-                  ><kbd class="kbd-hint">Alt</kbd>/<kbd class="kbd-hint">⌥</kbd> + drag to pan</span
-                >
-                <template v-if="!isDm">
-                  <span class="battle-map-legend__sep" aria-hidden="true">·</span>
-                  <span
-                    ><kbd class="kbd-hint">Space</kbd> to center on your character when placed</span
-                  >
-                </template>
-              </p>
-            </div>
-
-            <div v-if="isDm" class="session-float session-float--leading">
-              <button
-                v-if="!dmToolboxOpen"
-                type="button"
-                class="float-handle float-handle--leading"
-                aria-label="Open Dungeon Master tools"
-                @click="openDmToolbox()"
-              >
-                ⟩
-              </button>
-              <div v-else class="float-panel float-panel--leading">
-                <div class="float-panel-head">
-                  <button
-                    type="button"
-                    class="float-collapse"
-                    aria-label="Close tools"
-                    @click="toggleDmToolbox()"
-                  >
-                    ⟨
-                  </button>
-                  <span class="float-panel-title">Dungeon Master tools</span>
-                </div>
-                <div class="float-tab-strip" role="tablist">
-                  <button
-                    v-for="t in sidebarTabs"
-                    :key="t.id"
-                    type="button"
-                    role="tab"
-                    :aria-selected="activeTab === t.id"
-                    class="float-tab-btn"
-                    :class="{ 'float-tab-btn--active': activeTab === t.id }"
-                    @click="selectTab(t.id)"
-                  >
-                    {{ t.label }}
-                  </button>
-                </div>
-                <div class="float-panel-body thin-scroll">
-                  <div v-show="activeTab === 'map'" class="sidebar-section">
-                    <h3 class="panel-heading">Map size (hexes)</h3>
-                    <p class="muted tiny">
-                      Trailing columns and bottom rows are added or removed; origin stays fixed.
-                    </p>
-                    <div class="field-row">
-                      <label class="field">
-                        <span class="field-label">Columns</span>
-                        <input
-                          v-model.number="footprintCols"
-                          type="number"
-                          min="1"
-                          max="24"
-                          class="input input-narrow"
-                          :disabled="!canEditBattleMap"
-                        />
-                      </label>
-                      <label class="field">
-                        <span class="field-label">Rows</span>
-                        <input
-                          v-model.number="footprintRows"
-                          type="number"
-                          min="1"
-                          max="24"
-                          class="input input-narrow"
-                          :disabled="!canEditBattleMap"
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        class="btn-small"
-                        :disabled="!canEditBattleMap"
-                        @click="applyBattleFootprint"
-                      >
-                        Apply size
-                      </button>
-                    </div>
-                    <h3 class="panel-heading spaced">Unplaced characters</h3>
-                    <p v-if="!canEditBattleMap" class="muted tiny">
-                      Read-only while session is not live.
-                    </p>
-                    <p v-else-if="battleMap === undefined" class="muted tiny">
-                      Loading battle map…
-                    </p>
-                    <p
-                      v-else-if="battleMapFigureCounts && battleMapFigureCounts.total === 0"
-                      class="muted tiny"
-                    >
-                      No session characters yet. Add playable or non-playable characters in the
-                      Characters tab, then pick one here and click a hex.
-                    </p>
-                    <p v-else-if="battleMapFigureCounts?.unplaced === 0" class="muted tiny">
-                      Everyone is on the map.
-                    </p>
-                    <ul v-else-if="battleMap" class="unplaced-list">
-                      <li v-for="u in battleMap.unplaced" :key="String(u.characterId)">
-                        <button
-                          type="button"
-                          class="linkish"
-                          :class="{ active: selectedMapCharacterId === u.characterId }"
-                          :disabled="!canEditBattleMap"
-                          @click="selectMapCharacter(u.characterId)"
-                        >
-                          {{ u.name }}{{ u.isPlayable ? '' : ' (non-playable)' }}
-                        </button>
-                      </li>
-                    </ul>
-                    <p class="muted tiny">
-                      Select a character, then click a hex to place or move. Drag the map background
-                      to pan; wheel to zoom.
-                    </p>
-                    <div class="field-row">
-                      <button
-                        type="button"
-                        class="btn-small"
-                        :disabled="!canEditBattleMap || selectedMapCharacterId === null"
-                        @click="unplaceSelectedMapCharacter"
-                      >
-                        Remove selected from map
-                      </button>
-                      <button
-                        type="button"
-                        class="btn-small"
-                        :disabled="!canEditBattleMap"
-                        @click="selectedMapCharacterId = null"
-                      >
-                        Clear selection
-                      </button>
-                    </div>
-                    <p v-if="mapError" class="error">{{ mapError }}</p>
-                  </div>
-                  <div
-                    v-show="bundle.membership?.role === 'dm' && activeTab === 'players'"
-                    class="sidebar-section"
-                  >
-                    <h3 class="panel-heading">Players in session</h3>
-                    <p v-if="playersError" class="error">
-                      Could not load players. {{ playersError.message }}
-                    </p>
-                    <p v-else-if="charactersError" class="error">
-                      Could not load characters. {{ charactersError.message }}
-                    </p>
-                    <p v-else-if="players === undefined || characters === undefined" class="muted">
-                      Loading…
-                    </p>
-                    <p v-else-if="!playersList.length" class="muted">
-                      No players yet. Approve join requests in the Join tab.
-                    </p>
-                    <ul v-else class="roster">
-                      <li v-for="p in playersList" :key="p.memberId" class="roster-row">
-                        <div class="roster-main">
-                          <div class="label">
-                            <strong>{{ displayPlayerLabel(p.clerkUserId) }}</strong>
-                            <span class="mono sub">{{ p.clerkUserId }}</span>
-                          </div>
-                          <div class="field-row">
-                            <label class="field">
-                              <span class="field-label">Session nickname</span>
-                              <input
-                                v-model="nicknameDraft[p.clerkUserId]"
-                                type="text"
-                                maxlength="48"
-                                class="input"
-                                placeholder="Table name (optional)"
-                                :disabled="!canEditSessionRoster"
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              class="btn-small"
-                              :disabled="!canEditSessionRoster"
-                              @click="saveNickname(p.clerkUserId)"
-                            >
-                              Save name
-                            </button>
-                          </div>
-                          <div class="field-row">
-                            <label class="field grow">
-                              <span class="field-label">Session character</span>
-                              <select
-                                v-model="characterPick[p.clerkUserId]"
-                                class="select"
-                                :disabled="!canEditSessionRoster"
-                              >
-                                <option value="">Unassigned</option>
-                                <option
-                                  v-for="c in playableCharactersForBind"
-                                  :key="c._id"
-                                  :value="c._id"
-                                >
-                                  {{ characterOptionLabel(c, p.clerkUserId) }}
-                                </option>
-                              </select>
-                            </label>
-                            <button
-                              type="button"
-                              class="btn-small"
-                              :disabled="!canEditSessionRoster"
-                              @click="applyCharacter(p.clerkUserId)"
-                            >
-                              Apply
-                            </button>
-                          </div>
-                          <p v-if="p.characterName" class="muted tiny">
-                            Assigned sheet: {{ p.characterName }}
-                          </p>
-                        </div>
-                      </li>
-                    </ul>
-                    <p v-if="rosterError" class="error">{{ rosterError }}</p>
-                  </div>
-                  <div
-                    v-show="bundle.membership?.role === 'dm' && activeTab === 'characters'"
-                    class="sidebar-section"
-                  >
-                    <h3 class="panel-heading">Session characters</h3>
-                    <p v-if="charactersError" class="error">
-                      Could not load characters. {{ charactersError.message }}
-                    </p>
-                    <template v-else>
-                      <div class="figure-add-card">
-                        <p class="muted tiny">Add names for playable or session-run characters.</p>
-                        <div class="field-row field-row--wrap">
-                          <label class="field grow">
-                            <span class="field-label">Name</span>
-                            <input
-                              v-model="newFigureName"
-                              type="text"
-                              maxlength="64"
-                              class="input"
-                              placeholder="Character name"
-                              :disabled="!canEditSessionRoster || characters === undefined"
-                            />
-                          </label>
-                          <label class="field field--checkbox">
-                            <input
-                              v-model="newFigureIsPlayable"
-                              type="checkbox"
-                              :disabled="!canEditSessionRoster || characters === undefined"
-                            />
-                            <span class="field-label">Playable character</span>
-                          </label>
-                          <button
-                            type="button"
-                            class="btn-small"
-                            :disabled="
-                              !canEditSessionRoster ||
-                              characters === undefined ||
-                              trim(newFigureName).length === 0
-                            "
-                            @click="addSessionFigure"
-                          >
-                            Add character
-                          </button>
-                        </div>
-                      </div>
-                      <p v-if="characters === undefined" class="muted">Loading…</p>
-                      <p v-else-if="!charactersList.length" class="muted">
-                        No characters in this session yet. Add one above, then place them on the Map
-                        tab.
-                      </p>
-                      <ul v-else class="figure-list">
-                        <li v-for="c in charactersList" :key="c._id" class="figure-row">
-                          <div class="figure-info">
-                            <strong>{{ c.name }}</strong
-                            ><span v-if="!c.isPlayable"> (non-playable)</span>
-                            <span
-                              v-if="c.classSummary !== undefined && trim(c.classSummary).length > 0"
-                              class="muted tiny"
-                            >
-                              · {{ c.classSummary }}</span
-                            >
-                          </div>
-                          <div class="field-row">
-                            <button
-                              type="button"
-                              class="btn-small"
-                              :disabled="!canEditSessionRoster"
-                              @click="openCharacterSheetFor(c._id)"
-                            >
-                              Sheet
-                            </button>
-                            <button
-                              type="button"
-                              class="btn-small"
-                              :disabled="!canEditSessionRoster"
-                              @click="removeSessionFigure(c._id)"
-                            >
-                              Remove
-                            </button>
-                            <button
-                              type="button"
-                              class="btn-small"
-                              :disabled="!canEditSessionRoster"
-                              @click="appendCharacterToTurnOrder(c._id)"
-                            >
-                              Turn order
-                            </button>
-                          </div>
-                        </li>
-                      </ul>
-                      <p v-if="figuresPanelError" class="error">{{ figuresPanelError }}</p>
-                    </template>
-                  </div>
-                  <div
-                    v-show="bundle.membership?.role === 'dm' && activeTab === 'join'"
-                    class="sidebar-section"
-                  >
-                    <template v-if="joinToken">
-                      <h3 class="panel-heading">Join link</h3>
-                      <p class="mono join-url">{{ joinHref(joinToken) }}</p>
-                    </template>
-                    <h3 class="panel-heading spaced">Pending join requests</h3>
-                    <p v-if="joinRequestsError" class="error">
-                      Could not load join requests. {{ joinRequestsError.message }}
-                    </p>
-                    <p v-else-if="joinRequestsLoading" class="muted">Loading…</p>
-                    <p v-else-if="joinRequests && !joinRequestsList.length" class="muted">
-                      No pending requests.
-                    </p>
-                    <ul v-else-if="joinRequestsList.length" class="list join-request-list">
-                      <li v-for="req in joinRequestsList" :key="req._id" class="join-request-row">
-                        <span class="mono">{{ req.clerkUserId }}</span>
-                        <label v-if="playableCharactersForBind.length" class="field grow">
-                          <span class="field-label">Playable character</span>
-                          <select
-                            v-model="joinApproveCharacterPick[String(req._id)]"
-                            class="select"
-                            :disabled="!canEditSessionRoster"
-                          >
-                            <option value="">Assign later</option>
-                            <option
-                              v-for="c in playableCharactersForBind"
-                              :key="c._id"
-                              :value="String(c._id)"
-                            >
-                              {{ characterOptionLabel(c, req.clerkUserId) }}
-                            </option>
-                          </select>
-                        </label>
-                        <p v-else class="muted tiny">No playable characters yet.</p>
-                        <button
-                          type="button"
-                          class="btn-small btn-approve"
-                          :disabled="!canEditSessionRoster"
-                          @click="approve(req._id)"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          class="btn-small"
-                          :disabled="!canEditSessionRoster"
-                          @click="rejectRequest(req._id)"
-                        >
-                          Reject
-                        </button>
-                      </li>
-                    </ul>
-                    <p v-if="approveError" class="error">{{ approveError }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="session-float session-float--trailing">
-              <button
-                v-if="!turnRailOpen"
-                type="button"
-                class="float-handle float-handle--trailing"
-                aria-label="Open turn order"
-                @click="openTurnRail()"
-              >
-                ⟨
-              </button>
-              <div v-else class="float-panel float-panel--trailing">
-                <div class="float-panel-head float-panel-head--trailing">
-                  <h3 class="panel-heading turn-heading">Turn order</h3>
-                  <button
-                    type="button"
-                    class="float-collapse"
-                    aria-label="Collapse turn order"
-                    @click="toggleTurnRail()"
-                  >
-                    ⟩
-                  </button>
-                </div>
-                <div class="float-panel-body thin-scroll">
-                  <div v-if="turnOrderData !== undefined" class="combat-clock">
-                    <p class="combat-clock-round">
-                      Round
-                      <strong>{{ combatRoundNumber }}</strong>
-                      <span v-if="combatRoundActive" class="combat-clock-active">(active)</span>
-                      <span v-else class="muted">(paused)</span>
-                    </p>
-                    <div v-if="canEditBattleMap" class="combat-clock-actions">
-                      <button type="button" class="btn-small" @click="startCombatRound">
-                        Start
-                      </button>
-                      <button
-                        type="button"
-                        class="btn-small"
-                        :disabled="!combatRoundActive"
-                        @click="advanceCombatRound"
-                      >
-                        Advance
-                      </button>
-                      <button type="button" class="btn-small" @click="endCombatRound">End</button>
-                      <button type="button" class="btn-small" @click="runNewFight">
-                        New fight
-                      </button>
-                    </div>
-                    <p v-if="combatActionError" class="error tiny">{{ combatActionError }}</p>
-                  </div>
-                  <p v-if="turnOrderQueryError" class="error">
-                    Could not load turn order. {{ turnOrderQueryError.message }}
-                  </p>
-                  <p v-else-if="turnOrderData === undefined" class="muted">Loading turn order…</p>
-                  <p v-else-if="!turnOrderEntries.length" class="muted tiny">
-                    No entries in turn order yet. Dungeon Master: use
-                    <strong>Characters</strong> and <strong>Turn order</strong> on each row to add
-                    entries, then drag the grip to reorder.
-                  </p>
-                  <ul v-else class="turn-order-list">
-                    <li
-                      v-for="(entry, idx) in turnOrderEntries"
-                      :key="String(entry.characterId)"
-                      class="turn-order-row"
-                      @dragover="onTurnDragOver"
-                      @drop="onTurnDrop(idx, $event)"
-                    >
-                      <span
-                        v-if="canEditBattleMap"
-                        class="turn-grip"
-                        draggable="true"
-                        aria-label="Drag to reorder"
-                        @dragstart="onTurnDragStart(idx, $event)"
-                        >⋮⋮</span
-                      >
-                      <button
-                        v-if="canEditBattleMap"
-                        type="button"
-                        class="turn-name-btn"
-                        :class="{ active: selectedMapCharacterId === entry.characterId }"
-                        @click="onTurnRowClickSelect(entry.characterId)"
-                      >
-                        {{ entry.name }}<span v-if="!entry.isPlayable"> (non-playable)</span>
-                      </button>
-                      <span v-else class="turn-name-readonly">
-                        {{ entry.name }}<span v-if="!entry.isPlayable"> (non-playable)</span>
-                      </span>
-                      <button
-                        v-if="canEditSessionRoster"
-                        type="button"
-                        class="btn-small turn-remove"
-                        :disabled="!canEditSessionRoster"
-                        @click="removeCharacterFromTurnOrder(entry.characterId)"
-                      >
-                        ×
-                      </button>
-                    </li>
-                  </ul>
-                  <p v-if="turnOrderActionError" class="error">{{ turnOrderActionError }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div v-if="isHost && joinHref" class="join-link">
+          <span class="muted">Join link</span>
+          <code class="mono">{{ joinHref }}</code>
         </div>
 
-        <div
-          v-if="sheetPanelOpen"
-          class="sheet-modal-backdrop"
-          @click.self="sheetPanelOpen = false"
-        >
-          <div
-            class="sheet-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="sheet-modal-title"
-            @click.stop
+        <div v-if="isHost" class="host-actions">
+          <button
+            type="button"
+            class="btn-primary"
+            :disabled="!playState.canStartMatch || actionBusy || archived"
+            @click="onStartMatch"
           >
-            <div class="sheet-modal-header">
-              <h2 id="sheet-modal-title" class="sheet-modal-title">Character sheet</h2>
-              <div v-if="isDm && charactersList.length" class="sheet-modal-pick">
-                <label class="sheet-pick-label muted tiny" for="sheet-character-select"
-                  >Character</label
-                >
-                <select
-                  id="sheet-character-select"
-                  v-model="sheetCharacterIdSelect"
-                  class="select sheet-character-select"
-                >
-                  <option v-for="c in charactersList" :key="c._id" :value="String(c._id)">
-                    {{ c.name }}<span v-if="!c.isPlayable"> (non-playable)</span>
-                  </option>
-                </select>
-              </div>
-              <button type="button" class="sheet-modal-close" @click="sheetPanelOpen = false">
-                Close
-              </button>
-            </div>
-            <div class="sheet-modal-body">
-              <p v-if="sheetSaveError" class="error tiny">{{ sheetSaveError }}</p>
-              <template v-if="bundle.membership?.role === 'player'">
-                <template v-if="playerSheetPreview === undefined">
-                  <p class="muted">Loading…</p>
-                </template>
-                <template v-else-if="playerSheetPreview?.kind === 'unbound'">
-                  <p class="muted">
-                    You are not bound to a session character yet. The Dungeon Master can assign one
-                    from the Players tab.
-                  </p>
-                </template>
-                <CharacterSheetPanel
-                  v-else-if="sessionId && sheetCharacterId"
-                  :session-id="sessionId"
-                  :character-id="sheetCharacterId"
-                  @save-error="sheetSaveError = $event"
-                />
-              </template>
-              <template v-else-if="isDm">
-                <p v-if="characters === undefined" class="muted">Loading characters…</p>
-                <p v-else-if="!charactersList.length" class="muted">
-                  No session characters yet. Add characters in Dungeon Master tools (Characters
-                  tab), then open this sheet again.
-                </p>
-                <CharacterSheetPanel
-                  v-else-if="sessionId && sheetCharacterId"
-                  :session-id="sessionId"
-                  :character-id="sheetCharacterId"
-                  @save-error="sheetSaveError = $event"
-                />
-              </template>
-            </div>
-          </div>
+            Start Match
+          </button>
+          <button
+            type="button"
+            class="btn-danger"
+            :disabled="!playState.canEndSession || actionBusy || archived"
+            @click="onEndSession"
+          >
+            End Session
+          </button>
+          <p v-if="!archived && fightingPlayers.length < 2" class="muted tiny">
+            Start Match needs exactly two fighting Players.
+          </p>
         </div>
-      </div>
+        <p v-else-if="!archived" class="muted">
+          Waiting for the Host to start the Match. Only the Host can start.
+        </p>
+        <p v-else class="muted">This Session is archived.</p>
+
+        <div v-if="isHost && !archived" class="join-requests">
+          <h3>Join requests</h3>
+          <p v-if="joinRequestsError" class="error">{{ joinRequestsError.message }}</p>
+          <p v-else-if="joinRequests === undefined" class="muted">Loading…</p>
+          <p v-else-if="pendingRequests.length === 0" class="muted">No pending join requests.</p>
+          <ul v-else class="request-list">
+            <li v-for="req in pendingRequests" :key="req._id">
+              <span class="mono tiny">{{ req.clerkUserId }}</span>
+              <button
+                type="button"
+                class="btn-small"
+                :disabled="actionBusy || fightingPlayers.length >= 2"
+                @click="onApprove(req._id)"
+              >
+                Approve
+              </button>
+              <button type="button" class="btn-small" :disabled="actionBusy" @click="onReject(req._id)">
+                Reject
+              </button>
+            </li>
+          </ul>
+          <p v-if="fightingPlayers.length >= 2" class="muted tiny">Session full (2/2).</p>
+        </div>
+      </section>
+
+      <section v-else class="match-panel">
+        <div v-if="resultsBanner" class="results-banner" role="status">
+          {{ resultsBanner }}
+          <span class="muted tiny"> · Returning to Lobby…</span>
+        </div>
+
+        <div v-if="matchSeats" class="fighters">
+          <article
+            v-for="(fighter, seatIndex) in matchSeats"
+            :key="fighter.clerkUserId"
+            class="fighter"
+          >
+            <header class="fighter-head">
+              <h2>Seat {{ seatIndex + 1 }}</h2>
+              <p class="muted">{{ seatLabelForClerk(fighter.clerkUserId) }}</p>
+            </header>
+
+            <div class="bars">
+              <div class="bar-row">
+                <span>Life total</span>
+                <div class="bar-track">
+                  <div
+                    class="bar-fill life"
+                    :style="{ width: `${Math.max(0, Math.min(100, fighter.life))}%` }"
+                  />
+                </div>
+                <span class="bar-value">{{ fighter.life }}</span>
+              </div>
+              <div class="bar-row">
+                <span>Shield</span>
+                <div class="bar-track">
+                  <div
+                    class="bar-fill shield"
+                    :style="{ width: `${Math.min(100, fighter.shield)}%` }"
+                  />
+                </div>
+                <span class="bar-value">{{ fighter.shield }}</span>
+              </div>
+            </div>
+
+            <ul class="loadout">
+              <li
+                v-for="(slot, slotIndex) in fighter.slots"
+                :key="`${seatIndex}-${slotIndex}-${slot.itemKey}`"
+                class="slot"
+                :class="{
+                  flash: includes(flashKeys, `${seatIndex}-${slotIndex}-${lastUpdate?.atMs}`),
+                }"
+              >
+                <div class="slot-meta">
+                  <strong>{{ itemName(slot.itemKey) }}</strong>
+                  <span class="muted tiny">{{ itemEffect(slot.itemKey) }}</span>
+                </div>
+                <div class="cooldown-track" aria-hidden="true">
+                  <div
+                    class="cooldown-fill"
+                    :style="{
+                      width: `${
+                        cooldownFill(slot.nextReadyAt, slotCooldownMs(slot.itemKey)) * 100
+                      }%`,
+                    }"
+                  />
+                </div>
+              </li>
+            </ul>
+          </article>
+        </div>
+      </section>
     </template>
   </div>
 </template>
 
 <style scoped>
-.session-root {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px 12px 48px;
 }
-.session-shell {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+.nav {
+  margin-bottom: 8px;
 }
-.session-topbar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 97%, var(--border));
+.header h1 {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
 }
-.session-topbar-lead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px 16px;
-  min-width: 0;
-}
-.session-title {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--text-h);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: min(560px, 70vw);
-}
-.session-topbar-meta {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  font-size: 0.8rem;
-}
-.status-soft {
-  color: var(--text);
-  opacity: 0.65;
-}
-.read-only-soft {
-  color: var(--text);
-  opacity: 0.72;
-}
-.home-link {
-  flex-shrink: 0;
-  font-size: 0.8rem;
-  color: var(--accent);
-  text-decoration: none;
-  opacity: 0.9;
-}
-.home-link:hover {
-  text-decoration: underline;
-}
-.session-topbar-trail {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-.sheet-entry-btn {
-  font: inherit;
-  font-size: 0.8rem;
-  padding: 5px 10px;
-  border-radius: 8px;
+.panel,
+.match-panel {
   border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--accent);
-  cursor: pointer;
-}
-.sheet-entry-btn:hover {
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
-}
-.session-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  position: relative;
-}
-.session-map-shell {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
-.session-dm-backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 15;
-  background: color-mix(in srgb, var(--bg) 55%, #000 45%);
-  opacity: 0.35;
-  pointer-events: auto;
-}
-.session-map-fill {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  z-index: 1;
-}
-.session-float {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  pointer-events: none;
-}
-.session-float > * {
-  pointer-events: auto;
-}
-.session-float--leading {
-  left: 0;
-}
-.session-float--trailing {
-  right: 0;
-  flex-direction: row-reverse;
-}
-.float-handle {
-  width: 36px;
-  min-width: 36px;
-  border: none;
-  border-radius: 0 10px 10px 0;
-  background: color-mix(in srgb, var(--bg) 92%, var(--border));
-  color: var(--text);
-  font: inherit;
-  font-size: 1rem;
-  cursor: pointer;
-  box-shadow: 2px 0 10px color-mix(in srgb, #000 12%, transparent);
-}
-.float-handle--trailing {
-  border-radius: 10px 0 0 10px;
-  box-shadow: -2px 0 10px color-mix(in srgb, #000 12%, transparent);
-}
-.float-panel {
-  width: min(300px, calc(100vw - 48px));
-  max-width: 300px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  background: color-mix(in srgb, var(--bg) 94%, var(--border));
-  border: 1px solid var(--border);
-  border-left: none;
-  box-shadow: 4px 0 18px color-mix(in srgb, #000 14%, transparent);
-}
-.float-panel--trailing {
-  border-left: 1px solid var(--border);
-  border-right: none;
-  box-shadow: -4px 0 18px color-mix(in srgb, #000 14%, transparent);
-}
-.float-panel-head {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-}
-.float-panel-head--trailing {
-  justify-content: space-between;
-}
-.turn-heading {
-  margin: 0;
-  flex: 1;
-}
-.float-panel-title {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--text-h);
-}
-.float-collapse {
-  width: 32px;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.float-tab-strip {
-  flex-shrink: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 97%, var(--border));
-}
-.float-tab-btn {
-  padding: 5px 8px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  font: inherit;
-  font-size: 0.78rem;
-  color: var(--text);
-  cursor: pointer;
-}
-.float-tab-btn:hover {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-}
-.float-tab-btn--active {
-  border-color: var(--border);
-  background: color-mix(in srgb, var(--bg) 88%, var(--accent));
-}
-.float-panel-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 10px 12px;
-}
-.turn-order-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.turn-order-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 4px;
-  border-bottom: 1px solid var(--border);
-}
-.turn-grip {
-  cursor: grab;
-  user-select: none;
-  opacity: 0.55;
-  font-size: 0.75rem;
-  padding: 2px;
-}
-.turn-name-btn {
-  flex: 1;
-  text-align: left;
-  font: inherit;
-  background: none;
-  border: none;
-  padding: 2px 0;
-  color: var(--accent);
-  cursor: pointer;
-}
-.turn-name-btn.active {
-  font-weight: 600;
-  text-decoration: underline;
-}
-.turn-name-readonly {
-  flex: 1;
-  font-size: 0.86rem;
-}
-.turn-remove {
-  padding: 2px 8px;
-  min-width: 0;
-}
-.sheet-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  background: color-mix(in srgb, #000 45%, transparent);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 48px 16px 16px;
-}
-.sheet-modal {
-  width: min(960px, 100%);
-  max-height: min(90vh, 900px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
   border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  box-shadow: 0 12px 40px color-mix(in srgb, #000 25%, transparent);
+  padding: 16px 18px;
+  background: color-mix(in srgb, var(--bg) 92%, var(--border));
 }
-.sheet-modal-header {
+.seats {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+}
+.seat-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }
-.sheet-modal-pick {
+.seat-label {
+  font-weight: 600;
+  min-width: 4.5rem;
+}
+.join-link {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1;
-  min-width: 160px;
-  max-width: 320px;
+  margin-bottom: 14px;
 }
-.sheet-character-select {
-  width: 100%;
-}
-.sheet-modal-title {
-  margin: 0;
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-.sheet-modal-close {
-  font: inherit;
-  cursor: pointer;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  padding: 4px 10px;
-  flex-shrink: 0;
-}
-.sheet-modal-body {
-  padding: 14px 16px 18px;
-  font-size: 0.92rem;
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-.sidebar-section .panel-heading {
-  font-size: 0.9rem;
-  margin: 0 0 8px;
-  color: var(--text-h);
-}
-.panel-heading.spaced {
-  margin-top: 14px;
-}
-.placeholder-copy {
+.mono {
+  font-family: var(--mono);
   font-size: 0.82rem;
-  line-height: 1.35;
+  word-break: break-all;
 }
-.thin-scroll {
-  scrollbar-width: thin;
-}
-.session-stage {
-  flex: 1;
+.host-actions {
   display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  background: var(--bg);
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
 }
-.stage-message {
-  padding: 12px 14px;
-  margin: 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.86rem;
+.join-requests h3 {
+  margin: 8px 0;
+  font-size: 1rem;
 }
-.stage-map {
-  flex: 1;
-  min-height: 0;
-}
-.battle-map-legend {
-  flex-shrink: 0;
-  margin: 0;
-  padding: 6px 12px 8px;
-  text-align: center;
-  line-height: 1.45;
-  border-top: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 94%, var(--border));
-}
-.battle-map-legend__label {
-  font-weight: 600;
-  color: var(--text);
-  opacity: 0.72;
-}
-.battle-map-legend__sep {
-  margin: 0 0.35em;
-  opacity: 0.45;
-}
-.kbd-hint {
-  display: inline-block;
-  padding: 0.08em 0.38em;
-  margin: 0 0.05em;
-  font: inherit;
-  font-size: 0.88em;
-  font-weight: 600;
-  line-height: 1.2;
-  border-radius: 4px;
-  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--text));
-  background: color-mix(in srgb, var(--bg) 88%, var(--border));
-  color: var(--text);
-  box-shadow: 0 1px 0 color-mix(in srgb, #000 6%, transparent);
-}
-.session-fallback {
-  padding: 16px 20px;
-}
-.unplaced-list {
+.request-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 8px;
+  margin: 0;
 }
-.unplaced-list li {
-  margin-bottom: 6px;
+.request-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
 }
-.linkish {
-  font: inherit;
-  background: none;
+.btn-primary,
+.btn-danger,
+.btn-small {
   border: none;
-  padding: 0;
-  color: var(--accent);
+  border-radius: 8px;
+  font: inherit;
   cursor: pointer;
-  text-align: left;
 }
-.linkish:disabled {
-  opacity: 0.55;
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+  padding: 10px 14px;
+}
+.btn-danger {
+  background: color-mix(in srgb, #a33 70%, var(--bg));
+  color: var(--text);
+  padding: 10px 14px;
+}
+.btn-small {
+  background: color-mix(in srgb, var(--border) 55%, var(--bg));
+  color: var(--text);
+  padding: 6px 10px;
+}
+.btn-primary:disabled,
+.btn-danger:disabled,
+.btn-small:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
-}
-.linkish.active {
-  text-decoration: underline;
-  font-weight: 600;
-}
-.input-narrow {
-  width: 5rem;
 }
 .muted {
   color: var(--text);
   opacity: 0.85;
 }
+.tiny {
+  font-size: 0.85rem;
+}
+.you {
+  font-weight: 600;
+}
 .error {
   color: var(--text);
-  font-size: 0.92rem;
+  margin: 8px 0;
 }
-.mono {
-  font-family: var(--mono);
-  font-size: 0.85rem;
-  word-break: break-all;
-}
-.join-url {
-  margin: 0 0 14px;
-  padding: 8px;
-  border: 1px solid var(--border);
+.results-banner {
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding: 12px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--bg) 94%, var(--border));
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
 }
-.sub {
-  display: block;
-  opacity: 0.75;
-  font-size: 0.78rem;
-  margin-top: 2px;
+.fighters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
 }
-.tiny {
-  font-size: 0.82rem;
-  margin-top: 6px;
+@media (min-width: 720px) {
+  .fighters {
+    grid-template-columns: 1fr 1fr;
+  }
 }
-.list {
-  list-style: none;
-  padding: 0;
+.fighter {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.fighter-head h2 {
   margin: 0;
+  font-size: 1.15rem;
 }
-.list li {
+.bars {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 2.5rem;
+  gap: 8px;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
+  font-size: 0.9rem;
 }
-.roster {
+.bar-track,
+.cooldown-track {
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 60%, var(--bg));
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 120ms linear;
+}
+.bar-fill.life {
+  background: color-mix(in srgb, #3a8f5a 80%, var(--accent));
+}
+.bar-fill.shield {
+  background: color-mix(in srgb, #4a7bbd 80%, var(--accent));
+}
+.bar-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.loadout {
   list-style: none;
   padding: 0;
   margin: 0;
-}
-.roster-row {
-  border-top: 1px solid var(--border);
-  padding: 14px 0;
-}
-.roster-row:first-child {
-  border-top: none;
-  padding-top: 4px;
-}
-.roster-main {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
-.label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.field-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px;
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 160px;
-}
-.field.grow {
-  flex: 1 1 220px;
-}
-.field-label {
-  font-size: 0.78rem;
-  opacity: 0.85;
-}
-.input,
-.select {
-  font: inherit;
-  padding: 6px 8px;
+.slot {
+  padding: 8px;
   border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--bg) 80%, var(--border));
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
 }
-.select {
-  width: 100%;
+.slot.flash {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 28%, var(--bg));
 }
-.btn-small {
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  padding: 6px 10px;
-  font: inherit;
-  cursor: pointer;
+.slot-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
 }
-.btn-small:disabled {
-  opacity: 0.58;
-  cursor: not-allowed;
-}
-.btn-approve {
-  border-color: color-mix(in srgb, var(--border) 60%, var(--accent));
-}
-.figure-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.figure-row {
-  border-top: 1px solid var(--border);
-  padding: 14px 0;
-}
-.figure-row:first-child {
-  border-top: none;
-  padding-top: 4px;
-}
-.figure-info {
-  margin-bottom: 8px;
+.cooldown-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 80ms linear;
 }
 </style>

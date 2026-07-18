@@ -8,13 +8,9 @@
  * @module
  */
 
-import type * as characterClasses from "../characterClasses.js";
-import type * as characterRaces from "../characterRaces.js";
-import type * as characterSheetValidators from "../characterSheetValidators.js";
-import type * as defaultCharacterSheet from "../defaultCharacterSheet.js";
-import type * as derivedPipeline from "../derivedPipeline.js";
 import type * as devTools from "../devTools.js";
-import type * as sessionCharacterPersist from "../sessionCharacterPersist.js";
+import type * as match from "../match.js";
+import type * as matchShared from "../matchShared.js";
 import type * as sessions from "../sessions.js";
 
 import type {
@@ -24,13 +20,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  characterClasses: typeof characterClasses;
-  characterRaces: typeof characterRaces;
-  characterSheetValidators: typeof characterSheetValidators;
-  defaultCharacterSheet: typeof defaultCharacterSheet;
-  derivedPipeline: typeof derivedPipeline;
   devTools: typeof devTools;
-  sessionCharacterPersist: typeof sessionCharacterPersist;
+  match: typeof match;
+  matchShared: typeof matchShared;
   sessions: typeof sessions;
 }>;
 

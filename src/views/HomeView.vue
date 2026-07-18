@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Show, SignInButton, useAuth } from '@clerk/vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { api } from '../../convex/_generated/api'
 import { useConvexClient } from '../composables/convexClient'
 import { useConvexAuth } from '../composables/convexAuth'
@@ -76,13 +76,13 @@ function joinHref(token: string) {
   <div class="page">
     <h1>Heiyuki</h1>
     <Show when="signed-out">
-      <p>Sign in to create a session or join with a join link.</p>
+      <p>Sign in to create a Session or join with a join link.</p>
       <SignInButton />
     </Show>
     <Show when="signed-in">
       <p v-if="userId" class="muted">You are signed in.</p>
       <section class="card">
-        <h2>Create session</h2>
+        <h2>Create Session</h2>
         <label class="field">
           <span>Title</span>
           <input v-model="title" type="text" autocomplete="off" />
@@ -102,7 +102,7 @@ function joinHref(token: string) {
                   ? 'Connecting…'
                   : createSessionBusy
                     ? 'Creating…'
-                    : 'Create session'
+                    : 'Create Session'
           }}
         </button>
         <p v-if="clerkSignedIn && clerkLoaded && !convexReachable" class="muted tiny">
@@ -112,12 +112,12 @@ function joinHref(token: string) {
         <p v-if="createSessionError" class="error">{{ createSessionError }}</p>
       </section>
       <section class="card">
-        <h2>My sessions</h2>
+        <h2>My Sessions</h2>
         <p v-if="mySessionsError" class="error">
           Could not load sessions. {{ mySessionsError.message }}
         </p>
         <p v-else-if="mySessionsLoading" class="muted">Loading…</p>
-        <p v-else-if="mySessions && !mySessions.length" class="muted">No sessions yet.</p>
+        <p v-else-if="mySessions && !mySessions.length" class="muted">No Sessions yet.</p>
         <ul v-else-if="mySessions && mySessions.length" class="session-list">
           <li v-for="row in mySessions" :key="row.membership._id">
             <RouterLink :to="{ name: 'session', params: { id: row.session._id } }">
