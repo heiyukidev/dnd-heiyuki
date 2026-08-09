@@ -4,7 +4,7 @@ Design table for the five **Gods** × seven **Boons**. Not inlined in `CONTEXT.m
 
 **Balance notes**
 
-- Fight: 100 **Life total**, 60s cap; baseline auto-battler DPS ≈ 4.
+- Fight: **300** **Life total** baseline (**MATCH_LIFE_CAP**); **Vitality** `300 + Vitality × 3`; 60s cap; baseline auto-battler DPS ≈ 4.
 - Hermes: short **Cooldown**, lower potency, same ≈4 DPS band.
 - Dynamite: long **Cooldown**, very high potency, spiky ≈4–4.7 DPS.
 - Hygieia / Athena: sustain ≈55–70% of mono damage when stacked.

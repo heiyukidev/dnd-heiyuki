@@ -8,6 +8,7 @@ import {
   WEAPON_OFFER_COUNT,
 } from './weapon'
 import { createDraftRngFromRandom } from './draftEngine'
+import { MATCH_LIFE_CAP } from './soul'
 import { WEAPON_KEYS } from './weaponCatalog'
 
 describe('generateWeaponOffers', () => {
@@ -57,8 +58,12 @@ describe('weaponFavorLine', () => {
 
 describe('maxLifeForSeat', () => {
   it('adds vitality and weapon life bonus on the shared max-life path', () => {
-    expect(maxLifeForSeat({ strength: 0, speed: 0, vitality: 5 }, 'elder_wand')).toBe(218)
-    expect(maxLifeForSeat({ strength: 0, speed: 0, vitality: 5 }, 'steel_longsword')).toBe(215)
-    expect(maxLifeForSeat(undefined, undefined)).toBe(200)
+    expect(maxLifeForSeat({ strength: 0, speed: 0, vitality: 5 }, 'elder_wand')).toBe(
+      MATCH_LIFE_CAP + 5 * 3 + 3,
+    )
+    expect(maxLifeForSeat({ strength: 0, speed: 0, vitality: 5 }, 'steel_longsword')).toBe(
+      MATCH_LIFE_CAP + 5 * 3,
+    )
+    expect(maxLifeForSeat(undefined, undefined)).toBe(MATCH_LIFE_CAP)
   })
 })

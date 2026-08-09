@@ -4,7 +4,7 @@ import type { SoulStats } from './types'
 
 export const SOUL_STAT_TOTAL = 15
 export const SOUL_STAT_MAX = 10
-export const MATCH_LIFE_CAP = 200
+export const MATCH_LIFE_CAP = 300
 export const LIFE_PER_VITALITY = 3
 export const MATCH_GOLD_GRANT = 5
 export const GOLD_PER_SOUL_BUMP = 1

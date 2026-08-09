@@ -32,7 +32,7 @@ _Avoid_: Ending / archiving mid-**Match** in v1—wait for **Lobby**.
 One auto-battle between the two seated **Players** inside a **Session**. When it ends (a winner is decided, or a **Draw**), both return to the **Lobby** of that same **Session**; the **Session** is not archived or destroyed just because the fight ended.
 
 **Life total**:
-The hit-point number for one **Player** seat during a **Match**. **Boons** do not have hit points; they only fire effects. The first seat whose **Life total** reaches 0 loses that **Match** (the other seat wins). If both seats reach 0 at the same simulated instant, the **Match** is a **Draw**. Baseline start is **200** **Life total** (**MATCH_LIFE_CAP**) and **0** **Shield**; the seat’s **Soul** **Vitality** may raise starting **Life total** above that baseline for the **Match**.
+The hit-point number for one **Player** seat during a **Match**. **Boons** do not have hit points; they only fire effects. The first seat whose **Life total** reaches 0 loses that **Match** (the other seat wins). If both seats reach 0 at the same simulated instant, the **Match** is a **Draw**. Baseline start is **300** **Life total** (**MATCH_LIFE_CAP**) and **0** **Shield**; the seat’s **Soul** **Vitality** may raise starting **Life total** above that baseline for the **Match**.
 
 **Draw**:
 A **Match** outcome where both seats' **Life total**s reach 0 at the same simulated instant—no winner. Also the outcome when the **Match time cap** expires with equal **Life total**s. Both **Players** still return to the **Lobby**.
@@ -55,7 +55,7 @@ The fighter identity for one seat for the duration of a single **Match**. Each s
 _Avoid_: Avatar; account-persistent character sheet for this prototype; treating **Soul** as a **Boon** or **God**; mechanical **Draft** weighting or forced picks from **Soul stats**; open opponent **Soul** during **Draft**; glowing/highlighting offer cards as “recommended.”
 
 **Soul stats**:
-The numeric fields on a **Soul**. Prototype set: **Strength**, **Speed**, **Vitality**. Both seats always share the same point total **15** (same average); each seat independently receives a random partition of those **15** points into the three stats with each stat an integer **0–10**. Combat jobs (Soul-first): **Strength** multiplies damage potency by `(1 + Strength × 0.06)` (e.g. 0 → 1×, 10 → 1.6×); **Speed** shortens fire-capable **Cooldown**s by `Speed × 2` percent (e.g. 10 → −20%), still floored at **500ms**; **Vitality** sets starting **Life total** to `200 + Vitality × 3` (heal cap matches that same max). **Soul** modifiers apply **after** **Passive** stacking on the shared effective-stat path.
+The numeric fields on a **Soul**. Prototype set: **Strength**, **Speed**, **Vitality**. Both seats always share the same point total **15** (same average); each seat independently receives a random partition of those **15** points into the three stats with each stat an integer **0–10**. Combat jobs (Soul-first): **Strength** multiplies damage potency by `(1 + Strength × 0.06)` (e.g. 0 → 1×, 10 → 1.6×); **Speed** shortens fire-capable **Cooldown**s by `Speed × 2` percent (e.g. 10 → −20%), still floored at **500ms**; **Vitality** sets starting **Life total** to `300 + Vitality × 3` (heal cap matches that same max). **Soul** modifiers apply **after** **Passive** stacking on the shared effective-stat path.
 _Avoid_: Conflating **Soul stats** with **Boon** catalog potency/**Cooldown**; using **Vitality** as a heal multiplier in this slice; independent per-stat rolls that can give one seat a higher total than the other; treating **Weapon** nudges as changes to the displayed **Soul** panel numbers.
 
 **Equipment**:
@@ -102,7 +102,7 @@ One **Draft** choice presented to a seat: exactly **3** **Boons** from a single 
 _Avoid_: Mixed-god choice rows; picking more than one from a single offer; duplicate **Boon** keys in one seat's **Loadout**.
 
 **Boon**:
-A combat unit on a **Player**'s **Loadout**. Every **Boon** belongs to exactly one **God**. A **Boon** has a catalog identity and must provide at least one of: a **fire effect** (damage, heal, or shield + **Cooldown** loop), or a **Passive**. Three valid shapes: **fire-only**, **Passive-only**, or **hybrid** (both). **Boons** do not have hit points. When a fire effect resolves: **damage** spends enemy **Shield** first then enemy **Life total** (floor 0); **heal** raises own **Life total** capped at that seat’s starting max (**200 + Vitality × 3**, or **200** without **Soul**); **shield** adds to own **Shield** buffer. **Passive**-only **Boons** never charge or fire.
+A combat unit on a **Player**'s **Loadout**. Every **Boon** belongs to exactly one **God**. A **Boon** has a catalog identity and must provide at least one of: a **fire effect** (damage, heal, or shield + **Cooldown** loop), or a **Passive**. Three valid shapes: **fire-only**, **Passive-only**, or **hybrid** (both). **Boons** do not have hit points. When a fire effect resolves: **damage** spends enemy **Shield** first then enemy **Life total** (floor 0); **heal** raises own **Life total** capped at that seat’s starting max (**300 + Vitality × 3**, or **300** without **Soul**); **shield** adds to own **Shield** buffer. **Passive**-only **Boons** never charge or fire.
 _Avoid_: Item (retired domain name for this concept); treating **Passive**-only as a non-**Boon** aura; requiring every **Boon** to fire; a **Boon** without a **God**.
 
 **Fire effect**:
@@ -177,7 +177,7 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 
 - **Soul** is **Match**-scoped: rolled with random stats at **Match** begin; cleared when the **Match** ends (or on **Match cancel**). Not account- or **Session**-persistent in this prototype.
 - **Soul**-first prototype: **Soul stats** lightly affect combat **and** soft-guide **Draft** (UI cues only—no offer reweighting or bans).
-- **Soul stats (v1)**: **Strength**, **Speed**, **Vitality**; both seats share total **15**, independently partitioned into three ints **0–10** at roll. **Gold** bumps after five **Draft** picks may push stats above **10**; combat uses roll + confirmed bumps. Combat: Strength damage potency `(1 + Strength×0.06)×`; Speed `−(Speed×2)%` Cooldown (floor 500ms); Vitality starting Life `200 + Vitality×3` (each +1 Vitality, including **Gold** bumps, adds **3** **Life total**). Baseline **Life total** cap (**MATCH_LIFE_CAP**) **200**. Soul applies **after** Passive stacking.
+- **Soul stats (v1)**: **Strength**, **Speed**, **Vitality**; both seats share total **15**, independently partitioned into three ints **0–10** at roll. **Gold** bumps after five **Draft** picks may push stats above **10**; combat uses roll + confirmed bumps. Combat: Strength damage potency `(1 + Strength×0.06)×`; Speed `−(Speed×2)%` Cooldown (floor 500ms); Vitality starting Life `300 + Vitality×3` (each +1 Vitality, including **Gold** bumps, adds **3** **Life total**). Baseline **Life total** cap (**MATCH_LIFE_CAP**) **300**. Soul applies **after** Passive stacking.
 - **Gold (v1)**: **Match**-scoped; flat grant **5** both seats at begin; cost **1** per +1 bump on any **Soul stat**; leftover lost on confirm; soft **Draft** favor line uses rolled **Soul** only (not bumps).
 - Own **Soul** visible from **Match** begin; opponent **Soul** hidden during **Draft**, revealed when the fight starts.
 - Soft **Draft** guidance: own-seat Soul panel (stats + at most one “favors …” / “Balanced” line); no offer-card highlighting or mechanical reweighting.
@@ -250,13 +250,13 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 > **Domain expert:** "The server, live. It pushes **Match update**s with **animation hint**s; clients don't pre-receive a full replay to animate."
 
 > **Dev:** "How much HP do we start with?"
-> **Domain expert:** "200 **Life total**, 0 **Shield**, every **Match** — **Vitality** can push higher."
+> **Domain expert:** "300 **Life total**, 0 **Shield**, every **Match** — **Vitality** can push higher."
 
 > **Dev:** "What **Boons** exist in the prototype?"
 > **Domain expert:** "Thirty-five — seven per **God** in the **God catalog (v1)**: Hermes, Dynamite, Hygieia, Athena, Zeus. Old spark/cannon keys are gone."
 
 > **Dev:** "Does heal go above the baseline? Does shield stack?"
-> **Domain expert:** "Heal caps at that seat’s starting max **Life total** (**200 + Vitality × 3** with **Soul**, else **200**). Shield stacks by adding and only goes down when damage hits it."
+> **Domain expert:** "Heal caps at that seat’s starting max **Life total** (**300 + Vitality × 3** with **Soul**, else **300**). Shield stacks by adding and only goes down when damage hits it."
 
 > **Dev:** "What if we both die on the same tick?"
 > **Domain expert:** "That's a **Draw** — no winner, back to the **Lobby**."

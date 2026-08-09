@@ -696,7 +696,7 @@ describe('resolveMatchStep', () => {
       matchStartedAt: 0,
       souls,
     })
-    expect(startingLife).toBe(224)
+    expect(startingLife).toBe(MATCH_LIFE_CAP + vitality * 3)
     expect(result.seats[0].life).toBe(startingLife)
   })
 })
