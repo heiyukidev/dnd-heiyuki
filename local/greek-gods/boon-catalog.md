@@ -10,7 +10,7 @@ Design table for the five **Gods** × seven **Boons**. Not inlined in `CONTEXT.m
 - Hygieia / Athena: sustain ≈55–70% of mono damage when stacked.
 - Zeus: mid-tempo damage ≈4 DPS plus stronger **Passive** leverage.
 - Shapes: mostly **fire-only**, plus **Passive**-only / **hybrid** for kit fantasy.
-- **Passive** filters may use **effect kind** and/or **God** and/or **Weapon type** (AND when more than one); **Weapon type** gates on the carrier’s equipped **Weapon**.
+- **Passive** filters may use **effect kind** and/or **God** and/or **Weapon type** (AND when more than one); **Weapon type** gates on the carrier’s equipped **Weapon**. **Draft** omits a **Boon** from offers when that gate does not match the drafting seat’s **Weapon** (narrow eligibility — not a separate affinity tag).
 
 ---
 

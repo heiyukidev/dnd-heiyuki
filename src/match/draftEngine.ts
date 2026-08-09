@@ -2,7 +2,8 @@ import { filter, includes, map, uniq } from 'lodash'
 
 import { BOON_CATALOG, BOON_KEYS, GODS, boonsForGod, type BoonKey } from './itemCatalog'
 import { MATCH_GOLD_GRANT, ZERO_SOUL_BUMPS } from './soul'
-import type { God, SoulStats } from './types'
+import type { God, PassiveFilter, SoulStats, WeaponType } from './types'
+import { weaponDefinition } from './weaponCatalog'
 
 export const DRAFT_PICK_COUNT = 5
 export const GOD_POOL_MAX = 3
@@ -57,13 +58,33 @@ export function createInitialDraftState(): DraftState {
   return { seats: [createEmptyDraftSeat(), createEmptyDraftSeat()] }
 }
 
-function unownedBoonsForGod(seat: DraftSeatState, god: God): BoonKey[] {
-  return filter(boonsForGod(god), (key) => !includes(seat.loadoutKeys, key))
+function passiveFilterWeaponType(passiveFilter: PassiveFilter): WeaponType | undefined {
+  if (passiveFilter === 'all' || typeof passiveFilter === 'string') {
+    return undefined
+  }
+  return passiveFilter.weaponType
 }
 
-export function getEligibleGods(seat: DraftSeatState): God[] {
+function boonWeaponGateMismatch(boonKey: BoonKey, weaponKey: string): boolean {
+  const requiredWeaponType = passiveFilterWeaponType(
+    BOON_CATALOG[boonKey].passive?.filter ?? 'all',
+  )
+  if (requiredWeaponType === undefined) {
+    return false
+  }
+  return weaponDefinition(weaponKey)?.weaponType !== requiredWeaponType
+}
+
+function unownedBoonsForGod(seat: DraftSeatState, god: God, weaponKey: string): BoonKey[] {
+  return filter(
+    boonsForGod(god),
+    (key) => !includes(seat.loadoutKeys, key) && !boonWeaponGateMismatch(key, weaponKey),
+  )
+}
+
+export function getEligibleGods(seat: DraftSeatState, weaponKey: string): God[] {
   const candidateGods = seat.godPool.length >= GOD_POOL_MAX ? seat.godPool : [...GODS]
-  return filter(candidateGods, (god) => unownedBoonsForGod(seat, god).length >= OFFER_SIZE)
+  return filter(candidateGods, (god) => unownedBoonsForGod(seat, god, weaponKey).length >= OFFER_SIZE)
 }
 
 export function pickUniform<T>(items: readonly T[], rng: DraftRng): T {
@@ -89,31 +110,44 @@ export function sampleWithoutReplacement<T>(
   return picked
 }
 
-export function generateOffer(seat: DraftSeatState, rng: DraftRng): BoonOffer | null {
+export function generateOffer(
+  seat: DraftSeatState,
+  rng: DraftRng,
+  weaponKey: string,
+): BoonOffer | null {
   if (seat.loadoutKeys.length >= DRAFT_PICK_COUNT) {
     return null
   }
-  const eligibleGods = getEligibleGods(seat)
+  const eligibleGods = getEligibleGods(seat, weaponKey)
   if (eligibleGods.length === 0) {
     throw new Error('No eligible gods remain for this seat')
   }
   const god = pickUniform(eligibleGods, rng)
-  const options = sampleWithoutReplacement(unownedBoonsForGod(seat, god), OFFER_SIZE, rng)
+  const options = sampleWithoutReplacement(
+    unownedBoonsForGod(seat, god, weaponKey),
+    OFFER_SIZE,
+    rng,
+  )
   return { god, options }
 }
 
-export function initializeDraftSeat(rng: DraftRng): DraftSeatState {
+export function initializeDraftSeat(rng: DraftRng, weaponKey: string): DraftSeatState {
   const seat = createEmptyDraftSeat()
-  return { ...seat, currentOffer: generateOffer(seat, rng) }
+  return { ...seat, currentOffer: generateOffer(seat, rng, weaponKey) }
 }
 
-export function initializeDraftState(rng: DraftRng): DraftState {
+export function initializeDraftState(rng: DraftRng, weaponKeys: [string, string]): DraftState {
   return {
-    seats: [initializeDraftSeat(rng), initializeDraftSeat(rng)],
+    seats: [initializeDraftSeat(rng, weaponKeys[0]), initializeDraftSeat(rng, weaponKeys[1])],
   }
 }
 
-export function applyPick(seat: DraftSeatState, pickedKey: BoonKey, rng: DraftRng): DraftSeatState {
+export function applyPick(
+  seat: DraftSeatState,
+  pickedKey: BoonKey,
+  rng: DraftRng,
+  weaponKey: string,
+): DraftSeatState {
   const offer = seat.currentOffer
   if (offer === null) {
     throw new Error('No current offer to pick from')
@@ -142,7 +176,7 @@ export function applyPick(seat: DraftSeatState, pickedKey: BoonKey, rng: DraftRn
   if (loadoutKeys.length >= DRAFT_PICK_COUNT) {
     return nextSeat
   }
-  return { ...nextSeat, currentOffer: generateOffer(nextSeat, rng) }
+  return { ...nextSeat, currentOffer: generateOffer(nextSeat, rng, weaponKey) }
 }
 
 export function isSeatDraftComplete(seat: DraftSeatState): boolean {

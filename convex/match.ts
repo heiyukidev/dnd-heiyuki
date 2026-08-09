@@ -548,7 +548,10 @@ export const pickWeapon = mutation({
     }
 
     const rng = createDraftRngFromRandom(Math.random)
-    const draftState = initializeDraftState(rng)
+    const draftState = initializeDraftState(rng, [
+      nextWeaponSeats[0].chosenWeaponKey!,
+      nextWeaponSeats[1].chosenWeaponKey!,
+    ])
     const matchDraftSeats: NonNullable<Doc<'sessions'>['matchDraftSeats']> = [
       draftSeatToStored(
         nextWeaponSeats[0].clerkUserId,
@@ -604,7 +607,12 @@ export const pickBoon = mutation({
       throw new Error('Draft is already complete for your seat')
     }
 
-    const nextSeat = applyPick(currentSeat, boonKey as BoonKey, rng)
+    const nextSeat = applyPick(
+      currentSeat,
+      boonKey as BoonKey,
+      rng,
+      session.matchDraftSeats[seatIndex].weaponKey,
+    )
     const nextDraftSeats = [...session.matchDraftSeats]
     nextDraftSeats[seatIndex] = draftSeatToStored(
       session.matchDraftSeats[seatIndex].clerkUserId,
