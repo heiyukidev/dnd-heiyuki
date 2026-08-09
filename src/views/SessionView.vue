@@ -11,6 +11,19 @@ import { ITEM_CATALOG } from '../match/itemCatalog'
 import { maxLifeForSeat } from '../match/weapon'
 import { WEAPON_CATALOG } from '../match/weaponCatalog'
 import type { SoulStats } from '../match/types'
+
+type SoulStatKey = keyof SoulStats
+
+const SOUL_STAT_LABELS: Record<SoulStatKey, string> = {
+  strength: 'Strength',
+  speed: 'Speed',
+  vitality: 'Vitality',
+}
+
+const soulStatEntries = map(['strength', 'speed', 'vitality'] as SoulStatKey[], (key) => ({
+  key,
+  label: SOUL_STAT_LABELS[key],
+}))
 import {
   getDraftOfferPresentation,
   getLoadoutSlotPresentation,
@@ -69,6 +82,25 @@ const matchWeaponKeys = computed((): [string, string] | undefined => {
 })
 const lastUpdate = computed(() => match.value?.lastUpdate ?? null)
 const outcome = computed(() => match.value?.outcome ?? null)
+
+const isSoulSpendStep = computed(() => {
+  const own = draft.value?.own
+  return own?.isPicksComplete === true && own.isSpendReady !== true
+})
+
+const draftHeadTitle = computed(() => {
+  const own = draft.value?.own
+  if (!own) {
+    return 'Draft'
+  }
+  if (own.isSpendReady) {
+    return 'Ready'
+  }
+  if (own.isPicksComplete) {
+    return 'Spend Gold'
+  }
+  return 'Draft'
+})
 
 const draftOfferPresentation = computed(() => {
   const own = draft.value?.own
@@ -512,7 +544,7 @@ function weaponNudgeSummary(weaponKey: string): string {
 
       <section v-else-if="playPhase === 'draft'" class="match-panel">
         <div class="draft-head">
-          <h2>Draft</h2>
+          <h2>{{ draftHeadTitle }}</h2>
           <button
             v-if="playState.canCancelMatch"
             type="button"
@@ -532,47 +564,34 @@ function weaponNudgeSummary(weaponKey: string): string {
         </p>
 
         <template v-if="draft?.own">
-          <aside v-if="draft.own.soul" class="soul-panel" aria-label="Your Soul">
-            <h3>Soul</h3>
+          <aside
+            v-if="draft.own.soul"
+            class="soul-panel"
+            :class="{ 'soul-panel--spend': isSoulSpendStep }"
+            aria-label="Your Soul"
+          >
+            <div class="soul-panel-head">
+              <h3>Soul</h3>
+              <span v-if="isSoulSpendStep" class="soul-gold">Gold · {{ draft.own.goldRemaining }}</span>
+            </div>
             <ul class="soul-stats">
-              <li class="soul-stat-row">
-                <span>Strength {{ draft.own.soul.strength }}</span>
-                <span
-                  v-if="draft.own.isPicksComplete && !draft.own.isSpendReady"
-                  class="soul-bump-controls"
-                >
-                  <button
-                    type="button"
-                    class="bump-btn"
-                    :disabled="actionBusy || draft.own.soulBumps.strength <= 0"
-                    aria-label="Decrease Strength"
-                    @click="onAdjustSoulBump('strength', -1)"
+              <li v-for="stat in soulStatEntries" :key="stat.key" class="soul-stat-row">
+                <span class="soul-stat-label">
+                  {{ stat.label }} {{ draft.own.soul[stat.key] }}
+                  <span
+                    v-if="draft.own.soulBumps[stat.key] > 0"
+                    class="soul-bump-cue muted tiny"
                   >
-                    −
-                  </button>
-                  <button
-                    type="button"
-                    class="bump-btn"
-                    :disabled="actionBusy || draft.own.goldRemaining <= 0"
-                    aria-label="Increase Strength"
-                    @click="onAdjustSoulBump('strength', 1)"
-                  >
-                    +
-                  </button>
+                    (+{{ draft.own.soulBumps[stat.key] }})
+                  </span>
                 </span>
-              </li>
-              <li class="soul-stat-row">
-                <span>Speed {{ draft.own.soul.speed }}</span>
-                <span
-                  v-if="draft.own.isPicksComplete && !draft.own.isSpendReady"
-                  class="soul-bump-controls"
-                >
+                <span v-if="isSoulSpendStep" class="soul-bump-controls">
                   <button
                     type="button"
                     class="bump-btn"
-                    :disabled="actionBusy || draft.own.soulBumps.speed <= 0"
-                    aria-label="Decrease Speed"
-                    @click="onAdjustSoulBump('speed', -1)"
+                    :disabled="actionBusy || draft.own.soulBumps[stat.key] <= 0"
+                    :aria-label="`Decrease ${stat.label}`"
+                    @click="onAdjustSoulBump(stat.key, -1)"
                   >
                     −
                   </button>
@@ -580,46 +599,25 @@ function weaponNudgeSummary(weaponKey: string): string {
                     type="button"
                     class="bump-btn"
                     :disabled="actionBusy || draft.own.goldRemaining <= 0"
-                    aria-label="Increase Speed"
-                    @click="onAdjustSoulBump('speed', 1)"
-                  >
-                    +
-                  </button>
-                </span>
-              </li>
-              <li class="soul-stat-row">
-                <span>Vitality {{ draft.own.soul.vitality }}</span>
-                <span
-                  v-if="draft.own.isPicksComplete && !draft.own.isSpendReady"
-                  class="soul-bump-controls"
-                >
-                  <button
-                    type="button"
-                    class="bump-btn"
-                    :disabled="actionBusy || draft.own.soulBumps.vitality <= 0"
-                    aria-label="Decrease Vitality"
-                    @click="onAdjustSoulBump('vitality', -1)"
-                  >
-                    −
-                  </button>
-                  <button
-                    type="button"
-                    class="bump-btn"
-                    :disabled="actionBusy || draft.own.goldRemaining <= 0"
-                    aria-label="Increase Vitality"
-                    @click="onAdjustSoulBump('vitality', 1)"
+                    :aria-label="`Increase ${stat.label}`"
+                    @click="onAdjustSoulBump(stat.key, 1)"
                   >
                     +
                   </button>
                 </span>
               </li>
             </ul>
-            <p
-              v-if="draft.own.isPicksComplete && !draft.own.isSpendReady"
-              class="gold-remaining muted tiny"
-            >
-              Gold remaining: {{ draft.own.goldRemaining }}
-            </p>
+            <div v-if="isSoulSpendStep" class="soul-spend-actions">
+              <p class="muted tiny">Unspent Gold is lost.</p>
+              <button
+                type="button"
+                class="btn-primary"
+                :disabled="actionBusy"
+                @click="onConfirmSoulSpend"
+              >
+                Confirm
+              </button>
+            </div>
             <p v-if="draft.own.favorLine" class="soul-favor muted tiny">
               {{ draft.own.favorLine }}
             </p>
@@ -643,23 +641,12 @@ function weaponNudgeSummary(weaponKey: string): string {
             </span>
           </p>
 
-          <div
-            v-if="draft.own.isPicksComplete && !draft.own.isSpendReady"
-            class="soul-spend-actions"
+          <p
+            v-else-if="draft.own.isSpendReady && !draft.own.waitingReason"
+            class="muted tiny"
+            role="status"
           >
-            <p class="muted tiny">Spend Gold on Soul stats, then confirm. Leftover Gold is lost.</p>
-            <button
-              type="button"
-              class="btn-primary"
-              :disabled="actionBusy"
-              @click="onConfirmSoulSpend"
-            >
-              Confirm Soul spend
-            </button>
-          </div>
-
-          <p v-else-if="draft.own.isSpendReady" class="muted tiny" role="status">
-            Soul spend confirmed — waiting for fight start.
+            Spend confirmed.
           </p>
 
           <div v-if="draftOfferPresentation && !draft.own.isPicksComplete" class="draft-offer">
@@ -837,15 +824,26 @@ function weaponNudgeSummary(weaponKey: string): string {
   background: color-mix(in srgb, var(--accent) 8%, var(--bg));
 }
 .soul-panel h3 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 1rem;
+}
+.soul-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 6px;
+}
+.soul-gold {
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 .soul-stats {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.2rem;
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -853,22 +851,40 @@ function weaponNudgeSummary(weaponKey: string): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.35rem;
+}
+.soul-stat-label {
+  min-width: 0;
+}
+.soul-bump-cue {
+  font-weight: 500;
 }
 .soul-bump-controls {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.15rem;
+  flex-shrink: 0;
 }
 .bump-btn {
-  min-width: 1.75rem;
-  padding: 0.1rem 0.35rem;
+  min-width: 1.6rem;
+  padding: 0.05rem 0.3rem;
   font-size: 0.85rem;
   line-height: 1.2;
 }
+.soul-panel--spend .soul-favor {
+  margin-top: 6px;
+}
 .soul-spend-actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+.soul-spend-actions p {
+  margin: 0;
 }
 .soul-favor {
   margin: 8px 0 0;

@@ -23,7 +23,6 @@ Playable **Match**-scoped currency: after the random **Soul** roll and after eac
 ## Not yet specified
 
 - Soft / soft-diminishing caps if the economy allows extreme stacks
-- Exact confirm control copy and spend UI layout details beyond the UX ticket
 
 ## Out of scope
 
