@@ -46,6 +46,10 @@ A random permutation of the two fighting seats, chosen once at **Match start**, 
 **Shield**:
 A temporary absorb buffer on a seat during a **Match**. Incoming damage hits **Shield** before **Life total** when a shield buffer is present. Matches start with **0** **Shield**. Shield does not decay over time in v1—only damage spends it. New shield effects **add** to the current buffer (no separate shield cap in the prototype).
 
+**Gold**:
+**Match**-scoped spendable currency granted equally to both seats at **Match** begin (**5** per seat in v1). After a seat finishes its five **Draft** picks, it may spend **Gold** to bump **Soul stats** (**1** **Gold** per +1 Strength / Speed / Vitality); bumps may exceed the rolled per-stat max of **10**. Unused **Gold** is lost when the seat confirms spend. Cleared on **Match** end or **Match cancel**; not account- or **Session**-persistent.
+_Avoid_: Nectar, money, cash, points, coin/tribute/drachma as domain synonyms; **Lobby** shop; buying **Equipment** or **Boons** with **Gold** in this slice.
+
 **Soul**:
 The fighter identity for one seat for the duration of a single **Match**. Each seat receives a fresh **Soul** when the **Match** begins, initialized with a **random** set of **Soul stats**. It does not persist across **Matches** or **Sessions**. In the Soul-first prototype, **Soul stats** (1) lightly rewrite combat so the roll is felt in the fight, and (2) appear during **Draft** as soft guidance toward fitting **Boons**—they do **not** change offer odds or ban picks. Soft guidance is a small own-seat **Soul** panel (the three stats plus at most one short “favors …” line from the top stat; skip or say “Balanced” on ties/low tops)—**not** highlights on **Boon offer** choices. Own **Soul** is visible from **Match** begin; opponent **Soul** stays hidden during **Draft** and is revealed when the fight starts (same fog as opponent **Loadout** / **God pool**). **Soul stats (v1)**: **Strength** (damage potency), **Speed** (**Cooldown** on fire-capable **Boons**), **Vitality** (starting **Life total**). **Equipment** and account-lifetime progression are later layers on this model.
 _Avoid_: Avatar; account-persistent character sheet for this prototype; treating **Soul** as a **Boon** or **God**; mechanical **Draft** weighting or forced picks from **Soul stats**; open opponent **Soul** during **Draft**; glowing/highlighting offer cards as “recommended.”
@@ -56,7 +60,7 @@ _Avoid_: Conflating **Soul stats** with **Boon** catalog potency/**Cooldown**; u
 
 **Equipment**:
 Match-scoped gear a seat brings into a fight. In this slice: exactly one **Weapon** slot (no armor/accessories yet). **Equipment** is identity + light combat nudges — not a sixth **Loadout** **Boon**, not a separate fire actor, and not a rewrite of rolled **Soul stats** on the Soul panel. Cleared when the **Match** ends or on **Match cancel**; not account- or **Session**-persistent.
-_Avoid_: Gold/shop acquisition; paper-doll inventory; treating **Equipment** as a **Boon** / **Loadout** slot; timer-firing **Equipment** in this slice.
+_Avoid_: **Equipment** shop acquisition with **Gold** ( **Gold** spends on **Soul** bumps only in this slice); paper-doll inventory; treating **Equipment** as a **Boon** / **Loadout** slot; timer-firing **Equipment** in this slice.
 
 **Weapon**:
 The sole **Equipment** slot in this slice. At **Match start**, after **Soul**s are rolled and before **Boon** **Draft**, each seat simultaneously receives an independent offer of **3** **Weapons** and must pick **1** (no empty Weapon). Boon **Draft** starts only when both seats have chosen. Own **Weapon** is visible once chosen; opponent **Weapon** stays hidden until the fight (same fog as **Soul** / **Loadout** / **God pool**). Every catalog **Weapon** has exactly one **Weapon type**. Catalog **Weapons** may carry light nudges on the shared effective-stat path **after Passive + Soul** (same levers: damage potency, fire-capable **Cooldown**, starting / max **Life**); magnitudes stay light and are per catalog row (not hard-coded by type). A **Weapon** does not charge, fire, own a `nextReadyAt`, or inject a linked **Boon**.
@@ -86,11 +90,11 @@ The set of **Gods** that have granted at least one **Boon** to a seat during the
 _Avoid_: Cross-**Match** / **Session**-lifetime god commitment in this slice.
 
 **Match cancel**:
-The **Host**-only action that aborts an in-progress **Match** (including during **Weapon** pick, **Draft**, or the live fight) and returns both seats to the **Lobby** without archiving the **Session**. Clears **Loadout**s, **God pool**s, **Soul**s, and **Equipment** (**Weapon**).
+The **Host**-only action that aborts an in-progress **Match** (including during **Weapon** pick, **Draft**, or the live fight) and returns both seats to the **Lobby** without archiving the **Session**. Clears **Loadout**s, **God pool**s, **Soul**s, **Gold**, pending **Soul** bumps, and **Equipment** (**Weapon**).
 _Avoid_: Ending the **Session** from mid-**Match**; joiner-initiated cancel in this slice.
 
 **Draft**:
-The phase of a **Match** after both seats have picked a **Weapon** and before the live fight, where each seat builds its **Loadout** by accepting a series of **Boon offers**. Each seat makes exactly **5** picks (final **Loadout** size is **5**). Both seats draft **simultaneously** and independently; the live server sim begins only when both have finished. Opponent **Boon offer**s, **Loadout**, **God pool**, and **Weapon** are hidden during **Draft** and revealed when the fight starts.
+The phase of a **Match** after both seats have picked a **Weapon** and before the live fight, where each seat builds its **Loadout** by accepting a series of **Boon offers**, then spends **Gold** on **Soul** bumps. Each seat makes exactly **5** picks (final **Loadout** size is **5**). Both seats draft **simultaneously** and independently; after five picks a seat enters **Gold** spend (free realloc on Strength / Speed / Vitality until **Confirm**; leftover **Gold** lost on confirm). The live server sim begins only when both seats have confirmed spend. Global `playPhase` stays `draft` through picking and spending. Opponent **Boon offer**s, **Loadout**, **God pool**, **Weapon**, final **Soul**, and **Gold** stay hidden until the fight starts.
 _Avoid_: Lobby shop; drafting before the **Host** starts the **Match**; random five-pick without offers; open-information or alternating draft in this slice; per-offer pick timers / auto-pick in this slice.
 
 **Boon offer**:
@@ -121,7 +125,7 @@ The set of **Boons** a **Player** brings into a **Match**. Built during **Draft*
 All **Boons** in the game; every entry belongs to exactly one **God** in the **God catalog (v1)** (seven per **God**, thirty-five total). Full key / potency / **Cooldown** / **Passive** tables live in `local/greek-gods/boon-catalog.md` — not inlined here. The prior spark/cannon/… and `haste_charm` / `vital_spark` keys are retired — not a parallel pool.
 
 **Match start**:
-The **Host** action that leaves the **Lobby** and begins a **Match**. Allowed only when the **Session** is in **Lobby** and there are exactly two admitted fighting **Players** (**Host** + one approved joiner). Pending **Join request**s do not count; no solo or bot match in this prototype. On start, both seats’ **Soul**s are rolled, then each seat must pick **1** of **3** offered **Weapons** (independent offers, simultaneous); when both have a **Weapon**, the **Match** enters **Draft** (empty **Loadout** / empty **God pool**). The live server-side countdown/sim begins only after both seats finish drafting. **Loadout**s, **God pool**s, **Soul**s, and **Equipment** do not persist to the next **Match**.
+The **Host** action that leaves the **Lobby** and begins a **Match**. Allowed only when the **Session** is in **Lobby** and there are exactly two admitted fighting **Players** (**Host** + one approved joiner). Pending **Join request**s do not count; no solo or bot match in this prototype. On start, both seats’ **Soul**s are rolled and each receives **5** **Gold**, then each seat must pick **1** of **3** offered **Weapons** (independent offers, simultaneous); when both have a **Weapon**, the **Match** enters **Draft** (empty **Loadout** / empty **God pool**). The live server-side countdown/sim begins only after both seats finish drafting and confirm **Soul** spend. **Loadout**s, **God pool**s, **Soul**s, **Gold**, and **Equipment** do not persist to the next **Match**.
 _Avoid_: Precomputing the entire fight into a replay timeline for the client to animate locally; assigning a random **Loadout** at start with no **Draft**; starting Boon **Draft** before both **Weapons** are chosen.
 
 **Match update**:
@@ -149,7 +153,8 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 - A **Match** ends when a seat hits 0 **Life total**, both hit 0 together (**Draw**), or the **Match time cap** resolves a winner/**Draw**.
 - The **Host** may end the **Session** from the **Lobby**, producing an **Archived session**.
 - During a **Match**, each fighting **Player** has exactly one **Life total** (and may have a **Shield** buffer).
-- Each fighting seat has one **Soul** for the current **Match** (random **Soul stats** at begin; cleared when the **Match** ends).
+- Each fighting seat has one **Soul** for the current **Match** (random **Soul stats** at begin; combat uses rolled stats + confirmed bumps; cleared when the **Match** ends).
+- Each fighting seat receives **5** **Gold** at **Match** begin (cleared when the **Match** ends).
 - Each fighting seat has exactly one **Weapon** (**Equipment**) for the current **Match** (picked at start; cleared when the **Match** ends).
 - Each fighting **Player** has one **Loadout** of **Boons** for a **Match**.
 - Every **Boon** belongs to exactly one **God**.
@@ -163,7 +168,7 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 - Each **Passive** declares a seat target (**own**, **enemy**, or **both**), a **Boon** filter (**all**, and/or **effect kind**, and/or **God**, and/or **Weapon type** — AND when more than one is set; **Weapon type** gates on the carrier’s equipped **Weapon**), and one or more stat changes to **Cooldown** and/or **potency**.
 - Every fire-capable **Boon** in a **Loadout** charges in parallel on the shared **Match** clock; **Passive**-only slots do not schedule wakes. **effective Cooldown** / **effective potency** are recomputed on every wake and whenever **Passive** eligibility is re-evaluated (future condition triggers call that re-eval).
 - When **effective Cooldown** changes mid-charge, rewrite `nextReadyAt` by preserving charge progress fraction: `nextReadyAt = now + (1 − progress) × newEffectiveCooldown`.
-- **Match start** rolls both seats’ **Soul**s, then both seats pick a **Weapon** (1 of 3, independent); **Draft** begins only after both have a **Weapon**; each seat picks exactly **5** **Boons**; the live server sim starts only after both seats finish drafting. **Loadout**s, **God pool**s, **Soul**s, and **Equipment** do not carry over to the next **Match**.
+- **Match start** rolls both seats’ **Soul**s and grants **Gold**, then both seats pick a **Weapon** (1 of 3, independent); **Draft** begins only after both have a **Weapon**; each seat picks exactly **5** **Boons**, then spends **Gold** on **Soul** bumps and confirms; the live server sim starts only after both seats confirm spend. **Loadout**s, **God pool**s, **Soul**s, **Gold**, and **Equipment** do not carry over to the next **Match**.
 - Effective-stat order on the shared path: **Passive** stacking → **Soul** → **Weapon** light nudges.
 - Clients never invent **Match** outcomes; they apply **Match update**s (with **animation hint**s) from the server.
 - The server does **not** ship a full precomputed fight replay for a separate client animation layer.
@@ -172,7 +177,8 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 
 - **Soul** is **Match**-scoped: rolled with random stats at **Match** begin; cleared when the **Match** ends (or on **Match cancel**). Not account- or **Session**-persistent in this prototype.
 - **Soul**-first prototype: **Soul stats** lightly affect combat **and** soft-guide **Draft** (UI cues only—no offer reweighting or bans).
-- **Soul stats (v1)**: **Strength**, **Speed**, **Vitality**; both seats share total **15**, independently partitioned into three ints **0–10**. Combat: Strength damage potency `(1 + Strength×0.1)×`; Speed `−(Speed×2)%` Cooldown (floor 500ms); Vitality starting Life `100+Vitality`. Soul applies **after** Passive stacking.
+- **Soul stats (v1)**: **Strength**, **Speed**, **Vitality**; both seats share total **15**, independently partitioned into three ints **0–10** at roll. **Gold** bumps after five **Draft** picks may push stats above **10**; combat uses roll + confirmed bumps. Combat: Strength damage potency `(1 + Strength×0.1)×`; Speed `−(Speed×2)%` Cooldown (floor 500ms); Vitality starting Life `100+Vitality`. Soul applies **after** Passive stacking.
+- **Gold (v1)**: **Match**-scoped; flat grant **5** both seats at begin; cost **1** per +1 bump on any **Soul stat**; leftover lost on confirm; soft **Draft** favor line uses rolled **Soul** only (not bumps).
 - Own **Soul** visible from **Match** begin; opponent **Soul** hidden during **Draft**, revealed when the fight starts.
 - Soft **Draft** guidance: own-seat Soul panel (stats + at most one “favors …” / “Balanced” line); no offer-card highlighting or mechanical reweighting.
 - **Equipment** (this slice): one **Weapon** slot; identity + light nudges; not a **Loadout** **Boon**.
@@ -189,11 +195,11 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 - **Boon** definitions in that table are accepted for v1 (balance can tune later without renaming domain rules).
 - **Dynamite** is an intentional non-classical **God** name: god of **destruction** (slow/high-damage), not war/Ares.
 - **God pool**: enters on first accepted **Boon** from that **God**; max 3; at cap offers only from pool **Gods**; resets when the **Match** ends.
-- **Draft** is a **Match** phase after both seats pick a **Weapon**, before the live fight (not a Lobby shop). Each seat picks exactly **5** **Boons**.
+- **Draft** is a **Match** phase after both seats pick a **Weapon**, before the live fight (not a Lobby shop). Each seat picks exactly **5** **Boons**, then spends **Gold** on **Soul** bumps. Global phase stays `draft` through picking and spending.
 - A **Boon offer** is 3 **Boons** from one **God**; pick one. Offered **God** is uniform among eligible **Gods**; options uniform among that **God**'s unowned **Boons**.
 - **Draft** is simultaneous; opponent **Loadout** / offers / **God pool** / **Weapon** stay hidden until the fight starts.
 - **Boon** keys are unique per seat **Loadout**; already-picked keys are excluded from later offers.
-- No **Draft** pick timer or auto-pick in this slice; a finished seat waits on the other.
+- No **Draft** pick timer or auto-pick in this slice; a finished seat waits on the other for picks and spend confirm.
 - No **Boon offer** rerolls in this slice.
 - **Host** may **Match cancel** (→ **Lobby**) during **Weapon** pick, **Draft**, or the live fight; does not archive the **Session**.
 - Random five-pick **Loadout** at **Match start** is retired in favor of **Draft**.

@@ -18,6 +18,7 @@ export {
 export {
   applyPick,
   createDraftRngFromRandom,
+  createEmptyDraftSpendState,
   createInitialDraftState,
   draftLoadoutToMatchSlots,
   DRAFT_PICK_COUNT,
@@ -25,8 +26,11 @@ export {
   getEligibleGods,
   initializeDraftSeat,
   initializeDraftState,
+  isBothSeatsSpendReady,
   isDraftComplete,
+  getSeatWaitingReason,
   isSeatDraftComplete,
+  isSeatSpendReady,
   isSeatWaitingForOpponent,
 } from '../src/match/draftEngine'
 
@@ -34,7 +38,7 @@ export { BOON_CATALOG, BOON_KEYS, GODS, ITEM_CATALOG, ITEM_KEYS } from '../src/m
 
 export type { BoonKey, ItemKey } from '../src/match/itemCatalog'
 
-export type { BoonOffer, DraftRng, DraftSeatState, DraftState } from '../src/match/draftEngine'
+export type { BoonOffer, DraftRng, DraftSeatSpendState, DraftSeatState, DraftState } from '../src/match/draftEngine'
 
 export type { EffectiveSlotStats, SlotAddress } from '../src/match/effectiveStats'
 
@@ -58,10 +62,15 @@ export type {
 } from '../src/match/types'
 
 export {
+  effectiveSoul,
+  GOLD_PER_SOUL_BUMP,
+  MATCH_GOLD_GRANT,
   maxLifeFromSoul,
   rollSoulStats,
   soulFavorLine,
   startingLifeFromVitality,
+  tryAdjustSoulBump,
+  ZERO_SOUL_BUMPS,
 } from '../src/match/soul'
 
 export {
@@ -75,5 +84,7 @@ export {
 export { WEAPON_CATALOG, WEAPON_KEYS } from '../src/match/weaponCatalog'
 
 export type { SoulStats, WeaponType } from '../src/match/types'
+
+export type { SoulStatKey } from '../src/match/soul'
 
 export { isFireCapableItem } from '../src/match/types'

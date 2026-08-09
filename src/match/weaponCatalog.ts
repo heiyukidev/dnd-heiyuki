@@ -1,6 +1,6 @@
-import { filter } from 'lodash'
+import { filter, map } from 'lodash'
 
-import type { WeaponCatalog, WeaponDefinition, WeaponKey, WeaponType } from './types'
+import type { WeaponCatalog, WeaponDefinition, WeaponType } from './types'
 
 export const WEAPON_TYPES = ['Sword', 'Axe', 'Wand', 'Bow'] as const satisfies readonly WeaponType[]
 
@@ -55,10 +55,19 @@ export const WEAPON_CATALOG = {
   },
 } as const satisfies WeaponCatalog
 
-export const WEAPON_KEYS = Object.keys(WEAPON_CATALOG) as WeaponKey[]
+export type WeaponKey = keyof typeof WEAPON_CATALOG
+
+export const WEAPON_KEYS = map(Object.keys(WEAPON_CATALOG), (key) => key) as WeaponKey[]
+
+export function isWeaponKey(key: string): key is WeaponKey {
+  return key in WEAPON_CATALOG
+}
 
 export function weaponDefinition(key: string): WeaponDefinition | undefined {
-  return WEAPON_CATALOG[key as WeaponKey]
+  if (!isWeaponKey(key)) {
+    return undefined
+  }
+  return WEAPON_CATALOG[key]
 }
 
 export function weaponsOfType(weaponType: WeaponType): WeaponKey[] {

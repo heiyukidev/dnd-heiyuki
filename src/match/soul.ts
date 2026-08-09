@@ -4,6 +4,12 @@ import type { SoulStats } from './types'
 
 export const SOUL_STAT_TOTAL = 15
 export const SOUL_STAT_MAX = 10
+export const MATCH_GOLD_GRANT = 5
+export const GOLD_PER_SOUL_BUMP = 1
+
+export const ZERO_SOUL_BUMPS: SoulStats = { strength: 0, speed: 0, vitality: 0 }
+
+export type SoulStatKey = keyof SoulStats
 
 export function rollSoulStats(random: () => number): SoulStats {
   let remaining = SOUL_STAT_TOTAL
@@ -61,4 +67,36 @@ export function startingLifeFromVitality(vitality: number, baseLife = 100): numb
 
 export function maxLifeFromSoul(soul: SoulStats, baseLife = 100): number {
   return startingLifeFromVitality(soul.vitality, baseLife)
+}
+
+export function effectiveSoul(rolled: SoulStats, bumps: SoulStats): SoulStats {
+  return {
+    strength: rolled.strength + bumps.strength,
+    speed: rolled.speed + bumps.speed,
+    vitality: rolled.vitality + bumps.vitality,
+  }
+}
+
+export function tryAdjustSoulBump(
+  bumps: SoulStats,
+  goldRemaining: number,
+  stat: SoulStatKey,
+  delta: 1 | -1,
+): { bumps: SoulStats; goldRemaining: number } | null {
+  if (delta === 1) {
+    if (goldRemaining < GOLD_PER_SOUL_BUMP) {
+      return null
+    }
+    return {
+      bumps: { ...bumps, [stat]: bumps[stat] + 1 },
+      goldRemaining: goldRemaining - GOLD_PER_SOUL_BUMP,
+    }
+  }
+  if (bumps[stat] <= 0) {
+    return null
+  }
+  return {
+    bumps: { ...bumps, [stat]: bumps[stat] - 1 },
+    goldRemaining: goldRemaining + GOLD_PER_SOUL_BUMP,
+  }
 }

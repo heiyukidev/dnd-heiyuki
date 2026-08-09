@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  effectiveSoul,
   rollSoulStats,
   SOUL_STAT_MAX,
   SOUL_STAT_TOTAL,
   soulFavorLine,
   startingLifeFromVitality,
+  tryAdjustSoulBump,
 } from './soul'
 import type { SoulStats } from './types'
 
@@ -59,5 +61,38 @@ describe('startingLifeFromVitality', () => {
   it('adds vitality to the baseline life cap', () => {
     expect(startingLifeFromVitality(0)).toBe(100)
     expect(startingLifeFromVitality(7)).toBe(107)
+  })
+})
+
+describe('effectiveSoul and gold bumps', () => {
+  it('combines rolled stats with bumps and allows exceeding roll max', () => {
+    const rolled = { strength: 10, speed: 3, vitality: 2 }
+    const bumps = { strength: 2, speed: 0, vitality: 1 }
+    expect(effectiveSoul(rolled, bumps)).toEqual({
+      strength: 12,
+      speed: 3,
+      vitality: 3,
+    })
+  })
+
+  it('adjusts bumps with flat gold cost and refunds on decrease', () => {
+    const rolled = { strength: 5, speed: 5, vitality: 5 }
+    const bumps = { strength: 0, speed: 0, vitality: 0 }
+    const first = tryAdjustSoulBump(bumps, 5, 'strength', 1)
+    expect(first).toEqual({
+      bumps: { strength: 1, speed: 0, vitality: 0 },
+      goldRemaining: 4,
+    })
+    const second = tryAdjustSoulBump(first!.bumps, first!.goldRemaining, 'strength', -1)
+    expect(second).toEqual({
+      bumps: { strength: 0, speed: 0, vitality: 0 },
+      goldRemaining: 5,
+    })
+  })
+
+  it('rejects spending without gold and decreasing at zero bumps', () => {
+    const bumps = { strength: 0, speed: 0, vitality: 0 }
+    expect(tryAdjustSoulBump(bumps, 0, 'strength', 1)).toBeNull()
+    expect(tryAdjustSoulBump(bumps, 5, 'strength', -1)).toBeNull()
   })
 })

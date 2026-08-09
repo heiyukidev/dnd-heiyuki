@@ -41,6 +41,7 @@ const weaponSeatValidator = v.object({
   soul: soulValidator,
   weaponOffers: v.array(v.string()),
   chosenWeaponKey: v.optional(v.string()),
+  goldRemaining: v.optional(v.number()),
 })
 
 const draftSeatValidator = v.object({
@@ -49,6 +50,9 @@ const draftSeatValidator = v.object({
   godPool: v.array(godValidator),
   currentOffer: v.optional(boonOfferValidator),
   soul: soulValidator,
+  soulBumps: v.optional(soulValidator),
+  goldRemaining: v.optional(v.number()),
+  spendConfirmed: v.optional(v.boolean()),
   weaponKey: v.string(),
 })
 

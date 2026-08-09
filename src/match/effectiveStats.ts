@@ -14,7 +14,7 @@ import type {
   WeaponType,
 } from './types'
 import { isFireCapableItem } from './types'
-import { WEAPON_CATALOG } from './weaponCatalog'
+import { weaponDefinition } from './weaponCatalog'
 
 export const MIN_EFFECTIVE_COOLDOWN_MS = 500
 export const MIN_EFFECTIVE_POTENCY = 0
@@ -75,7 +75,7 @@ function carrierWeaponType(
   if (weaponKey === undefined) {
     return undefined
   }
-  return WEAPON_CATALOG[weaponKey]?.weaponType
+  return weaponDefinition(weaponKey)?.weaponType
 }
 
 function recipientMatchesFilter(
@@ -184,7 +184,7 @@ function applyWeaponToEffectiveStats(
   if (weaponKey === undefined) {
     return stats
   }
-  const weapon = WEAPON_CATALOG[weaponKey]
+  const weapon = weaponDefinition(weaponKey)
   const nudges = weapon?.nudges
   if (nudges === undefined) {
     return stats

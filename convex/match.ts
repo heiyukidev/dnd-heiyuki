@@ -10,25 +10,31 @@ import {
   draftLoadoutToMatchSlots,
   DRAFT_PICK_COUNT,
   earliestWakeAt,
+  effectiveSoul,
   initializeDraftState,
   isDraftComplete,
   isSeatDraftComplete,
-  isSeatWaitingForOpponent,
+  isSeatSpendReady,
+  getSeatWaitingReason,
   ITEM_CATALOG,
+  MATCH_GOLD_GRANT,
   MATCH_LIFE_CAP,
   resolveMatchStep,
   seedFireCapableSlotSchedulesAtMatchStart,
   rollSoulStats,
   soulFavorLine,
+  tryAdjustSoulBump,
   weaponFavorLine,
   generateWeaponOffersFromRandom,
   isValidWeaponPick,
   maxLifeForSeat,
+  ZERO_SOUL_BUMPS,
   type BoonKey,
   type DraftSeatState,
   type MatchSeatState,
   type SeatIndex,
   type SoulStats,
+  type SoulStatKey,
 } from './matchShared'
 
 const RESULTS_BEAT_MS = 2_000
@@ -154,20 +160,26 @@ function draftSeatFromStored(stored: StoredDraftSeat): DraftSeatState {
             god: stored.currentOffer.god,
             options: stored.currentOffer.options as BoonKey[],
           },
+    soulBumps: stored.soulBumps ?? { ...ZERO_SOUL_BUMPS },
+    goldRemaining: stored.goldRemaining ?? MATCH_GOLD_GRANT,
+    spendConfirmed: stored.spendConfirmed ?? false,
   }
 }
 
 function draftSeatToStored(
   clerkUserId: string,
   seat: DraftSeatState,
-  soul: SoulStats,
+  rolledSoul: SoulStats,
   weaponKey: string,
 ): StoredDraftSeat {
   return {
     clerkUserId,
     loadoutKeys: seat.loadoutKeys,
     godPool: seat.godPool,
-    soul,
+    soul: rolledSoul,
+    soulBumps: seat.soulBumps,
+    goldRemaining: seat.goldRemaining,
+    spendConfirmed: seat.spendConfirmed,
     weaponKey,
     ...(seat.currentOffer === null
       ? {}
@@ -233,14 +245,17 @@ async function beginLiveFight(
 ) {
   const fightStartedAt = Date.now()
   const seatResolveOrder = shuffle([0, 1] as SeatIndex[]) as [SeatIndex, SeatIndex]
-  const matchSeats: NonNullable<Doc<'sessions'>['matchSeats']> = map(draftSeats, (draftSeat) => ({
-    clerkUserId: draftSeat.clerkUserId,
-    life: maxLifeForSeat(draftSeat.soul, draftSeat.weaponKey, MATCH_LIFE_CAP),
-    shield: 0,
-    soul: draftSeat.soul,
-    weaponKey: draftSeat.weaponKey,
-    slots: draftLoadoutToMatchSlots(draftSeat.loadoutKeys as BoonKey[]),
-  })) as NonNullable<Doc<'sessions'>['matchSeats']>
+  const matchSeats: NonNullable<Doc<'sessions'>['matchSeats']> = map(draftSeats, (draftSeat) => {
+    const combatSoul = effectiveSoul(draftSeat.soul, draftSeat.soulBumps ?? ZERO_SOUL_BUMPS)
+    return {
+      clerkUserId: draftSeat.clerkUserId,
+      life: maxLifeForSeat(combatSoul, draftSeat.weaponKey, MATCH_LIFE_CAP),
+      shield: 0,
+      soul: combatSoul,
+      weaponKey: draftSeat.weaponKey,
+      slots: draftLoadoutToMatchSlots(draftSeat.loadoutKeys as BoonKey[]),
+    }
+  }) as NonNullable<Doc<'sessions'>['matchSeats']>
 
   const engineSeats = engineSeatsFromStored(matchSeats)
   const souls = soulsFromMatchSeats(matchSeats)
@@ -357,17 +372,21 @@ export const getSessionPlayState = query({
       phase === 'draft' && session.matchDraftSeats !== undefined
         ? (() => {
             const draftSeats = session.matchDraftSeats
+            const ownRolledSoul =
+              yourDraftSeatIndex === null ? null : draftSeats[yourDraftSeatIndex].soul
             const ownSeat =
               yourDraftSeatIndex === null
                 ? null
                 : draftSeatFromStored(draftSeats[yourDraftSeatIndex])
-            const ownStoredSoul =
-              yourDraftSeatIndex === null ? null : draftSeats[yourDraftSeatIndex].soul
             const ownWeaponKey =
               yourDraftSeatIndex === null ? null : draftSeats[yourDraftSeatIndex].weaponKey
             const draftState = {
               seats: map(draftSeats, draftSeatFromStored) as [DraftSeatState, DraftSeatState],
             }
+            const ownDisplaySoul =
+              ownRolledSoul === null || ownSeat === null
+                ? null
+                : effectiveSoul(ownRolledSoul, ownSeat.soulBumps)
             return {
               picksTotal: DRAFT_PICK_COUNT,
               yourSeatIndex: yourDraftSeatIndex,
@@ -379,13 +398,18 @@ export const getSessionPlayState = query({
                       godPool: ownSeat.godPool,
                       currentOffer: ownSeat.currentOffer,
                       picksMade: ownSeat.loadoutKeys.length,
-                      isComplete: isSeatDraftComplete(ownSeat),
-                      waitingForOpponent:
+                      isPicksComplete: isSeatDraftComplete(ownSeat),
+                      isSpendReady: isSeatSpendReady(ownSeat),
+                      waitingReason:
                         yourDraftSeatIndex === null
-                          ? false
-                          : isSeatWaitingForOpponent(ownSeat, draftState),
-                      soul: ownStoredSoul,
-                      favorLine: ownStoredSoul === null ? null : soulFavorLine(ownStoredSoul),
+                          ? null
+                          : getSeatWaitingReason(yourDraftSeatIndex as SeatIndex, draftState),
+                      rolledSoul: ownRolledSoul,
+                      soul: ownDisplaySoul,
+                      soulBumps: ownSeat.soulBumps,
+                      goldRemaining: ownSeat.goldRemaining,
+                      favorLine:
+                        ownRolledSoul === null ? null : soulFavorLine(ownRolledSoul),
                       weaponKey: ownWeaponKey,
                       weaponFavorLine:
                         ownWeaponKey === null ? null : weaponFavorLine(ownWeaponKey),
@@ -466,11 +490,13 @@ export const startMatch = mutation({
         clerkUserId: hostMember.clerkUserId,
         soul: rollSoulStats(Math.random),
         weaponOffers: generateWeaponOffersFromRandom(Math.random),
+        goldRemaining: MATCH_GOLD_GRANT,
       },
       {
         clerkUserId: guestMember.clerkUserId,
         soul: rollSoulStats(Math.random),
         weaponOffers: generateWeaponOffersFromRandom(Math.random),
+        goldRemaining: MATCH_GOLD_GRANT,
       },
     ]
 
@@ -526,13 +552,19 @@ export const pickWeapon = mutation({
     const matchDraftSeats: NonNullable<Doc<'sessions'>['matchDraftSeats']> = [
       draftSeatToStored(
         nextWeaponSeats[0].clerkUserId,
-        draftState.seats[0],
+        {
+          ...draftState.seats[0],
+          goldRemaining: nextWeaponSeats[0].goldRemaining ?? MATCH_GOLD_GRANT,
+        },
         nextWeaponSeats[0].soul,
         nextWeaponSeats[0].chosenWeaponKey!,
       ),
       draftSeatToStored(
         nextWeaponSeats[1].clerkUserId,
-        draftState.seats[1],
+        {
+          ...draftState.seats[1],
+          goldRemaining: nextWeaponSeats[1].goldRemaining ?? MATCH_GOLD_GRANT,
+        },
         nextWeaponSeats[1].soul,
         nextWeaponSeats[1].chosenWeaponKey!,
       ),
@@ -581,17 +613,122 @@ export const pickBoon = mutation({
       session.matchDraftSeats[seatIndex].weaponKey,
     )
 
-    if (
-      isDraftComplete({
-        seats: map(nextDraftSeats, draftSeatFromStored) as [DraftSeatState, DraftSeatState],
-      })
-    ) {
+    await ctx.db.patch(sessionId, { matchDraftSeats: nextDraftSeats })
+    return { ok: true as const }
+  },
+})
+
+const soulStatValidator = v.union(
+  v.literal('strength'),
+  v.literal('speed'),
+  v.literal('vitality'),
+)
+
+export const adjustSoulBump = mutation({
+  args: {
+    sessionId: v.id('sessions'),
+    stat: soulStatValidator,
+    delta: v.union(v.literal(1), v.literal(-1)),
+  },
+  handler: async (ctx, { sessionId, stat, delta }) => {
+    const { session, clerkUserId } = await requireMemberSession(ctx, sessionId)
+    if (playPhaseOf(session) !== 'draft') {
+      throw new Error('Soul bumps are only allowed during Draft')
+    }
+    if (session.matchDraftSeats === undefined || session.matchDraftSeats.length !== 2) {
+      throw new Error('Draft state is missing')
+    }
+
+    const seatIndex = seatIndexForClerk(session.matchDraftSeats, clerkUserId)
+    if (seatIndex === null) {
+      throw new Error('You are not seated in this Match')
+    }
+
+    const storedSeat = session.matchDraftSeats[seatIndex]
+    const currentSeat = draftSeatFromStored(storedSeat)
+    if (!isSeatDraftComplete(currentSeat)) {
+      throw new Error('Finish Draft picks before spending Gold')
+    }
+    if (currentSeat.spendConfirmed) {
+      throw new Error('Soul spend is already confirmed for your seat')
+    }
+
+    const adjustment = tryAdjustSoulBump(
+      currentSeat.soulBumps,
+      currentSeat.goldRemaining,
+      stat as SoulStatKey,
+      delta,
+    )
+    if (adjustment === null) {
+      throw new Error('That Soul bump adjustment is not allowed')
+    }
+
+    const nextSeat: DraftSeatState = {
+      ...currentSeat,
+      soulBumps: adjustment.bumps,
+      goldRemaining: adjustment.goldRemaining,
+    }
+    const nextDraftSeats = [...session.matchDraftSeats]
+    nextDraftSeats[seatIndex] = draftSeatToStored(
+      storedSeat.clerkUserId,
+      nextSeat,
+      storedSeat.soul,
+      storedSeat.weaponKey,
+    )
+
+    await ctx.db.patch(sessionId, { matchDraftSeats: nextDraftSeats })
+    return { ok: true as const }
+  },
+})
+
+export const confirmSoulSpend = mutation({
+  args: { sessionId: v.id('sessions') },
+  handler: async (ctx, { sessionId }) => {
+    const { session, clerkUserId } = await requireMemberSession(ctx, sessionId)
+    if (playPhaseOf(session) !== 'draft') {
+      throw new Error('Soul spend confirm is only allowed during Draft')
+    }
+    if (session.matchDraftSeats === undefined || session.matchDraftSeats.length !== 2) {
+      throw new Error('Draft state is missing')
+    }
+
+    const seatIndex = seatIndexForClerk(session.matchDraftSeats, clerkUserId)
+    if (seatIndex === null) {
+      throw new Error('You are not seated in this Match')
+    }
+
+    const storedSeat = session.matchDraftSeats[seatIndex]
+    const currentSeat = draftSeatFromStored(storedSeat)
+    if (!isSeatDraftComplete(currentSeat)) {
+      throw new Error('Finish Draft picks before confirming Soul spend')
+    }
+    if (currentSeat.spendConfirmed) {
+      throw new Error('Soul spend is already confirmed for your seat')
+    }
+
+    const nextSeat: DraftSeatState = {
+      ...currentSeat,
+      goldRemaining: 0,
+      spendConfirmed: true,
+    }
+    const nextDraftSeats = [...session.matchDraftSeats]
+    nextDraftSeats[seatIndex] = draftSeatToStored(
+      storedSeat.clerkUserId,
+      nextSeat,
+      storedSeat.soul,
+      storedSeat.weaponKey,
+    )
+
+    const draftState = {
+      seats: map(nextDraftSeats, draftSeatFromStored) as [DraftSeatState, DraftSeatState],
+    }
+    if (isDraftComplete(draftState)) {
       await beginLiveFight(ctx, sessionId, nextDraftSeats)
-      return { ok: true as const, draftComplete: true as const }
+      return { ok: true as const, fightStarted: true as const }
     }
 
     await ctx.db.patch(sessionId, { matchDraftSeats: nextDraftSeats })
-    return { ok: true as const, draftComplete: false as const }
+    return { ok: true as const, fightStarted: false as const }
   },
 })
 

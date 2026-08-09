@@ -1,7 +1,8 @@
 import { filter, includes, map, uniq } from 'lodash'
 
 import { BOON_CATALOG, BOON_KEYS, GODS, boonsForGod, type BoonKey } from './itemCatalog'
-import type { God } from './types'
+import { MATCH_GOLD_GRANT, ZERO_SOUL_BUMPS } from './soul'
+import type { God, SoulStats } from './types'
 
 export const DRAFT_PICK_COUNT = 5
 export const GOD_POOL_MAX = 3
@@ -12,10 +13,19 @@ export type BoonOffer = {
   options: BoonKey[]
 }
 
+export type DraftSeatSpendState = {
+  soulBumps: SoulStats
+  goldRemaining: number
+  spendConfirmed: boolean
+}
+
 export type DraftSeatState = {
   loadoutKeys: BoonKey[]
   godPool: God[]
   currentOffer: BoonOffer | null
+  soulBumps: SoulStats
+  goldRemaining: number
+  spendConfirmed: boolean
 }
 
 export type DraftState = {
@@ -26,8 +36,21 @@ export type DraftRng = {
   int: (max: number) => number
 }
 
+export function createEmptyDraftSpendState(): DraftSeatSpendState {
+  return {
+    soulBumps: { ...ZERO_SOUL_BUMPS },
+    goldRemaining: MATCH_GOLD_GRANT,
+    spendConfirmed: false,
+  }
+}
+
 export function createEmptyDraftSeat(): DraftSeatState {
-  return { loadoutKeys: [], godPool: [], currentOffer: null }
+  return {
+    loadoutKeys: [],
+    godPool: [],
+    currentOffer: null,
+    ...createEmptyDraftSpendState(),
+  }
 }
 
 export function createInitialDraftState(): DraftState {
@@ -108,7 +131,14 @@ export function applyPick(seat: DraftSeatState, pickedKey: BoonKey, rng: DraftRn
     ? seat.godPool
     : uniq([...seat.godPool, boon.god])
 
-  const nextSeat: DraftSeatState = { loadoutKeys, godPool, currentOffer: null }
+  const nextSeat: DraftSeatState = {
+    loadoutKeys,
+    godPool,
+    currentOffer: null,
+    soulBumps: seat.soulBumps,
+    goldRemaining: seat.goldRemaining,
+    spendConfirmed: seat.spendConfirmed,
+  }
   if (loadoutKeys.length >= DRAFT_PICK_COUNT) {
     return nextSeat
   }
@@ -119,12 +149,35 @@ export function isSeatDraftComplete(seat: DraftSeatState): boolean {
   return seat.loadoutKeys.length >= DRAFT_PICK_COUNT
 }
 
-export function isDraftComplete(state: DraftState): boolean {
-  return isSeatDraftComplete(state.seats[0]) && isSeatDraftComplete(state.seats[1])
+export function isSeatSpendReady(seat: DraftSeatState): boolean {
+  return seat.spendConfirmed
 }
 
-export function isSeatWaitingForOpponent(seat: DraftSeatState, state: DraftState): boolean {
-  return isSeatDraftComplete(seat) && !isDraftComplete(state)
+export function isBothSeatsSpendReady(state: DraftState): boolean {
+  return isSeatSpendReady(state.seats[0]) && isSeatSpendReady(state.seats[1])
+}
+
+export function isDraftComplete(state: DraftState): boolean {
+  return isBothSeatsSpendReady(state)
+}
+
+export function isSeatWaitingForOpponent(seatIndex: 0 | 1, state: DraftState): boolean {
+  const seat = state.seats[seatIndex]
+  return isSeatSpendReady(seat) && !isDraftComplete(state)
+}
+
+export function getSeatWaitingReason(
+  seatIndex: 0 | 1,
+  state: DraftState,
+): 'opponent_draft' | 'opponent_spend' | null {
+  if (!isSeatWaitingForOpponent(seatIndex, state)) {
+    return null
+  }
+  const opponentIndex = (seatIndex === 0 ? 1 : 0) as 0 | 1
+  if (!isSeatDraftComplete(state.seats[opponentIndex])) {
+    return 'opponent_draft'
+  }
+  return 'opponent_spend'
 }
 
 export function draftLoadoutToMatchSlots(loadoutKeys: BoonKey[]) {

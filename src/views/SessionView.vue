@@ -236,6 +236,34 @@ async function onPickBoon(boonKey: string) {
   }
 }
 
+async function onAdjustSoulBump(stat: 'strength' | 'speed' | 'vitality', delta: 1 | -1) {
+  actionError.value = null
+  actionBusy.value = true
+  try {
+    await client.mutation(api.match.adjustSoulBump, {
+      sessionId: sessionId.value,
+      stat,
+      delta,
+    })
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Could not adjust Soul stat.'
+  } finally {
+    actionBusy.value = false
+  }
+}
+
+async function onConfirmSoulSpend() {
+  actionError.value = null
+  actionBusy.value = true
+  try {
+    await client.mutation(api.match.confirmSoulSpend, { sessionId: sessionId.value })
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Could not confirm Soul spend.'
+  } finally {
+    actionBusy.value = false
+  }
+}
+
 async function onCancelMatch() {
   actionError.value = null
   actionBusy.value = true
@@ -496,18 +524,102 @@ function weaponNudgeSummary(weaponKey: string): string {
           </button>
         </div>
 
-        <p v-if="draft?.own?.waitingForOpponent" class="waiting-banner" role="status">
-          Waiting for opponent to finish drafting…
+        <p v-if="draft?.own?.waitingReason" class="waiting-banner" role="status">
+          <template v-if="draft.own.waitingReason === 'opponent_draft'">
+            Waiting for opponent to finish Draft…
+          </template>
+          <template v-else>Waiting for opponent to confirm Soul spend…</template>
         </p>
 
         <template v-if="draft?.own">
           <aside v-if="draft.own.soul" class="soul-panel" aria-label="Your Soul">
             <h3>Soul</h3>
             <ul class="soul-stats">
-              <li>Strength {{ draft.own.soul.strength }}</li>
-              <li>Speed {{ draft.own.soul.speed }}</li>
-              <li>Vitality {{ draft.own.soul.vitality }}</li>
+              <li class="soul-stat-row">
+                <span>Strength {{ draft.own.soul.strength }}</span>
+                <span
+                  v-if="draft.own.isPicksComplete && !draft.own.isSpendReady"
+                  class="soul-bump-controls"
+                >
+                  <button
+                    type="button"
+                    class="bump-btn"
+                    :disabled="actionBusy || draft.own.soulBumps.strength <= 0"
+                    aria-label="Decrease Strength"
+                    @click="onAdjustSoulBump('strength', -1)"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    class="bump-btn"
+                    :disabled="actionBusy || draft.own.goldRemaining <= 0"
+                    aria-label="Increase Strength"
+                    @click="onAdjustSoulBump('strength', 1)"
+                  >
+                    +
+                  </button>
+                </span>
+              </li>
+              <li class="soul-stat-row">
+                <span>Speed {{ draft.own.soul.speed }}</span>
+                <span
+                  v-if="draft.own.isPicksComplete && !draft.own.isSpendReady"
+                  class="soul-bump-controls"
+                >
+                  <button
+                    type="button"
+                    class="bump-btn"
+                    :disabled="actionBusy || draft.own.soulBumps.speed <= 0"
+                    aria-label="Decrease Speed"
+                    @click="onAdjustSoulBump('speed', -1)"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    class="bump-btn"
+                    :disabled="actionBusy || draft.own.goldRemaining <= 0"
+                    aria-label="Increase Speed"
+                    @click="onAdjustSoulBump('speed', 1)"
+                  >
+                    +
+                  </button>
+                </span>
+              </li>
+              <li class="soul-stat-row">
+                <span>Vitality {{ draft.own.soul.vitality }}</span>
+                <span
+                  v-if="draft.own.isPicksComplete && !draft.own.isSpendReady"
+                  class="soul-bump-controls"
+                >
+                  <button
+                    type="button"
+                    class="bump-btn"
+                    :disabled="actionBusy || draft.own.soulBumps.vitality <= 0"
+                    aria-label="Decrease Vitality"
+                    @click="onAdjustSoulBump('vitality', -1)"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    class="bump-btn"
+                    :disabled="actionBusy || draft.own.goldRemaining <= 0"
+                    aria-label="Increase Vitality"
+                    @click="onAdjustSoulBump('vitality', 1)"
+                  >
+                    +
+                  </button>
+                </span>
+              </li>
             </ul>
+            <p
+              v-if="draft.own.isPicksComplete && !draft.own.isSpendReady"
+              class="gold-remaining muted tiny"
+            >
+              Gold remaining: {{ draft.own.goldRemaining }}
+            </p>
             <p v-if="draft.own.favorLine" class="soul-favor muted tiny">
               {{ draft.own.favorLine }}
             </p>
@@ -524,14 +636,33 @@ function weaponNudgeSummary(weaponKey: string): string {
             </p>
           </aside>
 
-          <p class="muted tiny">
+          <p v-if="!draft.own.isPicksComplete" class="muted tiny">
             Pick {{ draft.own.picksMade }}/{{ draft.picksTotal }}
             <span v-if="draft.own.godPool.length > 0">
               · God pool: {{ draft.own.godPool.join(', ') }}
             </span>
           </p>
 
-          <div v-if="draftOfferPresentation" class="draft-offer">
+          <div
+            v-if="draft.own.isPicksComplete && !draft.own.isSpendReady"
+            class="soul-spend-actions"
+          >
+            <p class="muted tiny">Spend Gold on Soul stats, then confirm. Leftover Gold is lost.</p>
+            <button
+              type="button"
+              class="btn-primary"
+              :disabled="actionBusy"
+              @click="onConfirmSoulSpend"
+            >
+              Confirm Soul spend
+            </button>
+          </div>
+
+          <p v-else-if="draft.own.isSpendReady" class="muted tiny" role="status">
+            Soul spend confirmed — waiting for fight start.
+          </p>
+
+          <div v-if="draftOfferPresentation && !draft.own.isPicksComplete" class="draft-offer">
             <h3>{{ draftOfferPresentation.godLabel }} offers</h3>
             <ul class="offer-choices">
               <li v-for="choice in draftOfferPresentation.choices" :key="choice.key">
@@ -713,11 +844,31 @@ function weaponNudgeSummary(weaponKey: string): string {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 16px;
+  display: grid;
+  gap: 0.35rem;
   font-size: 0.9rem;
   font-weight: 600;
+}
+.soul-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.soul-bump-controls {
+  display: flex;
+  gap: 0.25rem;
+}
+.bump-btn {
+  min-width: 1.75rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+.soul-spend-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 .soul-favor {
   margin: 8px 0 0;
@@ -948,7 +1099,6 @@ function weaponNudgeSummary(weaponKey: string): string {
 .bar-fill {
   height: 100%;
   border-radius: inherit;
-  transition: width 120ms linear;
 }
 .bar-fill.life {
   background: color-mix(in srgb, #3a8f5a 80%, var(--accent));

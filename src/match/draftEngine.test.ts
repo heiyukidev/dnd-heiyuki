@@ -7,6 +7,7 @@ import {
   DRAFT_PICK_COUNT,
   generateOffer,
   getEligibleGods,
+  getSeatWaitingReason,
   GOD_POOL_MAX,
   initializeDraftSeat,
   initializeDraftState,
@@ -105,19 +106,76 @@ describe('draftEngine', () => {
     expect(seat.currentOffer).toBeNull()
   })
 
-  it('requires both seats to finish before draft is complete', () => {
+  it('requires both seats to confirm spend before draft fight is ready', () => {
     const state = initializeDraftState(createSeededDraftRng(5))
     expect(isDraftComplete(state)).toBe(false)
 
     let seat0 = state.seats[0]
+    let seat1 = state.seats[1]
     const rng = createSeededDraftRng(6)
     for (let pick = 0; pick < DRAFT_PICK_COUNT; pick += 1) {
       seat0 = applyPick(seat0, seat0.currentOffer!.options[0], rng)
+      seat1 = applyPick(seat1, seat1.currentOffer!.options[0], rng)
     }
-    const midState = { seats: [seat0, state.seats[1]] as const }
+    const picksCompleteState = { seats: [seat0, seat1] as [typeof seat0, typeof seat1] }
     expect(isSeatDraftComplete(seat0)).toBe(true)
-    expect(isDraftComplete(midState)).toBe(false)
-    expect(isSeatWaitingForOpponent(seat0, midState)).toBe(true)
+    expect(isSeatDraftComplete(seat1)).toBe(true)
+    expect(isDraftComplete(picksCompleteState)).toBe(false)
+    expect(isSeatWaitingForOpponent(0, picksCompleteState)).toBe(false)
+
+    const seat0Ready = { ...seat0, spendConfirmed: true, goldRemaining: 0 }
+    const midSpendState = { seats: [seat0Ready, seat1] as [typeof seat0Ready, typeof seat1] }
+    expect(isDraftComplete(midSpendState)).toBe(false)
+    expect(isSeatWaitingForOpponent(0, midSpendState)).toBe(true)
+    expect(getSeatWaitingReason(0, midSpendState)).toBe('opponent_spend')
+
+    const bothReady = {
+      seats: [
+        seat0Ready,
+        { ...seat1, spendConfirmed: true, goldRemaining: 0 },
+      ] as [typeof seat0Ready, typeof seat1],
+    }
+    expect(isDraftComplete(bothReady)).toBe(true)
+    expect(isSeatWaitingForOpponent(0, bothReady)).toBe(false)
+  })
+
+  it('waits on opponent draft when confirming spend early', () => {
+    let seat0 = initializeDraftSeat(createSeededDraftRng(40))
+    const seat1 = initializeDraftSeat(createSeededDraftRng(41))
+    const rng = createSeededDraftRng(42)
+    for (let pick = 0; pick < DRAFT_PICK_COUNT; pick += 1) {
+      seat0 = applyPick(seat0, seat0.currentOffer!.options[0], rng)
+    }
+    const seat0Ready = { ...seat0, spendConfirmed: true, goldRemaining: 0 }
+    const state = { seats: [seat0Ready, seat1] as [typeof seat0Ready, typeof seat1] }
+    expect(isSeatWaitingForOpponent(0, state)).toBe(true)
+    expect(getSeatWaitingReason(0, state)).toBe('opponent_draft')
+  })
+
+  it('does not show waiting while own spend is unconfirmed', () => {
+    const initial = initializeDraftState(createSeededDraftRng(20))
+    let seat0 = initial.seats[0]
+    const seat1 = initial.seats[1]
+    const rng = createSeededDraftRng(21)
+    for (let pick = 0; pick < DRAFT_PICK_COUNT; pick += 1) {
+      seat0 = applyPick(seat0, seat0.currentOffer!.options[0], rng)
+    }
+    const state = { seats: [seat0, seat1] as [typeof seat0, typeof seat1] }
+    expect(isSeatWaitingForOpponent(0, state)).toBe(false)
+    expect(getSeatWaitingReason(0, state)).toBeNull()
+  })
+
+  it('reports opponent spend wait when both finished picking', () => {
+    let seat0 = initializeDraftSeat(createSeededDraftRng(30))
+    let seat1 = initializeDraftSeat(createSeededDraftRng(31))
+    const rng = createSeededDraftRng(32)
+    for (let pick = 0; pick < DRAFT_PICK_COUNT; pick += 1) {
+      seat0 = applyPick(seat0, seat0.currentOffer!.options[0], rng)
+      seat1 = applyPick(seat1, seat1.currentOffer!.options[0], rng)
+    }
+    const seat0Ready = { ...seat0, spendConfirmed: true, goldRemaining: 0 }
+    const state = { seats: [seat0Ready, seat1] as [typeof seat0Ready, typeof seat1] }
+    expect(getSeatWaitingReason(0, state)).toBe('opponent_spend')
   })
 
   it('never exceeds the god pool cap of three', () => {
