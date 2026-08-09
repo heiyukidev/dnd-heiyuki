@@ -207,14 +207,40 @@ describe('loadoutSlotPresentation', () => {
   })
 
   it('formats passive templates for god and effect filters', () => {
-    expect(formatPassiveCue(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe('−15% dmg CD')
+    expect(formatPassiveCue(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe('−15% dmg Bow CD')
     expect(formatPassiveSentence(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe(
-      'Reduce your damage Boons Cooldown by 15%',
+      'Reduce your damage Bow Boons Cooldown by 15%',
     )
     expect(formatPassiveCue(ITEM_CATALOG.zeus_thunder_tyrant.passive!)).toBe('+15% dmg CD')
     expect(formatPassiveSentence(ITEM_CATALOG.zeus_thunder_tyrant.passive!)).toBe(
       'Increase enemy damage Boons Cooldown by 15%',
     )
+  })
+
+  it('uses effective stats in draft offer when loadout has passives and weapon', () => {
+    const offer = getDraftOfferPresentation({
+      god: 'Hermes',
+      optionKeys: ['hermes_winged_needle'],
+      catalog: ITEM_CATALOG,
+      seat: 0,
+      loadoutKeys: ['hermes_stolen_seconds'],
+      weaponKeys: ['hunters_bow', 'steel_longsword'],
+    })
+    expect(offer.choices[0]?.cooldownLine).toBe('Cooldown 0.918s')
+    expect(offer.choices[0]?.potency).toBe(5)
+  })
+
+  it('uses soul-adjusted stats in draft offer when soul is provided', () => {
+    const offer = getDraftOfferPresentation({
+      god: 'Hermes',
+      optionKeys: ['hermes_winged_needle'],
+      catalog: ITEM_CATALOG,
+      seat: 0,
+      loadoutKeys: [],
+      souls: [{ strength: 2, speed: 3, vitality: 1 }, { strength: 0, speed: 0, vitality: 0 }],
+    })
+    expect(offer.choices[0]?.potency).toBe(6)
+    expect(offer.choices[0]?.cooldownLine).toBe('Cooldown 1.128s')
   })
 
   it('builds draft offer presentation with god label and three choices', () => {
@@ -242,10 +268,11 @@ describe('loadoutSlotPresentation', () => {
       seats,
       seat: 0,
       slotIndex: 1,
+      weaponKeys: ['hunters_bow', 'steel_longsword'],
     })
     expect(presentation.potency).toBe(5)
-    expect(presentation.cooldownLine).toBe('Cooldown 1.02s')
-    expect(presentation.effectiveCooldownMs).toBe(1_020)
+    expect(presentation.cooldownLine).toBe('Cooldown 0.918s')
+    expect(presentation.effectiveCooldownMs).toBe(918)
   })
 
   it('uses effective potency when vital bloom is in the same loadout', () => {

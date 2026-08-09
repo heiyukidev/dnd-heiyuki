@@ -11,6 +11,7 @@ const memberRole = v.union(v.literal('dm'), v.literal('player'))
 
 const playPhase = v.union(
   v.literal('lobby'),
+  v.literal('weapon'),
   v.literal('draft'),
   v.literal('match'),
   v.literal('results'),
@@ -29,16 +30,26 @@ const boonOfferValidator = v.object({
   options: v.array(v.string()),
 })
 
+const soulValidator = v.object({
+  strength: v.number(),
+  speed: v.number(),
+  vitality: v.number(),
+})
+
+const weaponSeatValidator = v.object({
+  clerkUserId: v.string(),
+  soul: soulValidator,
+  weaponOffers: v.array(v.string()),
+  chosenWeaponKey: v.optional(v.string()),
+})
+
 const draftSeatValidator = v.object({
   clerkUserId: v.string(),
   loadoutKeys: v.array(v.string()),
   godPool: v.array(godValidator),
   currentOffer: v.optional(boonOfferValidator),
-  soul: v.object({
-    strength: v.number(),
-    speed: v.number(),
-    vitality: v.number(),
-  }),
+  soul: soulValidator,
+  weaponKey: v.string(),
 })
 
 const seatIndex = v.union(v.literal(0), v.literal(1))
@@ -60,11 +71,8 @@ const matchSeatValidator = v.object({
   life: v.number(),
   shield: v.number(),
   slots: v.array(loadoutSlotValidator),
-  soul: v.object({
-    strength: v.number(),
-    speed: v.number(),
-    vitality: v.number(),
-  }),
+  soul: soulValidator,
+  weaponKey: v.string(),
 })
 
 const matchFireValidator = v.object({
@@ -112,6 +120,7 @@ export default defineSchema({
     fightingPlayerCount: v.optional(v.number()),
     matchStartedAt: v.optional(v.number()),
     matchSeatResolveOrder: v.optional(v.array(seatIndex)),
+    matchWeaponSeats: v.optional(v.array(weaponSeatValidator)),
     matchDraftSeats: v.optional(v.array(draftSeatValidator)),
     matchSeats: v.optional(v.array(matchSeatValidator)),
     matchLastUpdate: v.optional(matchUpdateValidator),

@@ -1,4 +1,4 @@
-import { find, findIndex, forEach, map, range, shuffle, sortBy } from 'lodash'
+import { find, findIndex, forEach, map, shuffle, sortBy } from 'lodash'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
@@ -20,7 +20,10 @@ import {
   seedFireCapableSlotSchedulesAtMatchStart,
   rollSoulStats,
   soulFavorLine,
-  startingLifeFromVitality,
+  weaponFavorLine,
+  generateWeaponOffersFromRandom,
+  isValidWeaponPick,
+  maxLifeForSeat,
   type BoonKey,
   type DraftSeatState,
   type MatchSeatState,
@@ -89,7 +92,7 @@ async function cancelWakeJob(ctx: MutationCtx, session: Doc<'sessions'>) {
   }
 }
 
-function playPhaseOf(session: Doc<'sessions'>): 'lobby' | 'draft' | 'match' | 'results' {
+function playPhaseOf(session: Doc<'sessions'>): 'lobby' | 'weapon' | 'draft' | 'match' | 'results' {
   return session.playPhase ?? 'lobby'
 }
 
@@ -102,6 +105,8 @@ function engineSeatsFromStored(
   ]
 }
 
+type StoredWeaponSeat = NonNullable<Doc<'sessions'>['matchWeaponSeats']>[number]
+
 function mergeSeatsWithClerkIds(
   stored: NonNullable<Doc<'sessions'>['matchSeats']>,
   engineSeats: [MatchSeatState, MatchSeatState],
@@ -113,6 +118,7 @@ function mergeSeatsWithClerkIds(
       shield: engineSeats[0].shield,
       slots: engineSeats[0].slots,
       soul: stored[0].soul,
+      weaponKey: stored[0].weaponKey,
     },
     {
       clerkUserId: stored[1].clerkUserId,
@@ -120,6 +126,7 @@ function mergeSeatsWithClerkIds(
       shield: engineSeats[1].shield,
       slots: engineSeats[1].slots,
       soul: stored[1].soul,
+      weaponKey: stored[1].weaponKey,
     },
   ]
 }
@@ -128,6 +135,12 @@ function soulsFromMatchSeats(
   stored: NonNullable<Doc<'sessions'>['matchSeats']>,
 ): [SoulStats, SoulStats] {
   return [stored[0].soul, stored[1].soul]
+}
+
+function weaponKeysFromMatchSeats(
+  stored: NonNullable<Doc<'sessions'>['matchSeats']>,
+): [string, string] {
+  return [stored[0].weaponKey, stored[1].weaponKey]
 }
 
 function draftSeatFromStored(stored: StoredDraftSeat): DraftSeatState {
@@ -148,12 +161,14 @@ function draftSeatToStored(
   clerkUserId: string,
   seat: DraftSeatState,
   soul: SoulStats,
+  weaponKey: string,
 ): StoredDraftSeat {
   return {
     clerkUserId,
     loadoutKeys: seat.loadoutKeys,
     godPool: seat.godPool,
     soul,
+    weaponKey,
     ...(seat.currentOffer === null
       ? {}
       : {
@@ -179,18 +194,30 @@ function findGuestMember(
   return find(members, (m) => m.clerkUserId !== hostClerkUserId)
 }
 
-function seatIndexForClerk(draftSeats: StoredDraftSeat[], clerkUserId: string): SeatIndex | null {
-  const index = findIndex(draftSeats, (seat) => seat.clerkUserId === clerkUserId)
+function seatIndexForClerk(
+  seats: Array<{ clerkUserId: string }>,
+  clerkUserId: string,
+): SeatIndex | null {
+  const index = findIndex(seats, (seat) => seat.clerkUserId === clerkUserId)
   if (index < 0 || index > 1) {
     return null
   }
   return index as SeatIndex
 }
 
+function bothSeatsChoseWeapon(weaponSeats: StoredWeaponSeat[]): boolean {
+  return (
+    weaponSeats.length === 2 &&
+    weaponSeats[0].chosenWeaponKey !== undefined &&
+    weaponSeats[1].chosenWeaponKey !== undefined
+  )
+}
+
 function clearMatchFields() {
   return {
     matchStartedAt: undefined,
     matchSeatResolveOrder: undefined,
+    matchWeaponSeats: undefined,
     matchDraftSeats: undefined,
     matchSeats: undefined,
     matchLastUpdate: undefined,
@@ -208,15 +235,23 @@ async function beginLiveFight(
   const seatResolveOrder = shuffle([0, 1] as SeatIndex[]) as [SeatIndex, SeatIndex]
   const matchSeats: NonNullable<Doc<'sessions'>['matchSeats']> = map(draftSeats, (draftSeat) => ({
     clerkUserId: draftSeat.clerkUserId,
-    life: startingLifeFromVitality(draftSeat.soul.vitality, MATCH_LIFE_CAP),
+    life: maxLifeForSeat(draftSeat.soul, draftSeat.weaponKey, MATCH_LIFE_CAP),
     shield: 0,
     soul: draftSeat.soul,
+    weaponKey: draftSeat.weaponKey,
     slots: draftLoadoutToMatchSlots(draftSeat.loadoutKeys as BoonKey[]),
   })) as NonNullable<Doc<'sessions'>['matchSeats']>
 
   const engineSeats = engineSeatsFromStored(matchSeats)
   const souls = soulsFromMatchSeats(matchSeats)
-  seedFireCapableSlotSchedulesAtMatchStart(engineSeats, fightStartedAt, ITEM_CATALOG, souls)
+  const weaponKeys = weaponKeysFromMatchSeats(matchSeats)
+  seedFireCapableSlotSchedulesAtMatchStart(
+    engineSeats,
+    fightStartedAt,
+    ITEM_CATALOG,
+    souls,
+    weaponKeys,
+  )
   forEach([0, 1] as const, (index) => {
     matchSeats[index].slots = engineSeats[index].slots
   })
@@ -280,22 +315,62 @@ export const getSessionPlayState = query({
     }))
     const isHost = session.dmClerkUserId === identity.subject
     const phase = playPhaseOf(session)
-    const yourSeatIndex = seatIndexForClerk(session.matchDraftSeats ?? [], identity.subject)
+    const yourWeaponSeatIndex =
+      session.matchWeaponSeats === undefined
+        ? null
+        : seatIndexForClerk(session.matchWeaponSeats, identity.subject)
+    const yourDraftSeatIndex =
+      session.matchDraftSeats === undefined
+        ? null
+        : seatIndexForClerk(session.matchDraftSeats, identity.subject)
+
+    const weapon =
+      phase === 'weapon' && session.matchWeaponSeats !== undefined
+        ? (() => {
+            const weaponSeats = session.matchWeaponSeats
+            const ownSeat = yourWeaponSeatIndex === null ? null : weaponSeats[yourWeaponSeatIndex]
+            const ownStoredSoul =
+              yourWeaponSeatIndex === null ? null : weaponSeats[yourWeaponSeatIndex].soul
+            return {
+              yourSeatIndex: yourWeaponSeatIndex,
+              own:
+                ownSeat === null
+                  ? null
+                  : {
+                      soul: ownStoredSoul,
+                      favorLine: ownStoredSoul === null ? null : soulFavorLine(ownStoredSoul),
+                      weaponOffers:
+                        ownSeat.chosenWeaponKey === undefined ? ownSeat.weaponOffers : [],
+                      chosenWeaponKey: ownSeat.chosenWeaponKey ?? null,
+                      weaponFavorLine:
+                        ownSeat.chosenWeaponKey === undefined
+                          ? null
+                          : weaponFavorLine(ownSeat.chosenWeaponKey),
+                      waitingForOpponent:
+                        ownSeat.chosenWeaponKey !== undefined && !bothSeatsChoseWeapon(weaponSeats),
+                    },
+            }
+          })()
+        : null
 
     const draft =
       phase === 'draft' && session.matchDraftSeats !== undefined
         ? (() => {
             const draftSeats = session.matchDraftSeats
             const ownSeat =
-              yourSeatIndex === null ? null : draftSeatFromStored(draftSeats[yourSeatIndex])
+              yourDraftSeatIndex === null
+                ? null
+                : draftSeatFromStored(draftSeats[yourDraftSeatIndex])
             const ownStoredSoul =
-              yourSeatIndex === null ? null : draftSeats[yourSeatIndex].soul
+              yourDraftSeatIndex === null ? null : draftSeats[yourDraftSeatIndex].soul
+            const ownWeaponKey =
+              yourDraftSeatIndex === null ? null : draftSeats[yourDraftSeatIndex].weaponKey
             const draftState = {
               seats: map(draftSeats, draftSeatFromStored) as [DraftSeatState, DraftSeatState],
             }
             return {
               picksTotal: DRAFT_PICK_COUNT,
-              yourSeatIndex,
+              yourSeatIndex: yourDraftSeatIndex,
               own:
                 ownSeat === null
                   ? null
@@ -306,12 +381,14 @@ export const getSessionPlayState = query({
                       picksMade: ownSeat.loadoutKeys.length,
                       isComplete: isSeatDraftComplete(ownSeat),
                       waitingForOpponent:
-                        yourSeatIndex === null
+                        yourDraftSeatIndex === null
                           ? false
                           : isSeatWaitingForOpponent(ownSeat, draftState),
                       soul: ownStoredSoul,
-                      favorLine:
-                        ownStoredSoul === null ? null : soulFavorLine(ownStoredSoul),
+                      favorLine: ownStoredSoul === null ? null : soulFavorLine(ownStoredSoul),
+                      weaponKey: ownWeaponKey,
+                      weaponFavorLine:
+                        ownWeaponKey === null ? null : weaponFavorLine(ownWeaponKey),
                     },
               isDraftComplete: isDraftComplete(draftState),
             }
@@ -336,8 +413,11 @@ export const getSessionPlayState = query({
       canStartMatch:
         isHost && session.status === 'live' && phase === 'lobby' && fightingPlayers.length === 2,
       canCancelMatch:
-        isHost && session.status === 'live' && (phase === 'draft' || phase === 'match'),
+        isHost &&
+        session.status === 'live' &&
+        (phase === 'weapon' || phase === 'draft' || phase === 'match'),
       canEndSession: isHost && session.status === 'live' && phase === 'lobby',
+      weapon,
       draft,
       match:
         phase === 'lobby' || phase === 'draft'
@@ -381,19 +461,89 @@ export const startMatch = mutation({
 
     await cancelWakeJob(ctx, session)
 
+    const matchWeaponSeats: NonNullable<Doc<'sessions'>['matchWeaponSeats']> = [
+      {
+        clerkUserId: hostMember.clerkUserId,
+        soul: rollSoulStats(Math.random),
+        weaponOffers: generateWeaponOffersFromRandom(Math.random),
+      },
+      {
+        clerkUserId: guestMember.clerkUserId,
+        soul: rollSoulStats(Math.random),
+        weaponOffers: generateWeaponOffersFromRandom(Math.random),
+      },
+    ]
+
+    await ctx.db.patch(sessionId, {
+      playPhase: 'weapon',
+      ...clearMatchFields(),
+      matchWeaponSeats,
+    })
+    return { ok: true as const }
+  },
+})
+
+export const pickWeapon = mutation({
+  args: {
+    sessionId: v.id('sessions'),
+    weaponKey: v.string(),
+  },
+  handler: async (ctx, { sessionId, weaponKey }) => {
+    const { session, clerkUserId } = await requireMemberSession(ctx, sessionId)
+    if (playPhaseOf(session) !== 'weapon') {
+      throw new Error('Weapon picks are only allowed during Equipment pick')
+    }
+    if (session.matchWeaponSeats === undefined || session.matchWeaponSeats.length !== 2) {
+      throw new Error('Weapon pick state is missing')
+    }
+
+    const seatIndex = seatIndexForClerk(session.matchWeaponSeats, clerkUserId)
+    if (seatIndex === null) {
+      throw new Error('You are not seated in this Match')
+    }
+
+    const currentSeat = session.matchWeaponSeats[seatIndex]
+    if (currentSeat.chosenWeaponKey !== undefined) {
+      throw new Error('Weapon is already chosen for your seat')
+    }
+    if (!isValidWeaponPick(currentSeat.weaponOffers, weaponKey)) {
+      throw new Error('Weapon is not in your current offers')
+    }
+
+    const nextWeaponSeats = [...session.matchWeaponSeats]
+    nextWeaponSeats[seatIndex] = {
+      ...currentSeat,
+      chosenWeaponKey: weaponKey,
+    }
+
+    if (!bothSeatsChoseWeapon(nextWeaponSeats)) {
+      await ctx.db.patch(sessionId, { matchWeaponSeats: nextWeaponSeats })
+      return { ok: true as const, draftStarted: false as const }
+    }
+
     const rng = createDraftRngFromRandom(Math.random)
     const draftState = initializeDraftState(rng)
     const matchDraftSeats: NonNullable<Doc<'sessions'>['matchDraftSeats']> = [
-      draftSeatToStored(hostMember.clerkUserId, draftState.seats[0], rollSoulStats(Math.random)),
-      draftSeatToStored(guestMember.clerkUserId, draftState.seats[1], rollSoulStats(Math.random)),
+      draftSeatToStored(
+        nextWeaponSeats[0].clerkUserId,
+        draftState.seats[0],
+        nextWeaponSeats[0].soul,
+        nextWeaponSeats[0].chosenWeaponKey!,
+      ),
+      draftSeatToStored(
+        nextWeaponSeats[1].clerkUserId,
+        draftState.seats[1],
+        nextWeaponSeats[1].soul,
+        nextWeaponSeats[1].chosenWeaponKey!,
+      ),
     ]
 
     await ctx.db.patch(sessionId, {
       playPhase: 'draft',
-      ...clearMatchFields(),
+      matchWeaponSeats: undefined,
       matchDraftSeats,
     })
-    return { ok: true as const }
+    return { ok: true as const, draftStarted: true as const }
   },
 })
 
@@ -428,6 +578,7 @@ export const pickBoon = mutation({
       session.matchDraftSeats[seatIndex].clerkUserId,
       nextSeat,
       session.matchDraftSeats[seatIndex].soul,
+      session.matchDraftSeats[seatIndex].weaponKey,
     )
 
     if (
@@ -449,8 +600,8 @@ export const cancelMatch = mutation({
   handler: async (ctx, { sessionId }) => {
     const { session } = await requireHostLiveSession(ctx, sessionId)
     const phase = playPhaseOf(session)
-    if (phase !== 'draft' && phase !== 'match') {
-      throw new Error('Match cancel is only allowed during Draft or the live fight')
+    if (phase !== 'weapon' && phase !== 'draft' && phase !== 'match') {
+      throw new Error('Match cancel is only allowed during Weapon pick, Draft, or the live fight')
     }
     await cancelWakeJob(ctx, session)
     await ctx.db.patch(sessionId, {
@@ -494,6 +645,7 @@ export const wakeMatch = internalMutation({
     const engineSeats = engineSeatsFromStored(session.matchSeats)
     const seatResolveOrder = session.matchSeatResolveOrder as [SeatIndex, SeatIndex]
     const souls = soulsFromMatchSeats(session.matchSeats)
+    const weaponKeys = weaponKeysFromMatchSeats(session.matchSeats)
     const update = resolveMatchStep({
       seats: engineSeats,
       t,
@@ -502,6 +654,7 @@ export const wakeMatch = internalMutation({
       matchStartedAt: expectedStartedAt,
       timeCapMs: DEFAULT_MATCH_TIME_CAP_MS,
       souls,
+      weaponKeys,
     })
     const nextSeats = mergeSeatsWithClerkIds(session.matchSeats, update.seats)
 

@@ -64,6 +64,16 @@ export {
   startingLifeFromVitality,
 } from '../src/match/soul'
 
-export type { SoulStats } from '../src/match/types'
+export {
+  generateWeaponOffersFromRandom,
+  isValidWeaponPick,
+  maxLifeForSeat,
+  weaponFavorLine,
+  WEAPON_OFFER_COUNT,
+} from '../src/match/weapon'
+
+export { WEAPON_CATALOG, WEAPON_KEYS } from '../src/match/weaponCatalog'
+
+export type { SoulStats, WeaponType } from '../src/match/types'
 
 export { isFireCapableItem } from '../src/match/types'

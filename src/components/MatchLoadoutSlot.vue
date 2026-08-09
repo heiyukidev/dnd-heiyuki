@@ -16,6 +16,7 @@ const props = defineProps<{
   seatIndex: SeatIndex
   slotIndex: number
   souls?: [SoulStats, SoulStats]
+  weaponKeys?: [string, string]
   nextReadyAt?: number
   nowMs: number
   isFlashing: boolean
@@ -36,6 +37,7 @@ const presentation = computed(() =>
     seat: props.seatIndex,
     slotIndex: props.slotIndex,
     souls: props.souls,
+    weaponKeys: props.weaponKeys,
   }),
 )
 

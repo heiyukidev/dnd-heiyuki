@@ -1,14 +1,4 @@
-import {
-  cloneDeep,
-  filter,
-  flatMap,
-  forEach,
-  get,
-  map,
-  min,
-  range,
-  some,
-} from 'lodash'
+import { cloneDeep, filter, flatMap, forEach, get, map, min, range, some } from 'lodash'
 
 import {
   resolveAllFireCapableEffectiveStats,
@@ -27,7 +17,7 @@ import type {
   SoulStats,
 } from './types'
 import { isFireCapableItem } from './types'
-import { maxLifeFromSoul } from './soul'
+import { maxLifeForSeat } from './weapon'
 
 export const DEFAULT_MATCH_TIME_CAP_MS = 60_000
 export const MATCH_LIFE_CAP = 100
@@ -48,12 +38,12 @@ function applyDamage(target: MatchSeatState, potency: number): void {
   }
 }
 
-function healCapForSeat(seat: SeatIndex, souls?: [SoulStats, SoulStats]): number {
-  const soul = souls?.[seat]
-  if (soul === undefined) {
-    return MATCH_LIFE_CAP
-  }
-  return maxLifeFromSoul(soul, MATCH_LIFE_CAP)
+function healCapForSeat(
+  seat: SeatIndex,
+  souls?: [SoulStats, SoulStats],
+  weaponKeys?: [string, string],
+): number {
+  return maxLifeForSeat(souls?.[seat], weaponKeys?.[seat], MATCH_LIFE_CAP)
 }
 
 function applyHeal(target: MatchSeatState, potency: number, healCap: number): void {
@@ -70,6 +60,7 @@ function applyEffect(
   effect: MatchFire['effect'],
   potency: number,
   souls?: [SoulStats, SoulStats],
+  weaponKeys?: [string, string],
 ): void {
   if (effect === 'damage') {
     applyDamage(seats[otherSeat(seat)], potency)
@@ -79,7 +70,7 @@ function applyEffect(
     return
   }
   if (effect === 'heal') {
-    applyHeal(seats[seat], potency, healCapForSeat(seat, souls))
+    applyHeal(seats[seat], potency, healCapForSeat(seat, souls, weaponKeys))
     return
   }
   applyShield(seats[seat], potency)
@@ -128,8 +119,9 @@ export function reEvalFireCapableSlotSchedules(
   catalog: ItemCatalog,
   priorEffectiveStats?: EffectiveSlotStats[][],
   souls?: [SoulStats, SoulStats],
+  weaponKeys?: [string, string],
 ): EffectiveSlotStats[][] {
-  const newEffectiveStats = resolveAllFireCapableEffectiveStats(seats, catalog, souls)
+  const newEffectiveStats = resolveAllFireCapableEffectiveStats(seats, catalog, souls, weaponKeys)
 
   forEach([0, 1] as SeatIndex[], (seat) => {
     forEach(seats[seat].slots, (slot, slotIndex) => {
@@ -178,8 +170,9 @@ export function seedFireCapableSlotSchedulesAtMatchStart(
   matchStartedAt: number,
   catalog: ItemCatalog,
   souls?: [SoulStats, SoulStats],
+  weaponKeys?: [string, string],
 ): void {
-  const effectiveStats = resolveAllFireCapableEffectiveStats(seats, catalog, souls)
+  const effectiveStats = resolveAllFireCapableEffectiveStats(seats, catalog, souls, weaponKeys)
 
   forEach([0, 1] as SeatIndex[], (seat) => {
     forEach(seats[seat].slots, (slot, slotIndex) => {
@@ -214,8 +207,7 @@ function collectReadyFires(
         if (!isFireCapableItem(def)) {
           return null
         }
-        const effectivePotency =
-          get(effectiveStats, [seat, slotIndex, 'potency']) ?? def.potency
+        const effectivePotency = get(effectiveStats, [seat, slotIndex, 'potency']) ?? def.potency
         return {
           seat,
           slotIndex,
@@ -254,10 +246,7 @@ function timeCapOutcome(seats: [MatchSeatState, MatchSeatState]): MatchUpdate['o
   return { type: 'draw' }
 }
 
-function nextWakeAtForContinue(
-  seats: [MatchSeatState, MatchSeatState],
-  timeCapAt: number,
-): number {
+function nextWakeAtForContinue(seats: [MatchSeatState, MatchSeatState], timeCapAt: number): number {
   const readyTimes = flatMap(seats, (seat) =>
     filter(
       map(seat.slots, (slot) => slot.nextReadyAt),
@@ -296,6 +285,7 @@ export function resolveMatchStep(input: ResolveMatchStepInput): MatchUpdate {
     input.catalog,
     undefined,
     input.souls,
+    input.weaponKeys,
   )
 
   const fires = collectReadyFires(seats, t, input.seatResolveOrder, input.catalog, effectiveStats)
@@ -306,7 +296,7 @@ export function resolveMatchStep(input: ResolveMatchStepInput): MatchUpdate {
   }))
 
   for (const fire of fires) {
-    applyEffect(seats, fire.seat, fire.effect, fire.potency, input.souls)
+    applyEffect(seats, fire.seat, fire.effect, fire.potency, input.souls, input.weaponKeys)
     const def = input.catalog[fire.itemKey]
     const effectiveCooldownMs =
       get(effectiveStats, [fire.seat, fire.slotIndex, 'cooldownMs']) ?? def?.cooldownMs ?? 0
@@ -358,13 +348,8 @@ export function earliestWakeAt(
   return Math.min(soonestReady, timeCapAt)
 }
 
-export function seatsHaveReadyAt(
-  seats: [MatchSeatState, MatchSeatState],
-  t: number,
-): boolean {
-  return some(
-    seats,
-    (seat) =>
-      some(seat.slots, (slot) => slot.nextReadyAt !== undefined && slot.nextReadyAt <= t),
+export function seatsHaveReadyAt(seats: [MatchSeatState, MatchSeatState], t: number): boolean {
+  return some(seats, (seat) =>
+    some(seat.slots, (slot) => slot.nextReadyAt !== undefined && slot.nextReadyAt <= t),
   )
 }

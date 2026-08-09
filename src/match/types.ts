@@ -1,5 +1,24 @@
 export type SeatIndex = 0 | 1
 
+export type WeaponType = 'Sword' | 'Axe' | 'Wand' | 'Bow'
+
+export type WeaponNudges = {
+  damagePotencyPercent?: number
+  cooldownPercent?: number
+  lifeBonus?: number
+}
+
+export type WeaponDefinition = {
+  key: string
+  name: string
+  weaponType: WeaponType
+  nudges?: WeaponNudges
+}
+
+export type WeaponCatalog = Readonly<Record<string, WeaponDefinition>>
+
+export type WeaponKey = string
+
 export type SoulStats = {
   strength: number
   speed: number
@@ -18,6 +37,7 @@ export type PassiveFilter =
   | {
       effectKind?: ItemEffect
       god?: God
+      weaponType?: WeaponType
     }
 
 export type PassiveStat = 'cooldown' | 'potency'
@@ -113,4 +133,5 @@ export type ResolveMatchStepInput = {
   matchStartedAt: number
   timeCapMs?: number
   souls?: [SoulStats, SoulStats]
+  weaponKeys?: [string, string]
 }

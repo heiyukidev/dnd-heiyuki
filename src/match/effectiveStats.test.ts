@@ -17,6 +17,8 @@ function dualSeats(a: MatchSeatState, b: MatchSeatState): [MatchSeatState, Match
   return [a, b]
 }
 
+const BOW_AT_SEAT_0: [string, string] = ['hunters_bow', 'steel_longsword']
+
 const TEST_CATALOG = {
   ...ITEM_CATALOG,
   enemy_haste: {
@@ -72,6 +74,16 @@ const TEST_CATALOG = {
       changes: [{ stat: 'potency', mode: 'flat', value: -20 }],
     } satisfies PassiveDefinition,
   },
+  sword_only_haste: {
+    key: 'sword_only_haste',
+    name: 'Sword Only Haste',
+    god: 'Hermes',
+    passive: {
+      seatTarget: 'own',
+      filter: { effectKind: 'damage', weaponType: 'Sword' },
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.05 }],
+    } satisfies PassiveDefinition,
+  },
 } as const satisfies ItemCatalog
 
 describe('resolveSlotEffectiveStats', () => {
@@ -94,8 +106,8 @@ describe('resolveSlotEffectiveStats', () => {
       ]),
       seat([]),
     )
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: 1_020,
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
+      cooldownMs: 918,
       potency: 5,
     })
   })
@@ -198,8 +210,8 @@ describe('resolveSlotEffectiveStats', () => {
       ]),
       seat([]),
     )
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG)).toEqual({
-      cooldownMs: 1_020,
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
+      cooldownMs: 918,
       potency: 8,
     })
   })
@@ -213,8 +225,8 @@ describe('resolveSlotEffectiveStats', () => {
       ]),
       seat([]),
     )
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: 840,
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, ITEM_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
+      cooldownMs: 756,
       potency: 5,
     })
   })
@@ -271,8 +283,8 @@ describe('resolveSlotEffectiveStats', () => {
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, TEST_CATALOG)).toEqual({})
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG)).toEqual({
-      cooldownMs: 1_020,
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
+      cooldownMs: 918,
       potency: 8,
     })
   })
@@ -293,11 +305,68 @@ describe('resolveSlotEffectiveStats', () => {
       resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG, souls),
     ).toEqual({
       cooldownMs: 960,
+      potency: 11.2,
+    })
+  })
+
+  it('leaves damage potency unchanged when Soul Strength is 0', () => {
+    const seats = dualSeats(
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
+      seat([]),
+    )
+    const souls: [import('./types').SoulStats, import('./types').SoulStats] = [
+      { strength: 0, speed: 0, vitality: 0 },
+      { strength: 0, speed: 0, vitality: 0 },
+    ]
+    expect(
+      resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG, souls),
+    ).toEqual({
+      cooldownMs: 1_200,
+      potency: 5,
+    })
+  })
+
+  it('multiplies damage potency by 1.5 when Soul Strength is 5', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'flat_potency_aura' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+      ]),
+      seat([]),
+    )
+    const souls: [import('./types').SoulStats, import('./types').SoulStats] = [
+      { strength: 5, speed: 0, vitality: 0 },
+      { strength: 0, speed: 0, vitality: 0 },
+    ]
+    expect(
+      resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG, souls),
+    ).toEqual({
+      cooldownMs: 1_200,
       potency: 12,
     })
   })
 
-  it('does not add Soul Strength to heal or shield potency', () => {
+  it('multiplies damage potency by 2 when Soul Strength is 10', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'flat_potency_aura' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+      ]),
+      seat([]),
+    )
+    const souls: [import('./types').SoulStats, import('./types').SoulStats] = [
+      { strength: 10, speed: 0, vitality: 0 },
+      { strength: 0, speed: 0, vitality: 0 },
+    ]
+    expect(
+      resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG, souls),
+    ).toEqual({
+      cooldownMs: 1_200,
+      potency: 16,
+    })
+  })
+
+  it('does not multiply Soul Strength into heal or shield potency', () => {
     const seats = dualSeats(
       seat([{ itemKey: 'hygieia_soft_bandage', nextReadyAt: 1_000 }]),
       seat([]),
@@ -311,6 +380,101 @@ describe('resolveSlotEffectiveStats', () => {
     ).toEqual({
       cooldownMs: 2_000,
       potency: 5,
+    })
+  })
+
+  it('applies Weapon nudges after Soul on the shared effective-stat path', () => {
+    const seats = dualSeats(
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
+      seat([]),
+    )
+    const souls: [import('./types').SoulStats, import('./types').SoulStats] = [
+      { strength: 4, speed: 0, vitality: 0 },
+      { strength: 0, speed: 0, vitality: 0 },
+    ]
+    const weaponKeys: [string, string] = ['steel_longsword', 'hunters_bow']
+    const result = resolveSlotEffectiveStats(
+      seats,
+      { seat: 0, slotIndex: 0 },
+      ITEM_CATALOG,
+      souls,
+      weaponKeys,
+    )
+    expect(result.cooldownMs).toBe(1_200)
+    expect(result.potency).toBeCloseTo(7.35)
+  })
+
+  it('gates catalog Passive weaponType on the carrier equipped Weapon', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'hermes_fleet_foot' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_500 },
+      ]),
+      seat([]),
+    )
+    const swordWeaponKeys: [string, string] = ['knight_blade', 'war_axe']
+    expect(
+      resolveSlotEffectiveStats(
+        seats,
+        { seat: 0, slotIndex: 1 },
+        ITEM_CATALOG,
+        undefined,
+        swordWeaponKeys,
+      ),
+    ).toEqual({
+      cooldownMs: 1_026,
+      potency: 5,
+    })
+
+    const axeWeaponKeys: [string, string] = ['war_axe', 'knight_blade']
+    expect(
+      resolveSlotEffectiveStats(
+        seats,
+        { seat: 0, slotIndex: 1 },
+        ITEM_CATALOG,
+        undefined,
+        axeWeaponKeys,
+      ),
+    ).toEqual({
+      cooldownMs: 1_296,
+      potency: 5.5,
+    })
+  })
+
+  it('gates Passive weaponType on the carrier equipped Weapon', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'sword_only_haste' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+      ]),
+      seat([]),
+    )
+    const swordWeaponKeys: [string, string] = ['knight_blade', 'war_axe']
+    expect(
+      resolveSlotEffectiveStats(
+        seats,
+        { seat: 0, slotIndex: 1 },
+        TEST_CATALOG,
+        undefined,
+        swordWeaponKeys,
+      ),
+    ).toEqual({
+      cooldownMs: 1_083,
+      potency: 5,
+    })
+
+    const axeWeaponKeys: [string, string] = ['war_axe', 'knight_blade']
+    expect(
+      resolveSlotEffectiveStats(
+        seats,
+        { seat: 0, slotIndex: 1 },
+        TEST_CATALOG,
+        undefined,
+        axeWeaponKeys,
+      ),
+    ).toEqual({
+      cooldownMs: 1_296,
+      potency: 5.5,
     })
   })
 })

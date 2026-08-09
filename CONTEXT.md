@@ -51,8 +51,20 @@ The fighter identity for one seat for the duration of a single **Match**. Each s
 _Avoid_: Avatar; account-persistent character sheet for this prototype; treating **Soul** as a **Boon** or **God**; mechanical **Draft** weighting or forced picks from **Soul stats**; open opponent **Soul** during **Draft**; glowing/highlighting offer cards as “recommended.”
 
 **Soul stats**:
-The numeric fields on a **Soul**. Prototype set: **Strength**, **Speed**, **Vitality**. Both seats always share the same point total **15** (same average); each seat independently receives a random partition of those **15** points into the three stats with each stat an integer **0–10**. Combat jobs (Soul-first): **Strength** adds flat damage potency (`+Strength`); **Speed** shortens fire-capable **Cooldown**s by `Speed × 2` percent (e.g. 10 → −20%), still floored at **500ms**; **Vitality** sets starting **Life total** to `100 + Vitality` (heal cap matches that same max). **Soul** modifiers apply **after** **Passive** stacking on the shared effective-stat path.
-_Avoid_: Expanding into armor/magic/luck until **Equipment**; conflating **Soul stats** with **Boon** catalog potency/**Cooldown**; using **Vitality** as a heal multiplier in this slice; independent per-stat rolls that can give one seat a higher total than the other.
+The numeric fields on a **Soul**. Prototype set: **Strength**, **Speed**, **Vitality**. Both seats always share the same point total **15** (same average); each seat independently receives a random partition of those **15** points into the three stats with each stat an integer **0–10**. Combat jobs (Soul-first): **Strength** multiplies damage potency by `(1 + Strength × 0.1)` (e.g. 0 → 1×, 10 → 2×); **Speed** shortens fire-capable **Cooldown**s by `Speed × 2` percent (e.g. 10 → −20%), still floored at **500ms**; **Vitality** sets starting **Life total** to `100 + Vitality` (heal cap matches that same max). **Soul** modifiers apply **after** **Passive** stacking on the shared effective-stat path.
+_Avoid_: Conflating **Soul stats** with **Boon** catalog potency/**Cooldown**; using **Vitality** as a heal multiplier in this slice; independent per-stat rolls that can give one seat a higher total than the other; treating **Weapon** nudges as changes to the displayed **Soul** panel numbers.
+
+**Equipment**:
+Match-scoped gear a seat brings into a fight. In this slice: exactly one **Weapon** slot (no armor/accessories yet). **Equipment** is identity + light combat nudges — not a sixth **Loadout** **Boon**, not a separate fire actor, and not a rewrite of rolled **Soul stats** on the Soul panel. Cleared when the **Match** ends or on **Match cancel**; not account- or **Session**-persistent.
+_Avoid_: Gold/shop acquisition; paper-doll inventory; treating **Equipment** as a **Boon** / **Loadout** slot; timer-firing **Equipment** in this slice.
+
+**Weapon**:
+The sole **Equipment** slot in this slice. At **Match start**, after **Soul**s are rolled and before **Boon** **Draft**, each seat simultaneously receives an independent offer of **3** **Weapons** and must pick **1** (no empty Weapon). Boon **Draft** starts only when both seats have chosen. Own **Weapon** is visible once chosen; opponent **Weapon** stays hidden until the fight (same fog as **Soul** / **Loadout** / **God pool**). Every catalog **Weapon** has exactly one **Weapon type**. Catalog **Weapons** may carry light nudges on the shared effective-stat path **after Passive + Soul** (same levers: damage potency, fire-capable **Cooldown**, starting / max **Life**); magnitudes stay light and are per catalog row (not hard-coded by type). A **Weapon** does not charge, fire, own a `nextReadyAt`, or inject a linked **Boon**.
+_Avoid_: Rolling the **Weapon** with no pick; drafting it inside Boon offers; mirroring the same three offers to both seats; empty Weapon slot; Weapon nudges that rewrite the Soul panel’s Strength/Speed/Vitality readout; treating **Weapon type** fantasy jobs as mandatory nudge formulas; linked fire / equip-only fire verbs on **Weapons** in this slice.
+
+**Weapon type**:
+The identity class of a **Weapon**. Prototype set: **Sword**, **Axe**, **Wand**, **Bow**. Soft catalog guidance only: Sword mid damage/tempo, Axe heavy/slower, Wand soft/tempo/hybrid, Bow fast/poke. Used by **Passive** filters as an optional seat gate on the carrier’s equipped **Weapon**, and by soft **Draft** favor copy (not offer odds).
+_Avoid_: Dual-wield / spear / fists in this slice; tagging **Boons** with a weapon affinity; mechanical **Draft** reweighting or bans from equipped type; **Boons** that rewrite **Soul stats**.
 
 **God**:
 A named divinity identity that owns a fixed catalog of **Boons** sharing one thematic tempo/role fantasy (for example swift low-damage, slow high-damage, healing). The unit counted by a seat's **God pool**. Product names need not be strict classical Olympians (e.g. **Dynamite**).
@@ -61,24 +73,24 @@ _Avoid_: Treating **God** as only a UI label or catalog tag with no pool members
 **God catalog (v1)**:
 The shipped set of five **Gods**, each with seven **Boons** (35 total). Replaces the old spark/cannon/… and Passive-slice keys — those are not kept in parallel.
 
-| God | Fantasy |
-|-----|---------|
-| **Hermes** | Swiftness — fast, lower-damage |
-| **Dynamite** | Destruction — slow, very high damage |
-| **Hygieia** | Health — healing |
-| **Athena** | Aegis — shield / mitigation |
-| **Zeus** | Lightning — mid-tempo damage and punchy **Passive**s |
+| God          | Fantasy                                              |
+| ------------ | ---------------------------------------------------- |
+| **Hermes**   | Swiftness — fast, lower-damage                       |
+| **Dynamite** | Destruction — slow, very high damage                 |
+| **Hygieia**  | Health — healing                                     |
+| **Athena**   | Aegis — shield / mitigation                          |
+| **Zeus**     | Lightning — mid-tempo damage and punchy **Passive**s |
 
 **God pool**:
 The set of **Gods** that have granted at least one **Boon** to a seat during the current **Match**'s **Draft**. Cap is **3**. A **God** enters when that seat accepts their first **Boon**. While at cap, further **Boon** offers for that seat may only come from **Gods** already in the pool. Resets when the **Match** ends (return to **Lobby**); does not persist across **Matches**.
 _Avoid_: Cross-**Match** / **Session**-lifetime god commitment in this slice.
 
 **Match cancel**:
-The **Host**-only action that aborts an in-progress **Match** (including during **Draft** or the live fight) and returns both seats to the **Lobby** without archiving the **Session**. Clears **Loadout**s, **God pool**s, and **Soul**s.
+The **Host**-only action that aborts an in-progress **Match** (including during **Weapon** pick, **Draft**, or the live fight) and returns both seats to the **Lobby** without archiving the **Session**. Clears **Loadout**s, **God pool**s, **Soul**s, and **Equipment** (**Weapon**).
 _Avoid_: Ending the **Session** from mid-**Match**; joiner-initiated cancel in this slice.
 
 **Draft**:
-The phase of a **Match** after **Match start** and before the live fight, where each seat builds its **Loadout** by accepting a series of **Boon offers**. Each seat makes exactly **5** picks (final **Loadout** size is **5**). Both seats draft **simultaneously** and independently; the live server sim begins only when both have finished. Opponent **Boon offer**s, **Loadout**, and **God pool** are hidden during **Draft** and revealed when the fight starts.
+The phase of a **Match** after both seats have picked a **Weapon** and before the live fight, where each seat builds its **Loadout** by accepting a series of **Boon offers**. Each seat makes exactly **5** picks (final **Loadout** size is **5**). Both seats draft **simultaneously** and independently; the live server sim begins only when both have finished. Opponent **Boon offer**s, **Loadout**, **God pool**, and **Weapon** are hidden during **Draft** and revealed when the fight starts.
 _Avoid_: Lobby shop; drafting before the **Host** starts the **Match**; random five-pick without offers; open-information or alternating draft in this slice; per-offer pick timers / auto-pick in this slice.
 
 **Boon offer**:
@@ -93,8 +105,8 @@ _Avoid_: Item (retired domain name for this concept); treating **Passive**-only 
 The damage, heal, or shield application a **Boon** performs when its **Cooldown** loop completes. Absent on **Passive**-only **Boons**.
 
 **Passive**:
-A modifier attached to a **Boon** that can rewrite matching **Boons**' **Cooldown** and/or **potency** while the carrier is in a **Loadout**. On **hybrid** **Boons** it sits alongside the **fire effect**; on **Passive**-only **Boons** it is the whole card. Each **Passive** declares which seats it affects (**own**, **enemy**, or **both**), which **Boons** in those seats receive it via a filter that may include **effect kind** (damage / heal / shield) and/or **God**, combined with AND when both are set; omit both for **all**, and one or more changes to **Cooldown** and/or **potency**. Each change is either **flat** or **percent**, chosen per change on that **Passive**. When the carrier matches its own filter and seat target, it receives the modifier too (only meaningful for stats the carrier actually has — a **Passive**-only carrier has no **Cooldown** / potency of its own). Multiple matching **Passive**s stack additively by layer: `effective = (base × (1 + Σpercent)) + Σflat`, then clamp (**effective Cooldown** ≥ **500ms**, **effective potency** ≥ **0**). With unique **Draft** keys, stacking comes from different carrier **Boons**, not duplicate copies of one key. In this slice every **Passive** is **unconditional** (always eligible while the carrier is present); the live sim still **recomputes** **effective Cooldown** / **effective potency** on every wake so future **Passive** conditions can gate eligibility without a model change. Not a second **fire effect**.
-_Avoid_: Aura (unless we later mean a seat-level effect that is not on a **Boon**); conflating a **Passive** condition trigger with a **Boon** fire.
+A modifier attached to a **Boon** that can rewrite matching **Boons**' **Cooldown** and/or **potency** while the carrier is in a **Loadout**. On **hybrid** **Boons** it sits alongside the **fire effect**; on **Passive**-only **Boons** it is the whole card. Each **Passive** declares which seats it affects (**own**, **enemy**, or **both**), which **Boons** in those seats receive it via a filter that may include **effect kind** (damage / heal / shield) and/or **God** and/or **Weapon type**, combined with AND when more than one is set; omit all three for **all**, and one or more changes to **Cooldown** and/or **potency**. **Weapon type** on the filter is a **carrier-seat gate**: if set, the **Passive** contributes nothing unless the carrier seat’s equipped **Weapon** has that type (it is not a tag on recipient **Boons**). **Effect kind** and **God** still match recipient **Boons**. Each change is either **flat** or **percent**, chosen per change on that **Passive**. When the carrier matches its own filter and seat target, it receives the modifier too (only meaningful for stats the carrier actually has — a **Passive**-only carrier has no **Cooldown** / potency of its own). Multiple matching **Passive**s stack additively by layer: `effective = (base × (1 + Σpercent)) + Σflat`, then clamp (**effective Cooldown** ≥ **500ms**, **effective potency** ≥ **0**). With unique **Draft** keys, stacking comes from different carrier **Boons**, not duplicate copies of one key. Aside from the optional **Weapon type** gate, in this slice every **Passive** is otherwise **unconditional** (always eligible while the carrier is present and the gate passes); the live sim still **recomputes** **effective Cooldown** / **effective potency** on every wake so future **Passive** conditions can gate eligibility without a model change. Not a second **fire effect**.
+_Avoid_: Aura (unless we later mean a seat-level effect that is not on a **Boon**); conflating a **Passive** condition trigger with a **Boon** fire; treating **Weapon type** as a property of the recipient **Boon**.
 
 **Cooldown**:
 How long a **Boon** with a **fire effect** charges before it fires. Those **Boons** use the same loop: charge from empty to full over their **Cooldown**, fire once, reset, repeat until the **Match** ends. **Passive**-only **Boons** have no **Cooldown**. A **Passive** may change the **effective Cooldown** of matching fire-capable **Boons**; it does not introduce a different fire-trigger model. After stacking, **effective Cooldown** is floored at **500ms**.
@@ -109,8 +121,8 @@ The set of **Boons** a **Player** brings into a **Match**. Built during **Draft*
 All **Boons** in the game; every entry belongs to exactly one **God** in the **God catalog (v1)** (seven per **God**, thirty-five total). Full key / potency / **Cooldown** / **Passive** tables live in `local/greek-gods/boon-catalog.md` — not inlined here. The prior spark/cannon/… and `haste_charm` / `vital_spark` keys are retired — not a parallel pool.
 
 **Match start**:
-The **Host** action that leaves the **Lobby** and begins a **Match**. Allowed only when the **Session** is in **Lobby** and there are exactly two admitted fighting **Players** (**Host** + one approved joiner). Pending **Join request**s do not count; no solo or bot match in this prototype. On start, the **Match** enters **Draft** (both seats empty **Loadout** / empty **God pool**); the live server-side countdown/sim begins only after both seats finish drafting. **Loadout**s and **God pool**s do not persist to the next **Match**.
-_Avoid_: Precomputing the entire fight into a replay timeline for the client to animate locally; assigning a random **Loadout** at start with no **Draft**.
+The **Host** action that leaves the **Lobby** and begins a **Match**. Allowed only when the **Session** is in **Lobby** and there are exactly two admitted fighting **Players** (**Host** + one approved joiner). Pending **Join request**s do not count; no solo or bot match in this prototype. On start, both seats’ **Soul**s are rolled, then each seat must pick **1** of **3** offered **Weapons** (independent offers, simultaneous); when both have a **Weapon**, the **Match** enters **Draft** (empty **Loadout** / empty **God pool**). The live server-side countdown/sim begins only after both seats finish drafting. **Loadout**s, **God pool**s, **Soul**s, and **Equipment** do not persist to the next **Match**.
+_Avoid_: Precomputing the entire fight into a replay timeline for the client to animate locally; assigning a random **Loadout** at start with no **Draft**; starting Boon **Draft** before both **Weapons** are chosen.
 
 **Match update**:
 A small server-pushed delta during a live **Match**: what just changed in combat state (for example which **Boon** fired, **Life total** / **Shield** changes, terminal outcome when the **Match** ends) plus an **animation hint**. Clients subscribe and react; they do not run the rules sim and do not reconstruct a full offline replay. The live sim is **event-driven**: the server schedules the next wake for the soonest **Boon** ready-time (or the **Match time cap**), resolves that instant (including same-timestamp ties via **seat resolve order**), pushes a **Match update**, then schedules the next wake—no fixed empty tick loop.
@@ -138,6 +150,7 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 - The **Host** may end the **Session** from the **Lobby**, producing an **Archived session**.
 - During a **Match**, each fighting **Player** has exactly one **Life total** (and may have a **Shield** buffer).
 - Each fighting seat has one **Soul** for the current **Match** (random **Soul stats** at begin; cleared when the **Match** ends).
+- Each fighting seat has exactly one **Weapon** (**Equipment**) for the current **Match** (picked at start; cleared when the **Match** ends).
 - Each fighting **Player** has one **Loadout** of **Boons** for a **Match**.
 - Every **Boon** belongs to exactly one **God**.
 - A **God** owns a fixed set of **Boons** (seven each in **God catalog (v1)**).
@@ -147,10 +160,11 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 - A **God** enters a seat's **God pool** when that seat accepts their first **Boon** from that **God**.
 - A **Boon** is **fire-only**, **Passive**-only, or **hybrid**; it must have a **fire effect**, a **Passive**, or both.
 - A **Boon** may carry at most one **Passive**.
-- Each **Passive** declares a seat target (**own**, **enemy**, or **both**), a **Boon** filter (**all**, and/or **effect kind**, and/or **God** — **God** ∧ **effect kind** when both set), and one or more stat changes to **Cooldown** and/or **potency**.
+- Each **Passive** declares a seat target (**own**, **enemy**, or **both**), a **Boon** filter (**all**, and/or **effect kind**, and/or **God**, and/or **Weapon type** — AND when more than one is set; **Weapon type** gates on the carrier’s equipped **Weapon**), and one or more stat changes to **Cooldown** and/or **potency**.
 - Every fire-capable **Boon** in a **Loadout** charges in parallel on the shared **Match** clock; **Passive**-only slots do not schedule wakes. **effective Cooldown** / **effective potency** are recomputed on every wake and whenever **Passive** eligibility is re-evaluated (future condition triggers call that re-eval).
 - When **effective Cooldown** changes mid-charge, rewrite `nextReadyAt` by preserving charge progress fraction: `nextReadyAt = now + (1 − progress) × newEffectiveCooldown`.
-- **Match start** begins **Draft** with both seats’ **Soul**s already rolled; each seat picks exactly **5** **Boons**; the live server sim starts only after both seats finish drafting. **Loadout**s, **God pool**s, and **Soul**s do not carry over to the next **Match**.
+- **Match start** rolls both seats’ **Soul**s, then both seats pick a **Weapon** (1 of 3, independent); **Draft** begins only after both have a **Weapon**; each seat picks exactly **5** **Boons**; the live server sim starts only after both seats finish drafting. **Loadout**s, **God pool**s, **Soul**s, and **Equipment** do not carry over to the next **Match**.
+- Effective-stat order on the shared path: **Passive** stacking → **Soul** → **Weapon** light nudges.
 - Clients never invent **Match** outcomes; they apply **Match update**s (with **animation hint**s) from the server.
 - The server does **not** ship a full precomputed fight replay for a separate client animation layer.
 
@@ -158,22 +172,30 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 
 - **Soul** is **Match**-scoped: rolled with random stats at **Match** begin; cleared when the **Match** ends (or on **Match cancel**). Not account- or **Session**-persistent in this prototype.
 - **Soul**-first prototype: **Soul stats** lightly affect combat **and** soft-guide **Draft** (UI cues only—no offer reweighting or bans).
-- **Soul stats (v1)**: **Strength**, **Speed**, **Vitality**; both seats share total **15**, independently partitioned into three ints **0–10**. Combat: Strength `+flat` damage potency; Speed `−(Speed×2)%` Cooldown (floor 500ms); Vitality starting Life `100+Vitality`. Soul applies **after** Passive stacking.
+- **Soul stats (v1)**: **Strength**, **Speed**, **Vitality**; both seats share total **15**, independently partitioned into three ints **0–10**. Combat: Strength damage potency `(1 + Strength×0.1)×`; Speed `−(Speed×2)%` Cooldown (floor 500ms); Vitality starting Life `100+Vitality`. Soul applies **after** Passive stacking.
 - Own **Soul** visible from **Match** begin; opponent **Soul** hidden during **Draft**, revealed when the fight starts.
 - Soft **Draft** guidance: own-seat Soul panel (stats + at most one “favors …” / “Balanced” line); no offer-card highlighting or mechanical reweighting.
+- **Equipment** (this slice): one **Weapon** slot; identity + light nudges; not a **Loadout** **Boon**.
+- **Weapon** pick: at **Match start**, simultaneous independent 1-of-3; must pick; Boon **Draft** waits on both; own visible once chosen; opponent fog until fight; Match-scoped clear on end/cancel.
+- **Weapon** light nudges: catalog fields on damage / fire-capable **Cooldown** / starting-max **Life** levers; apply **after Passive + Soul**; do not rewrite Soul panel numbers; keep magnitudes light. No linked fire on **Weapons** in this slice.
+- **Weapon type (v1):** **Sword**, **Axe**, **Wand**, **Bow**. Soft fantasy jobs only; every **Weapon** has one type.
+- **Weapon catalog (v1):** eight keys in `src/match/weaponCatalog.ts` (two per type): `steel_longsword`, `knight_blade` (Sword); `war_axe`, `stone_maul` (Axe); `elder_wand`, `crystal_staff` (Wand); `hunters_bow`, `swift_shortbow` (Bow). Light nudges only: damage ±5–10%, CD ±5–10% (still floor 500ms after all), life +0–3 on Wand rows.
+- **Passive** filter may include optional **Weapon type** as a carrier-seat gate (AND with **effect kind** / **God**); omit = no weapon gate. No **Boon** weapon-affinity tags. Weapon-gated catalog **Passive**s (v1): `hermes_fleet_foot` (Sword · Hermes damage **−10% Cooldown**); `dynamite_scorched_earth` (Axe · Dynamite **+15%** potency); `hygieia_overflow` (Wand · heal **+3** flat potency); `hermes_stolen_seconds` (Bow · damage **−15% Cooldown**).
+- **Boons** do **not** rewrite **Soul stats** (Strength / Speed / Vitality on the panel or as a separate rewrite layer). Combat stacking stays Passive → Soul → Weapon.
+- Soft **Draft** guidance for **Weapon**: own **Weapon** plus at most one favor line from type — Sword → “Favors damage kits”; Axe → “Favors high-damage kits”; Wand → “Favors sustain / hybrid”; Bow → “Favors Hermes tempo”. No offer reweighting, bans, or offer-card highlights (same discipline as **Soul** soft guidance).
 - **Item** was renamed to **Boon**: same combat-unit concept; prefer **Boon** everywhere in domain language.
 - **God** is first-class (not a catalog tag only).
 - **God catalog (v1)**: Hermes, Dynamite, Hygieia, Athena, Zeus — 7 **Boons** each; retires the prior eight-key catalog. Authored table: `local/greek-gods/boon-catalog.md` (not inlined in this file).
 - **Boon** definitions in that table are accepted for v1 (balance can tune later without renaming domain rules).
 - **Dynamite** is an intentional non-classical **God** name: god of **destruction** (slow/high-damage), not war/Ares.
 - **God pool**: enters on first accepted **Boon** from that **God**; max 3; at cap offers only from pool **Gods**; resets when the **Match** ends.
-- **Draft** is a **Match** phase after **Match start** and before the live fight (not a Lobby shop). Each seat picks exactly **5** **Boons**.
+- **Draft** is a **Match** phase after both seats pick a **Weapon**, before the live fight (not a Lobby shop). Each seat picks exactly **5** **Boons**.
 - A **Boon offer** is 3 **Boons** from one **God**; pick one. Offered **God** is uniform among eligible **Gods**; options uniform among that **God**'s unowned **Boons**.
-- **Draft** is simultaneous; opponent **Loadout** / offers / **God pool** stay hidden until the fight starts.
+- **Draft** is simultaneous; opponent **Loadout** / offers / **God pool** / **Weapon** stay hidden until the fight starts.
 - **Boon** keys are unique per seat **Loadout**; already-picked keys are excluded from later offers.
 - No **Draft** pick timer or auto-pick in this slice; a finished seat waits on the other.
 - No **Boon offer** rerolls in this slice.
-- **Host** may **Match cancel** (→ **Lobby**) during **Draft** or the live fight; does not archive the **Session**.
+- **Host** may **Match cancel** (→ **Lobby**) during **Weapon** pick, **Draft**, or the live fight; does not archive the **Session**.
 - Random five-pick **Loadout** at **Match start** is retired in favor of **Draft**.
 - Prior **Boon catalog (v1)** / Passive slice keys (`spark`, `cannon`, …, `haste_charm`, `vital_spark`) are retired once the **God catalog** ships; not a parallel pool.
 - Legacy D&D sheet / battle-map / turn-order language is retired for this product direction.
@@ -183,7 +205,7 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 - “Boon card” / legacy “item card” in UI talk means the Match **Loadout** slot presentation of a **Boon**, not a separate domain object. There is no shop/inventory card surface in the prototype.
 - “Passive Item” as a never-firing slot was **reopened** and renamed with the **Boon** rename: **Passive**-only **Boons** are valid; they occupy a **Loadout** slot, never charge/fire, and only contribute their **Passive**.
 - Seat targeting for **Passive**s is declared per catalog **Passive** (**own** / **enemy** / **both**), not a single product-wide rule.
-- **Boon** filtering for **Passive**s: optional **effect kind** and/or **God** (AND when both); neither means **all**.
+- **Boon** filtering for **Passive**s: optional **effect kind** and/or **God** and/or **Weapon type** (AND when more than one); none means **all**. **Weapon type** gates on the carrier’s equipped **Weapon**.
 - A **Passive** may only rewrite **Cooldown** and/or **potency** in this slice — not new combat verbs or on-fire extras.
 - Each **Passive** stat change is authored as either **flat** or **percent** (not both layers on one change).
 - After stacking, clamp **effective Cooldown** at **500ms** minimum and **effective potency** at **0** minimum; no extra maxima (heal caps at the seat’s max **Life total** — starting life — on apply).
@@ -278,7 +300,7 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 > **Domain expert:** "No — destruction. Slow, brutal damage — not Ares."
 
 > **Dev:** "When does the fight clock start?"
-> **Domain expert:** "After both seats finish **Draft**. **Match start** only opens **Draft**."
+> **Domain expert:** "After both seats finish **Draft**. **Match start** rolls **Soul**s, then **Weapon** pick (1 of 3), then **Draft** — the sim starts only when both finish drafting."
 
 > **Dev:** "Can I see their picks while I'm drafting?"
 > **Domain expert:** "No — simultaneous and hidden until the fight starts."

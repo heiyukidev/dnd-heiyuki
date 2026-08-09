@@ -8,7 +8,8 @@ import MatchLoadoutSlot from '../components/MatchLoadoutSlot.vue'
 import { useConvexClient } from '../composables/convexClient'
 import { useConvexQuery } from '../composables/useConvexQuery'
 import { ITEM_CATALOG } from '../match/itemCatalog'
-import { maxLifeFromSoul } from '../match/soul'
+import { maxLifeForSeat } from '../match/weapon'
+import { WEAPON_CATALOG } from '../match/weaponCatalog'
 import type { SoulStats } from '../match/types'
 import {
   getDraftOfferPresentation,
@@ -50,6 +51,7 @@ const archived = computed(() => session.value?.status === 'archived')
 const fightingPlayers = computed(() => playState.value?.fightingPlayers ?? [])
 const match = computed(() => playState.value?.match ?? null)
 const draft = computed(() => playState.value?.draft ?? null)
+const weapon = computed(() => playState.value?.weapon ?? null)
 const matchSeats = computed(() => match.value?.seats ?? null)
 const matchSouls = computed((): [SoulStats, SoulStats] | undefined => {
   const seats = matchSeats.value
@@ -58,18 +60,45 @@ const matchSouls = computed((): [SoulStats, SoulStats] | undefined => {
   }
   return [seats[0].soul, seats[1].soul]
 })
+const matchWeaponKeys = computed((): [string, string] | undefined => {
+  const seats = matchSeats.value
+  if (seats === null || seats[0].weaponKey === undefined || seats[1].weaponKey === undefined) {
+    return undefined
+  }
+  return [seats[0].weaponKey, seats[1].weaponKey]
+})
 const lastUpdate = computed(() => match.value?.lastUpdate ?? null)
 const outcome = computed(() => match.value?.outcome ?? null)
 
 const draftOfferPresentation = computed(() => {
   const own = draft.value?.own
+  const seatIndex = draft.value?.yourSeatIndex
   if (own?.currentOffer === null || own?.currentOffer === undefined) {
     return null
   }
+  const weaponKeys: [string, string] | undefined =
+    own.weaponKey !== null &&
+    own.weaponKey !== undefined &&
+    seatIndex !== null &&
+    seatIndex !== undefined
+      ? seatIndex === 0
+        ? [own.weaponKey, '']
+        : ['', own.weaponKey]
+      : undefined
+  const souls: [SoulStats, SoulStats] | undefined =
+    own.soul !== null && own.soul !== undefined && seatIndex !== null && seatIndex !== undefined
+      ? seatIndex === 0
+        ? [own.soul, { strength: 0, speed: 0, vitality: 0 }]
+        : [{ strength: 0, speed: 0, vitality: 0 }, own.soul]
+      : undefined
   return getDraftOfferPresentation({
     god: own.currentOffer.god,
     optionKeys: own.currentOffer.options,
     catalog: ITEM_CATALOG,
+    seat: seatIndex ?? undefined,
+    loadoutKeys: own.loadoutKeys,
+    souls,
+    weaponKeys,
   })
 })
 
@@ -183,6 +212,18 @@ async function onStartMatch() {
   }
 }
 
+async function onPickWeapon(weaponKey: string) {
+  actionError.value = null
+  actionBusy.value = true
+  try {
+    await client.mutation(api.match.pickWeapon, { sessionId: sessionId.value, weaponKey })
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Could not pick Weapon.'
+  } finally {
+    actionBusy.value = false
+  }
+}
+
 async function onPickBoon(boonKey: string) {
   actionError.value = null
   actionBusy.value = true
@@ -232,12 +273,44 @@ function seatLabelForClerk(clerkUserId: string): string {
 
 const pendingRequests = computed(() => joinRequests.value ?? [])
 
-function lifeBarWidth(life: number, soul: SoulStats | undefined): number {
-  const maxLife = soul === undefined ? 100 : maxLifeFromSoul(soul)
+function lifeBarWidth(life: number, soul: SoulStats | undefined, weaponKey?: string): number {
+  const maxLife = maxLifeForSeat(soul, weaponKey)
   if (maxLife <= 0) {
     return 0
   }
   return Math.max(0, Math.min(100, (life / maxLife) * 100))
+}
+
+function weaponLabel(weaponKey: string | null | undefined): string | null {
+  if (weaponKey === null || weaponKey === undefined) {
+    return null
+  }
+  const weaponDef = WEAPON_CATALOG[weaponKey]
+  if (weaponDef === undefined) {
+    return weaponKey
+  }
+  return `${weaponDef.name} (${weaponDef.weaponType})`
+}
+
+function weaponNudgeSummary(weaponKey: string): string {
+  const weaponDef = WEAPON_CATALOG[weaponKey]
+  if (weaponDef?.nudges === undefined) {
+    return ''
+  }
+  const parts: string[] = []
+  const { damagePotencyPercent, cooldownPercent, lifeBonus } = weaponDef.nudges
+  if (damagePotencyPercent !== undefined) {
+    const pct = Math.round(damagePotencyPercent * 100)
+    parts.push(`${pct > 0 ? '+' : ''}${pct}% damage`)
+  }
+  if (cooldownPercent !== undefined) {
+    const pct = Math.round(cooldownPercent * 100)
+    parts.push(`${pct > 0 ? '+' : ''}${pct}% CD`)
+  }
+  if (lifeBonus !== undefined) {
+    parts.push(`+${lifeBonus} Life`)
+  }
+  return parts.join(' · ')
 }
 </script>
 
@@ -257,6 +330,7 @@ function lifeBarWidth(life: number, soul: SoulStats | undefined): number {
         <p class="muted">
           <span v-if="archived">Archived session</span>
           <span v-else-if="playPhase === 'lobby'">Lobby</span>
+          <span v-else-if="playPhase === 'weapon'">Weapon pick</span>
           <span v-else-if="playPhase === 'draft'">Draft</span>
           <span v-else-if="playPhase === 'match'">Match</span>
           <span v-else>Results</span>
@@ -345,6 +419,69 @@ function lifeBarWidth(life: number, soul: SoulStats | undefined): number {
         </div>
       </section>
 
+      <section v-else-if="playPhase === 'weapon'" class="match-panel">
+        <div class="draft-head">
+          <h2>Choose your Weapon</h2>
+          <button
+            v-if="playState.canCancelMatch"
+            type="button"
+            class="btn-danger"
+            :disabled="actionBusy"
+            @click="onCancelMatch"
+          >
+            Cancel Match
+          </button>
+        </div>
+
+        <p v-if="weapon?.own?.waitingForOpponent" class="waiting-banner" role="status">
+          Waiting for opponent to choose a Weapon…
+        </p>
+
+        <template v-if="weapon?.own">
+          <aside v-if="weapon.own.soul" class="soul-panel" aria-label="Your Soul">
+            <h3>Soul</h3>
+            <ul class="soul-stats">
+              <li>Strength {{ weapon.own.soul.strength }}</li>
+              <li>Speed {{ weapon.own.soul.speed }}</li>
+              <li>Vitality {{ weapon.own.soul.vitality }}</li>
+            </ul>
+            <p v-if="weapon.own.favorLine" class="soul-favor muted tiny">
+              {{ weapon.own.favorLine }}
+            </p>
+          </aside>
+
+          <div v-if="weapon.own.chosenWeaponKey" class="weapon-panel" aria-label="Your Weapon">
+            <h3>Weapon</h3>
+            <p class="weapon-name">{{ weaponLabel(weapon.own.chosenWeaponKey) }}</p>
+            <p v-if="weapon.own.weaponFavorLine" class="soul-favor muted tiny">
+              {{ weapon.own.weaponFavorLine }}
+            </p>
+            <p v-if="weaponNudgeSummary(weapon.own.chosenWeaponKey)" class="muted tiny">
+              {{ weaponNudgeSummary(weapon.own.chosenWeaponKey) }}
+            </p>
+          </div>
+
+          <div v-else-if="weapon.own.weaponOffers.length > 0" class="draft-offer">
+            <h3>Pick 1 Weapon</h3>
+            <ul class="offer-choices">
+              <li v-for="offerKey in weapon.own.weaponOffers" :key="offerKey">
+                <button
+                  type="button"
+                  class="offer-btn"
+                  :disabled="actionBusy"
+                  @click="onPickWeapon(offerKey)"
+                >
+                  <span class="offer-name">{{ weaponLabel(offerKey) }}</span>
+                  <span v-if="weaponNudgeSummary(offerKey)" class="offer-effect muted tiny">
+                    {{ weaponNudgeSummary(offerKey) }}
+                  </span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </template>
+      </section>
+
       <section v-else-if="playPhase === 'draft'" class="match-panel">
         <div class="draft-head">
           <h2>Draft</h2>
@@ -371,7 +508,20 @@ function lifeBarWidth(life: number, soul: SoulStats | undefined): number {
               <li>Speed {{ draft.own.soul.speed }}</li>
               <li>Vitality {{ draft.own.soul.vitality }}</li>
             </ul>
-            <p v-if="draft.own.favorLine" class="soul-favor muted tiny">{{ draft.own.favorLine }}</p>
+            <p v-if="draft.own.favorLine" class="soul-favor muted tiny">
+              {{ draft.own.favorLine }}
+            </p>
+          </aside>
+
+          <aside v-if="draft.own.weaponKey" class="weapon-panel" aria-label="Your Weapon">
+            <h3>Weapon</h3>
+            <p class="weapon-name">{{ weaponLabel(draft.own.weaponKey) }}</p>
+            <p v-if="draft.own.weaponFavorLine" class="soul-favor muted tiny">
+              {{ draft.own.weaponFavorLine }}
+            </p>
+            <p v-if="weaponNudgeSummary(draft.own.weaponKey)" class="muted tiny">
+              {{ weaponNudgeSummary(draft.own.weaponKey) }}
+            </p>
           </aside>
 
           <p class="muted tiny">
@@ -453,12 +603,20 @@ function lifeBarWidth(life: number, soul: SoulStats | undefined): number {
                   {{ fighter.soul.vitality }}
                 </span>
               </div>
+              <div v-if="fighter.weaponKey" class="weapon-strip" aria-label="Weapon">
+                <span class="weapon-strip-label">Weapon</span>
+                <span class="weapon-strip-name muted tiny">{{
+                  weaponLabel(fighter.weaponKey)
+                }}</span>
+              </div>
               <div class="bar-row">
                 <span>Life total</span>
                 <div class="bar-track">
                   <div
                     class="bar-fill life"
-                    :style="{ width: `${lifeBarWidth(fighter.life, fighter.soul)}%` }"
+                    :style="{
+                      width: `${lifeBarWidth(fighter.life, fighter.soul, fighter.weaponKey)}%`,
+                    }"
                   />
                 </div>
                 <span class="bar-value">{{ fighter.life }}</span>
@@ -484,6 +642,7 @@ function lifeBarWidth(life: number, soul: SoulStats | undefined): number {
                 :seat-index="seatIndex"
                 :slot-index="slotIndex"
                 :souls="matchSouls"
+                :weapon-keys="matchWeaponKeys"
                 :next-ready-at="slot.nextReadyAt"
                 :now-ms="nowMs"
                 :is-flashing="slotIsFlashing(seatIndex, slotIndex)"
@@ -562,6 +721,32 @@ function lifeBarWidth(life: number, soul: SoulStats | undefined): number {
 }
 .soul-favor {
   margin: 8px 0 0;
+}
+.weapon-panel {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--accent));
+  background: color-mix(in srgb, var(--bg) 96%, var(--border));
+}
+.weapon-panel h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.weapon-name {
+  margin: 0;
+  font-weight: 600;
+}
+.weapon-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+}
+.weapon-strip-label {
+  font-weight: 700;
 }
 .soul-strip {
   display: flex;

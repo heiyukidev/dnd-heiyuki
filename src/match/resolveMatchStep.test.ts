@@ -22,13 +22,16 @@ function dualSeats(a: MatchSeatState, b: MatchSeatState): [MatchSeatState, Match
   return [a, b]
 }
 
+const BOW_AT_SEAT_0: [string, string] = ['hunters_bow', 'steel_longsword']
+
 function seededAtMatchStart(
   matchStartedAt: number,
   a: MatchSeatState,
   b: MatchSeatState,
+  weaponKeys?: [string, string],
 ): [MatchSeatState, MatchSeatState] {
   const seats = dualSeats(a, b)
-  seedFireCapableSlotSchedulesAtMatchStart(seats, matchStartedAt, ITEM_CATALOG)
+  seedFireCapableSlotSchedulesAtMatchStart(seats, matchStartedAt, ITEM_CATALOG, undefined, weaponKeys)
   return seats
 }
 
@@ -357,24 +360,26 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
       seat(100, 0, [{ itemKey: 'hermes_stolen_seconds' }, { itemKey: 'hermes_winged_needle' }]),
       seat(100, 0, [{ itemKey: 'athena_aegis_chip' }]),
+      BOW_AT_SEAT_0,
     )
-    expect(seats[0].slots[1].nextReadyAt).toBe(matchStartedAt + 1_020)
-    expect(seats[0].slots[1].lastChargeCooldownMs).toBe(1_020)
-    expect(earliestWakeAt(seats, matchStartedAt)).toBe(matchStartedAt + 1_020)
+    expect(seats[0].slots[1].nextReadyAt).toBe(matchStartedAt + 918)
+    expect(seats[0].slots[1].lastChargeCooldownMs).toBe(918)
+    expect(earliestWakeAt(seats, matchStartedAt)).toBe(matchStartedAt + 918)
 
-    const t = matchStartedAt + 1_020
+    const t = matchStartedAt + 918
     const result = resolveMatchStep({
       seats: cloneDeep(seats),
       t,
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
+      weaponKeys: BOW_AT_SEAT_0,
     })
     expect(result.fires).toEqual([
       { seat: 0, slotIndex: 1, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 5 },
     ])
-    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 1_020)
-    expect(result.nextWakeAt).toBe(t + 1_020)
+    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 918)
+    expect(result.nextWakeAt).toBe(t + 918)
   })
 
   it('shortens own-seat damage recharge when stolen seconds is present', () => {
@@ -393,13 +398,14 @@ describe('resolveMatchStep', () => {
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
+      weaponKeys: BOW_AT_SEAT_0,
     })
     expect(result.fires).toEqual([
       { seat: 0, slotIndex: 1, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 5 },
     ])
-    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 1_020)
-    expect(result.seats[0].slots[1].lastChargeCooldownMs).toBe(1_020)
-    expect(result.nextWakeAt).toBe(t + 1_020)
+    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 918)
+    expect(result.seats[0].slots[1].lastChargeCooldownMs).toBe(918)
+    expect(result.nextWakeAt).toBe(t + 918)
   })
 
   it('buffs own-seat heal potency with vital bloom including self', () => {
@@ -466,6 +472,7 @@ describe('resolveMatchStep', () => {
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
+      weaponKeys: BOW_AT_SEAT_0,
     })
     expect(result.fires).toEqual([
       { seat: 0, slotIndex: 2, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 5 },
@@ -493,9 +500,10 @@ describe('resolveMatchStep', () => {
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
+      weaponKeys: BOW_AT_SEAT_0,
     })
-    expect(result.seats[0].slots[3].nextReadyAt).toBe(t + 660)
-    expect(result.seats[0].slots[3].lastChargeCooldownMs).toBeCloseTo(660)
+    expect(result.seats[0].slots[3].nextReadyAt).toBe(t + 594)
+    expect(result.seats[0].slots[3].lastChargeCooldownMs).toBeCloseTo(594)
   })
 
   it('floors stacked haste at 500ms effective cooldown', () => {
@@ -518,6 +526,7 @@ describe('resolveMatchStep', () => {
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
+      weaponKeys: BOW_AT_SEAT_0,
     })
     expect(result.seats[0].slots[5].lastChargeCooldownMs).toBe(MIN_EFFECTIVE_COOLDOWN_MS)
     expect(result.seats[0].slots[5].nextReadyAt).toBe(t + MIN_EFFECTIVE_COOLDOWN_MS)
@@ -558,10 +567,11 @@ describe('resolveMatchStep', () => {
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
+      weaponKeys: BOW_AT_SEAT_0,
     })
     expect(reEvalResult.fires).toEqual([])
-    expect(reEvalResult.seats[0].slots[1].nextReadyAt).toBe(2_095)
-    expect(reEvalResult.seats[0].slots[1].lastChargeCooldownMs).toBe(1_020)
+    expect(reEvalResult.seats[0].slots[1].nextReadyAt).toBe(2_035.5)
+    expect(reEvalResult.seats[0].slots[1].lastChargeCooldownMs).toBe(918)
   })
 
   it('exposes reEvalFireCapableSlotSchedules for explicit prior-effective overrides', () => {
@@ -585,12 +595,16 @@ describe('resolveMatchStep', () => {
       ]),
       seat(100, 0, []),
     )
-    reEvalFireCapableSlotSchedules(seatsWithCharm, now, ITEM_CATALOG, [
-      [{}, { cooldownMs: 1_200, potency: 5 }],
-      [],
-    ])
-    expect(seatsWithCharm[0].slots[1].nextReadyAt).toBe(1_850)
-    expect(seatsWithCharm[0].slots[1].lastChargeCooldownMs).toBe(1_020)
+    reEvalFireCapableSlotSchedules(
+      seatsWithCharm,
+      now,
+      ITEM_CATALOG,
+      [[{}, { cooldownMs: 1_200, potency: 5 }], []],
+      undefined,
+      BOW_AT_SEAT_0,
+    )
+    expect(seatsWithCharm[0].slots[1].nextReadyAt).toBe(1_765)
+    expect(seatsWithCharm[0].slots[1].lastChargeCooldownMs).toBe(918)
   })
 
   it('ignores passive-only slots when scheduling next wake', () => {
@@ -639,7 +653,7 @@ describe('resolveMatchStep', () => {
     expect(result.seats[1].life).toBe(78)
   })
 
-  it('adds Soul Strength to damage potency after Passive stacking', () => {
+  it('multiplies Soul Strength into damage potency after Passive stacking', () => {
     const matchStartedAt = 0
     const t = 2_000
     const souls: [SoulStats, SoulStats] = [
@@ -658,8 +672,8 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
       souls,
     })
-    expect(result.fires[0]?.potency).toBe(8)
-    expect(result.seats[1].life).toBe(92)
+    expect(result.fires[0]?.potency).toBe(6.5)
+    expect(result.seats[1].life).toBe(93.5)
   })
 
   it('caps heal at the seat max life from Vitality', () => {

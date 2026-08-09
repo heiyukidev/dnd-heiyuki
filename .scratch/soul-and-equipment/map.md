@@ -15,12 +15,14 @@ Playable **Soul** in **Matches**, then **Equipment**, then **Equipment** interac
 
 - [Soft Draft guidance for Soul](issues/01-soft-draft-guidance-for-soul.md) — Soul panel + one favor line (no offer highlights); both seats share total 15, independent splits.
 - [Build Soul-first prototype](issues/02-build-soul-first-prototype.md) — Match-scoped Soul live: roll/combat/Draft panel/fog/clear; heal cap = starting max life; favor copy + Balanced threshold locked.
+- [Equipment slot model](issues/03-equipment-slot-model.md) — One Weapon slot; pick 1-of-3 at Match start before Draft; identity + light nudges after Passive+Soul; opponent fog until fight.
+- [Weapon types and Boon filters](issues/04-weapon-types-and-boon-filters.md) — Types Sword/Axe/Wand/Bow; Passive filter optional carrier-seat Weapon-type gate (AND with kind/God).
+- [Equipment-linked fire effects](issues/05-equipment-linked-fire-effects.md) — No linked fire this slice; Weapon stays type + light nudges only.
+- [Build Equipment phase](issues/06-build-equipment-phase.md) — Weapon pick + catalog + nudges + Passive weaponType gate live; playPhase `weapon` before Draft.
+- [Equipment Boons with Gods and Matches](issues/07-equipment-boons-with-gods-and-matches.md) — Weapon-gated Passives yes; no Soul rewrites; Draft soft favor by Weapon type only.
+- [Build Equipment–Boon interactions](issues/08-build-equipment-boon-interactions.md) — Four weapon-gated Passives + weaponFavorLine soft Draft cue live.
 
 ## Not yet specified
-
-- Whether **Gods** later grant **Boons** that rewrite **Soul stats** directly (partially in Equipment Boons with Gods and Matches).
-- Exact **Equipment** acquisition timing once slots exist (rolled vs drafted vs Lobby) — sharpen after Equipment slot model.
-- Catalog size / naming for first **Weapons** / armor — after types and linked-fire rules.
 
 ## Out of scope
 

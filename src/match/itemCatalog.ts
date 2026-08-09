@@ -52,7 +52,7 @@ export const ITEM_CATALOG = {
     cooldownMs: 1_500,
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Hermes', effectKind: 'damage' },
+      filter: { god: 'Hermes', effectKind: 'damage', weaponType: 'Sword' },
       changes: [{ stat: 'cooldown', mode: 'percent', value: -0.1 }],
     },
   },
@@ -72,7 +72,7 @@ export const ITEM_CATALOG = {
     god: 'Hermes',
     passive: {
       seatTarget: 'own',
-      filter: 'damage',
+      filter: { effectKind: 'damage', weaponType: 'Bow' },
       changes: [{ stat: 'cooldown', mode: 'percent', value: -0.15 }],
     },
   },
@@ -127,7 +127,7 @@ export const ITEM_CATALOG = {
     god: 'Dynamite',
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Dynamite' },
+      filter: { god: 'Dynamite', weaponType: 'Axe' },
       changes: [{ stat: 'potency', mode: 'percent', value: 0.15 }],
     },
   },
@@ -202,7 +202,7 @@ export const ITEM_CATALOG = {
     god: 'Hygieia',
     passive: {
       seatTarget: 'own',
-      filter: 'heal',
+      filter: { effectKind: 'heal', weaponType: 'Wand' },
       changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
     },
   },

@@ -66,6 +66,7 @@ export type LoadoutSlotPresentationContext = {
   seat: SeatIndex
   slotIndex: number
   souls?: [SoulStats, SoulStats]
+  weaponKeys?: [string, string]
 }
 
 function normalizeCooldownMs(cooldownMs: number): number {
@@ -164,6 +165,9 @@ function passiveFilterShortLabel(filter: PassiveFilter): string {
   if (filter.effectKind !== undefined) {
     parts.push(PASSIVE_FILTER_SHORT[filter.effectKind])
   }
+  if (filter.weaponType !== undefined) {
+    parts.push(filter.weaponType)
+  }
   if (parts.length === 0) {
     return 'all'
   }
@@ -183,6 +187,9 @@ function filterPhrase(filter: PassiveFilter): string {
   }
   if (filter.effectKind !== undefined) {
     parts.push(`${filter.effectKind}`)
+  }
+  if (filter.weaponType !== undefined) {
+    parts.push(`${filter.weaponType}`)
   }
   if (parts.length === 0) {
     return 'Boons'
@@ -323,7 +330,7 @@ export function getLoadoutSlotPresentation(
 export function getLoadoutSlotPresentationForMatch(
   context: LoadoutSlotPresentationContext,
 ): LoadoutSlotPresentation {
-  const { itemKey, catalog, seats, seat, slotIndex, souls } = context
+  const { itemKey, catalog, seats, seat, slotIndex, souls, weaponKeys } = context
   const item = get(catalog, itemKey)
   if (item === undefined) {
     return buildUnknownPresentation(itemKey)
@@ -331,22 +338,75 @@ export function getLoadoutSlotPresentationForMatch(
   if (!isFireCapableItem(item)) {
     return buildPassiveOnlyPresentation(item)
   }
-  const effective = resolveSlotEffectiveStats(seats, { seat, slotIndex }, catalog, souls)
+  const effective = resolveSlotEffectiveStats(
+    seats,
+    { seat, slotIndex },
+    catalog,
+    souls,
+    weaponKeys,
+  )
   return buildFirePresentation(item, effective)
+}
+
+function buildDraftPreviewSeats(
+  seat: SeatIndex,
+  loadoutKeys: string[],
+  optionKey: string,
+): [MatchSeatState, MatchSeatState] {
+  const previewSlots = map([...loadoutKeys, optionKey], (itemKey) => ({ itemKey }))
+  const previewSeat: MatchSeatState = { life: 100, shield: 0, slots: previewSlots }
+  const emptySeat: MatchSeatState = { life: 100, shield: 0, slots: [] }
+  if (seat === 0) {
+    return [previewSeat, emptySeat]
+  }
+  return [emptySeat, previewSeat]
+}
+
+function getDraftChoicePresentation(input: {
+  key: string
+  catalog: ItemCatalog
+  seat?: SeatIndex
+  loadoutKeys?: string[]
+  souls?: [SoulStats, SoulStats]
+  weaponKeys?: [string, string]
+}): DraftOfferChoicePresentation {
+  const { key, catalog, seat, loadoutKeys, souls, weaponKeys } = input
+  const item = get(catalog, key)
+  if (item === undefined) {
+    return { key, ...buildUnknownPresentation(key) }
+  }
+  if (!isFireCapableItem(item)) {
+    return { key, ...buildPassiveOnlyPresentation(item) }
+  }
+  if (seat !== undefined && loadoutKeys !== undefined) {
+    const seats = buildDraftPreviewSeats(seat, loadoutKeys, key)
+    const effective = resolveSlotEffectiveStats(
+      seats,
+      { seat, slotIndex: loadoutKeys.length },
+      catalog,
+      souls,
+      weaponKeys,
+    )
+    return { key, ...buildFirePresentation(item, effective) }
+  }
+  return { key, ...buildFirePresentation(item, {}) }
 }
 
 export function getDraftOfferPresentation(input: {
   god: God
   optionKeys: string[]
   catalog: ItemCatalog
+  seat?: SeatIndex
+  loadoutKeys?: string[]
+  souls?: [SoulStats, SoulStats]
+  weaponKeys?: [string, string]
 }): DraftOfferPresentation {
-  const { god, optionKeys, catalog } = input
+  const { god, optionKeys, catalog, seat, loadoutKeys, souls, weaponKeys } = input
   return {
     god,
     godLabel: god,
-    choices: map(optionKeys, (key) => ({
-      key,
-      ...getLoadoutSlotPresentation(key, catalog),
-    })),
+    choices: map(optionKeys, (key) =>
+      getDraftChoicePresentation({ key, catalog, seat, loadoutKeys, souls, weaponKeys }),
+    ),
   }
 }

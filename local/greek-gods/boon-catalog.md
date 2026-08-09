@@ -10,7 +10,7 @@ Design table for the five **Gods** × seven **Boons**. Not inlined in `CONTEXT.m
 - Hygieia / Athena: sustain bands near old salve/mend and ward/bulwark.
 - Zeus: mid-tempo damage ≈4 DPS plus stronger **Passive** leverage.
 - Shapes: mostly **fire-only**, plus **Passive**-only / **hybrid** for kit fantasy.
-- **Passive** filters may use **effect kind** and/or **God** (AND when both).
+- **Passive** filters may use **effect kind** and/or **God** and/or **Weapon type** (AND when more than one); **Weapon type** gates on the carrier’s equipped **Weapon**.
 
 ---
 
@@ -22,9 +22,9 @@ Design table for the five **Gods** × seven **Boons**. Not inlined in `CONTEXT.m
 | `hermes_dash_cut` | Dash Cut | fire-only | damage 7 / 1.6s | — |
 | `hermes_quicksilver_jab` | Quicksilver Jab | fire-only | damage 4 / 1.0s | — |
 | `hermes_messengers_sting` | Messenger's Sting | fire-only | damage 9 / 2.0s | — |
-| `hermes_fleet_foot` | Fleet Foot | hybrid | damage 5 / 1.5s | own · God Hermes · damage · **−10% Cooldown** |
+| `hermes_fleet_foot` | Fleet Foot | hybrid | damage 5 / 1.5s | own · God Hermes · damage · **Sword** · **−10% Cooldown** |
 | `hermes_slipstream` | Slipstream | Passive-only | — | own · God Hermes · **−25% Cooldown** |
-| `hermes_stolen_seconds` | Stolen Seconds | Passive-only | — | own · damage · **−15% Cooldown** |
+| `hermes_stolen_seconds` | Stolen Seconds | Passive-only | — | own · damage · **Bow** · **−15% Cooldown** |
 
 ## Dynamite — destruction
 
@@ -35,7 +35,7 @@ Design table for the five **Gods** × seven **Boons**. Not inlined in `CONTEXT.m
 | `dynamite_crater` | Crater | fire-only | damage 36 / 8.0s | — |
 | `dynamite_ruin` | Ruin | fire-only | damage 42 / 9.0s | — |
 | `dynamite_aftershock` | Aftershock | hybrid | damage 20 / 5.5s | own · God Dynamite · damage · **+4** flat potency |
-| `dynamite_scorched_earth` | Scorched Earth | Passive-only | — | own · God Dynamite · **+15%** potency |
+| `dynamite_scorched_earth` | Scorched Earth | Passive-only | — | own · God Dynamite · **Axe** · **+15%** potency |
 | `dynamite_slow_burn` | Slow Burn | Passive-only | — | own · damage · **+3** flat potency |
 
 ## Hygieia — health
@@ -48,7 +48,7 @@ Design table for the five **Gods** × seven **Boons**. Not inlined in `CONTEXT.m
 | `hygieia_restorative_hymn` | Restorative Hymn | fire-only | heal 16 / 6.0s | — |
 | `hygieia_vital_bloom` | Vital Bloom | hybrid | heal 6 / 2.5s | own · heal · **+2** flat potency |
 | `hygieia_caduceus_whisper` | Caduceus Whisper | Passive-only | — | own · God Hygieia · **−20% Cooldown** |
-| `hygieia_overflow` | Overflow | Passive-only | — | own · heal · **+3** flat potency |
+| `hygieia_overflow` | Overflow | Passive-only | — | own · heal · **Wand** · **+3** flat potency |
 
 ## Athena — aegis
 

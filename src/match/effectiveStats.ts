@@ -11,8 +11,10 @@ import type {
   PassiveStatChange,
   SeatIndex,
   SoulStats,
+  WeaponType,
 } from './types'
 import { isFireCapableItem } from './types'
+import { WEAPON_CATALOG } from './weaponCatalog'
 
 export const MIN_EFFECTIVE_COOLDOWN_MS = 500
 export const MIN_EFFECTIVE_POTENCY = 0
@@ -58,6 +60,24 @@ function filterGod(passiveFilter: PassiveFilter): God | undefined {
   return passiveFilter.god
 }
 
+function filterWeaponType(passiveFilter: PassiveFilter): WeaponType | undefined {
+  if (passiveFilter === 'all' || typeof passiveFilter === 'string') {
+    return undefined
+  }
+  return passiveFilter.weaponType
+}
+
+function carrierWeaponType(
+  carrierSeat: SeatIndex,
+  weaponKeys?: [string, string],
+): WeaponType | undefined {
+  const weaponKey = weaponKeys?.[carrierSeat]
+  if (weaponKey === undefined) {
+    return undefined
+  }
+  return WEAPON_CATALOG[weaponKey]?.weaponType
+}
+
 function recipientMatchesFilter(
   recipientDef: ItemCatalog[string],
   passiveFilter: PassiveFilter,
@@ -81,6 +101,7 @@ function collectPassiveChangesForStat(
   recipient: SlotAddress,
   stat: PassiveStat,
   catalog: ItemCatalog,
+  weaponKeys?: [string, string],
 ): PassiveStatChange[] {
   const recipientSlot = get(seats[recipient.seat], ['slots', recipient.slotIndex])
   if (recipientSlot === undefined) {
@@ -100,6 +121,13 @@ function collectPassiveChangesForStat(
       }
       if (!carrierAffectsRecipientSeat(carrierSeat, recipient.seat, passive.seatTarget)) {
         return []
+      }
+      const requiredWeaponType = filterWeaponType(passive.filter)
+      if (requiredWeaponType !== undefined) {
+        const equippedType = carrierWeaponType(carrierSeat, weaponKeys)
+        if (equippedType !== requiredWeaponType) {
+          return []
+        }
       }
       if (!recipientMatchesFilter(recipientDef, passive.filter)) {
         return []
@@ -141,7 +169,45 @@ function applySoulToEffectiveStats(
   }
 
   if (effect === 'damage' && result.potency !== undefined) {
-    result.potency = Math.max(MIN_EFFECTIVE_POTENCY, result.potency + soul.strength)
+    const strengthMultiplier = 1 + soul.strength * 0.1
+    result.potency = Math.max(MIN_EFFECTIVE_POTENCY, result.potency * strengthMultiplier)
+  }
+
+  return result
+}
+
+function applyWeaponToEffectiveStats(
+  stats: EffectiveSlotStats,
+  weaponKey: string | undefined,
+  effect: ItemEffect,
+): EffectiveSlotStats {
+  if (weaponKey === undefined) {
+    return stats
+  }
+  const weapon = WEAPON_CATALOG[weaponKey]
+  const nudges = weapon?.nudges
+  if (nudges === undefined) {
+    return stats
+  }
+
+  const result: EffectiveSlotStats = { ...stats }
+
+  if (nudges.cooldownPercent !== undefined && result.cooldownMs !== undefined) {
+    result.cooldownMs = Math.max(
+      MIN_EFFECTIVE_COOLDOWN_MS,
+      result.cooldownMs * (1 + nudges.cooldownPercent),
+    )
+  }
+
+  if (
+    nudges.damagePotencyPercent !== undefined &&
+    effect === 'damage' &&
+    result.potency !== undefined
+  ) {
+    result.potency = Math.max(
+      MIN_EFFECTIVE_POTENCY,
+      result.potency * (1 + nudges.damagePotencyPercent),
+    )
   }
 
   return result
@@ -152,6 +218,7 @@ export function resolveSlotEffectiveStats(
   recipient: SlotAddress,
   catalog: ItemCatalog,
   souls?: [SoulStats, SoulStats],
+  weaponKeys?: [string, string],
 ): EffectiveSlotStats {
   const recipientSlot = get(seats[recipient.seat], ['slots', recipient.slotIndex])
   if (recipientSlot === undefined) {
@@ -162,8 +229,20 @@ export function resolveSlotEffectiveStats(
     return {}
   }
 
-  const cooldownChanges = collectPassiveChangesForStat(seats, recipient, 'cooldown', catalog)
-  const potencyChanges = collectPassiveChangesForStat(seats, recipient, 'potency', catalog)
+  const cooldownChanges = collectPassiveChangesForStat(
+    seats,
+    recipient,
+    'cooldown',
+    catalog,
+    weaponKeys,
+  )
+  const potencyChanges = collectPassiveChangesForStat(
+    seats,
+    recipient,
+    'potency',
+    catalog,
+    weaponKeys,
+  )
 
   const afterPassive: EffectiveSlotStats = {
     cooldownMs: applyStatChanges(
@@ -176,10 +255,15 @@ export function resolveSlotEffectiveStats(
 
   const soul = souls?.[recipient.seat]
   if (soul === undefined) {
-    return afterPassive
+    return applyWeaponToEffectiveStats(
+      afterPassive,
+      weaponKeys?.[recipient.seat],
+      recipientDef.effect,
+    )
   }
 
-  return applySoulToEffectiveStats(afterPassive, soul, recipientDef.effect)
+  const afterSoul = applySoulToEffectiveStats(afterPassive, soul, recipientDef.effect)
+  return applyWeaponToEffectiveStats(afterSoul, weaponKeys?.[recipient.seat], recipientDef.effect)
 }
 
 export function rewriteNextReadyAtForEffectiveCooldown(input: {
@@ -201,6 +285,7 @@ export function resolveAllFireCapableEffectiveStats(
   seats: [MatchSeatState, MatchSeatState],
   catalog: ItemCatalog,
   souls?: [SoulStats, SoulStats],
+  weaponKeys?: [string, string],
 ): EffectiveSlotStats[][] {
   const statsBySeat: EffectiveSlotStats[][] = [[], []]
   forEach([0, 1] as SeatIndex[], (seat) => {
@@ -210,6 +295,7 @@ export function resolveAllFireCapableEffectiveStats(
         { seat, slotIndex },
         catalog,
         souls,
+        weaponKeys,
       )
     })
   })
