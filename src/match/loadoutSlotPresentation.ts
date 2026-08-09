@@ -2,6 +2,7 @@ import { get, map } from 'lodash'
 
 import { resolveSlotEffectiveStats } from './effectiveStats'
 import type {
+  God,
   ItemCatalog,
   ItemDefinition,
   ItemEffect,
@@ -11,6 +12,7 @@ import type {
   PassiveSeatTarget,
   PassiveStatChange,
   SeatIndex,
+  SoulStats,
 } from './types'
 import { isFireCapableItem } from './types'
 
@@ -23,10 +25,9 @@ export const LOADOUT_EFFECT_KIND_COLORS: Record<ItemEffect, string> = {
 export const LOADOUT_PASSIVE_ACCENT_COLOR = '#a07850'
 
 const DEFAULT_UNKNOWN_COOLDOWN_MS = 2_000
-const UNKNOWN_ITEM_EFFECT_SENTENCE = 'Unknown item'
+const UNKNOWN_BOON_EFFECT_SENTENCE = 'Unknown boon'
 
-const PASSIVE_FILTER_SHORT: Record<PassiveFilter, string> = {
-  all: 'all',
+const PASSIVE_FILTER_SHORT: Record<ItemEffect, string> = {
   damage: 'dmg',
   heal: 'heal',
   shield: 'shield',
@@ -48,12 +49,23 @@ export type LoadoutSlotPresentation = {
   passiveSentence?: string
 }
 
+export type DraftOfferChoicePresentation = LoadoutSlotPresentation & {
+  key: string
+}
+
+export type DraftOfferPresentation = {
+  god: God
+  godLabel: string
+  choices: DraftOfferChoicePresentation[]
+}
+
 export type LoadoutSlotPresentationContext = {
   itemKey: string
   catalog: ItemCatalog
   seats: [MatchSeatState, MatchSeatState]
   seat: SeatIndex
   slotIndex: number
+  souls?: [SoulStats, SoulStats]
 }
 
 function normalizeCooldownMs(cooldownMs: number): number {
@@ -138,15 +150,48 @@ function seatTargetPhrase(seatTarget: PassiveSeatTarget): string {
   }
 }
 
+function passiveFilterShortLabel(filter: PassiveFilter): string {
+  if (filter === 'all') {
+    return 'all'
+  }
+  if (typeof filter === 'string') {
+    return PASSIVE_FILTER_SHORT[filter]
+  }
+  const parts: string[] = []
+  if (filter.god !== undefined) {
+    parts.push(filter.god)
+  }
+  if (filter.effectKind !== undefined) {
+    parts.push(PASSIVE_FILTER_SHORT[filter.effectKind])
+  }
+  if (parts.length === 0) {
+    return 'all'
+  }
+  return parts.join(' ')
+}
+
 function filterPhrase(filter: PassiveFilter): string {
   if (filter === 'all') {
-    return 'Items'
+    return 'Boons'
   }
-  return `${filter} Items`
+  if (typeof filter === 'string') {
+    return `${filter} Boons`
+  }
+  const parts: string[] = []
+  if (filter.god !== undefined) {
+    parts.push(`${filter.god}`)
+  }
+  if (filter.effectKind !== undefined) {
+    parts.push(`${filter.effectKind}`)
+  }
+  if (parts.length === 0) {
+    return 'Boons'
+  }
+  return `${parts.join(' ')} Boons`
 }
 
 function formatPassiveChangeCue(change: PassiveStatChange, filter: PassiveFilter): string {
-  const filterShort = PASSIVE_FILTER_SHORT[filter]
+  const filterShort = passiveFilterShortLabel(filter)
   if (change.stat === 'cooldown') {
     if (change.mode === 'percent') {
       return `${formatSignedPercent(change.value)} ${filterShort} CD`
@@ -160,9 +205,7 @@ function formatPassiveChangeCue(change: PassiveStatChange, filter: PassiveFilter
 }
 
 export function formatPassiveCue(passive: PassiveDefinition): string {
-  return map(passive.changes, (change) => formatPassiveChangeCue(change, passive.filter)).join(
-    ', ',
-  )
+  return map(passive.changes, (change) => formatPassiveChangeCue(change, passive.filter)).join(', ')
 }
 
 function formatPassiveChangeSentence(
@@ -201,8 +244,8 @@ function buildPassiveOnlyPresentation(item: ItemDefinition): LoadoutSlotPresenta
       faceKind: 'passive',
       kindColor: LOADOUT_PASSIVE_ACCENT_COLOR,
       showCooldownBar: false,
-      passiveCue: UNKNOWN_ITEM_EFFECT_SENTENCE,
-      passiveSentence: UNKNOWN_ITEM_EFFECT_SENTENCE,
+      passiveCue: UNKNOWN_BOON_EFFECT_SENTENCE,
+      passiveSentence: UNKNOWN_BOON_EFFECT_SENTENCE,
     }
   }
   return {
@@ -253,7 +296,7 @@ function buildUnknownPresentation(itemKey: string): LoadoutSlotPresentation {
     showCooldownBar: true,
     effect: 'damage',
     potency: 0,
-    effectSentence: UNKNOWN_ITEM_EFFECT_SENTENCE,
+    effectSentence: UNKNOWN_BOON_EFFECT_SENTENCE,
     cooldownLine: formatCooldownLine(DEFAULT_UNKNOWN_COOLDOWN_MS),
     effectiveCooldownMs: DEFAULT_UNKNOWN_COOLDOWN_MS,
   }
@@ -280,7 +323,7 @@ export function getLoadoutSlotPresentation(
 export function getLoadoutSlotPresentationForMatch(
   context: LoadoutSlotPresentationContext,
 ): LoadoutSlotPresentation {
-  const { itemKey, catalog, seats, seat, slotIndex } = context
+  const { itemKey, catalog, seats, seat, slotIndex, souls } = context
   const item = get(catalog, itemKey)
   if (item === undefined) {
     return buildUnknownPresentation(itemKey)
@@ -288,6 +331,22 @@ export function getLoadoutSlotPresentationForMatch(
   if (!isFireCapableItem(item)) {
     return buildPassiveOnlyPresentation(item)
   }
-  const effective = resolveSlotEffectiveStats(seats, { seat, slotIndex }, catalog)
+  const effective = resolveSlotEffectiveStats(seats, { seat, slotIndex }, catalog, souls)
   return buildFirePresentation(item, effective)
+}
+
+export function getDraftOfferPresentation(input: {
+  god: God
+  optionKeys: string[]
+  catalog: ItemCatalog
+}): DraftOfferPresentation {
+  const { god, optionKeys, catalog } = input
+  return {
+    god,
+    godLabel: god,
+    choices: map(optionKeys, (key) => ({
+      key,
+      ...getLoadoutSlotPresentation(key, catalog),
+    })),
+  }
 }

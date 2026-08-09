@@ -7,7 +7,14 @@ import type { Id } from '../../convex/_generated/dataModel'
 import MatchLoadoutSlot from '../components/MatchLoadoutSlot.vue'
 import { useConvexClient } from '../composables/convexClient'
 import { useConvexQuery } from '../composables/useConvexQuery'
-import { LOADOUT_EFFECT_KIND_COLORS } from '../match/loadoutSlotPresentation'
+import { ITEM_CATALOG } from '../match/itemCatalog'
+import { maxLifeFromSoul } from '../match/soul'
+import type { SoulStats } from '../match/types'
+import {
+  getDraftOfferPresentation,
+  getLoadoutSlotPresentation,
+  LOADOUT_EFFECT_KIND_COLORS,
+} from '../match/loadoutSlotPresentation'
 
 const props = defineProps<{
   id: string
@@ -42,9 +49,29 @@ const playPhase = computed(() => session.value?.playPhase ?? 'lobby')
 const archived = computed(() => session.value?.status === 'archived')
 const fightingPlayers = computed(() => playState.value?.fightingPlayers ?? [])
 const match = computed(() => playState.value?.match ?? null)
+const draft = computed(() => playState.value?.draft ?? null)
 const matchSeats = computed(() => match.value?.seats ?? null)
+const matchSouls = computed((): [SoulStats, SoulStats] | undefined => {
+  const seats = matchSeats.value
+  if (seats === null || seats[0].soul === undefined || seats[1].soul === undefined) {
+    return undefined
+  }
+  return [seats[0].soul, seats[1].soul]
+})
 const lastUpdate = computed(() => match.value?.lastUpdate ?? null)
 const outcome = computed(() => match.value?.outcome ?? null)
+
+const draftOfferPresentation = computed(() => {
+  const own = draft.value?.own
+  if (own?.currentOffer === null || own?.currentOffer === undefined) {
+    return null
+  }
+  return getDraftOfferPresentation({
+    god: own.currentOffer.god,
+    optionKeys: own.currentOffer.options,
+    catalog: ITEM_CATALOG,
+  })
+})
 
 const joinHref = computed(() => {
   const token = session.value?.joinToken
@@ -156,6 +183,30 @@ async function onStartMatch() {
   }
 }
 
+async function onPickBoon(boonKey: string) {
+  actionError.value = null
+  actionBusy.value = true
+  try {
+    await client.mutation(api.match.pickBoon, { sessionId: sessionId.value, boonKey })
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Could not pick Boon.'
+  } finally {
+    actionBusy.value = false
+  }
+}
+
+async function onCancelMatch() {
+  actionError.value = null
+  actionBusy.value = true
+  try {
+    await client.mutation(api.match.cancelMatch, { sessionId: sessionId.value })
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Could not cancel Match.'
+  } finally {
+    actionBusy.value = false
+  }
+}
+
 async function onEndSession() {
   actionError.value = null
   actionBusy.value = true
@@ -180,6 +231,14 @@ function seatLabelForClerk(clerkUserId: string): string {
 }
 
 const pendingRequests = computed(() => joinRequests.value ?? [])
+
+function lifeBarWidth(life: number, soul: SoulStats | undefined): number {
+  const maxLife = soul === undefined ? 100 : maxLifeFromSoul(soul)
+  if (maxLife <= 0) {
+    return 0
+  }
+  return Math.max(0, Math.min(100, (life / maxLife) * 100))
+}
 </script>
 
 <template>
@@ -198,6 +257,7 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
         <p class="muted">
           <span v-if="archived">Archived session</span>
           <span v-else-if="playPhase === 'lobby'">Lobby</span>
+          <span v-else-if="playPhase === 'draft'">Draft</span>
           <span v-else-if="playPhase === 'match'">Match</span>
           <span v-else>Results</span>
           · {{ fightingPlayers.length }}/2 Players
@@ -271,7 +331,12 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
               >
                 Approve
               </button>
-              <button type="button" class="btn-small" :disabled="actionBusy" @click="onReject(req._id)">
+              <button
+                type="button"
+                class="btn-small"
+                :disabled="actionBusy"
+                @click="onReject(req._id)"
+              >
                 Reject
               </button>
             </li>
@@ -280,10 +345,93 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
         </div>
       </section>
 
+      <section v-else-if="playPhase === 'draft'" class="match-panel">
+        <div class="draft-head">
+          <h2>Draft</h2>
+          <button
+            v-if="playState.canCancelMatch"
+            type="button"
+            class="btn-danger"
+            :disabled="actionBusy"
+            @click="onCancelMatch"
+          >
+            Cancel Match
+          </button>
+        </div>
+
+        <p v-if="draft?.own?.waitingForOpponent" class="waiting-banner" role="status">
+          Waiting for opponent to finish drafting…
+        </p>
+
+        <template v-if="draft?.own">
+          <aside v-if="draft.own.soul" class="soul-panel" aria-label="Your Soul">
+            <h3>Soul</h3>
+            <ul class="soul-stats">
+              <li>Strength {{ draft.own.soul.strength }}</li>
+              <li>Speed {{ draft.own.soul.speed }}</li>
+              <li>Vitality {{ draft.own.soul.vitality }}</li>
+            </ul>
+            <p v-if="draft.own.favorLine" class="soul-favor muted tiny">{{ draft.own.favorLine }}</p>
+          </aside>
+
+          <p class="muted tiny">
+            Pick {{ draft.own.picksMade }}/{{ draft.picksTotal }}
+            <span v-if="draft.own.godPool.length > 0">
+              · God pool: {{ draft.own.godPool.join(', ') }}
+            </span>
+          </p>
+
+          <div v-if="draftOfferPresentation" class="draft-offer">
+            <h3>{{ draftOfferPresentation.godLabel }} offers</h3>
+            <ul class="offer-choices">
+              <li v-for="choice in draftOfferPresentation.choices" :key="choice.key">
+                <button
+                  type="button"
+                  class="offer-btn"
+                  :disabled="actionBusy"
+                  @click="onPickBoon(choice.key)"
+                >
+                  <span class="offer-name">{{ choice.name }}</span>
+                  <span v-if="choice.effectSentence" class="offer-effect muted tiny">
+                    {{ choice.effectSentence }}
+                  </span>
+                  <span v-else-if="choice.passiveSentence" class="offer-effect muted tiny">
+                    {{ choice.passiveSentence }}
+                  </span>
+                  <span v-if="choice.cooldownLine" class="offer-cooldown muted tiny">
+                    {{ choice.cooldownLine }}
+                  </span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="draft.own.loadoutKeys.length > 0" class="draft-loadout">
+            <h3>Your loadout</h3>
+            <ul class="draft-loadout-list">
+              <li v-for="key in draft.own.loadoutKeys" :key="key">
+                {{ getLoadoutSlotPresentation(key, ITEM_CATALOG).name }}
+              </li>
+            </ul>
+          </div>
+        </template>
+      </section>
+
       <section v-else class="match-panel">
-        <div v-if="resultsBanner" class="results-banner" role="status">
-          {{ resultsBanner }}
-          <span class="muted tiny"> · Returning to Lobby…</span>
+        <div class="draft-head">
+          <div v-if="resultsBanner" class="results-banner" role="status">
+            {{ resultsBanner }}
+            <span class="muted tiny"> · Returning to Lobby…</span>
+          </div>
+          <button
+            v-if="playState.canCancelMatch && playPhase === 'match'"
+            type="button"
+            class="btn-danger"
+            :disabled="actionBusy"
+            @click="onCancelMatch"
+          >
+            Cancel Match
+          </button>
         </div>
 
         <div v-if="matchSeats" class="fighters">
@@ -298,12 +446,19 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
             </header>
 
             <div class="bars">
+              <div v-if="fighter.soul" class="soul-strip" aria-label="Soul">
+                <span class="soul-strip-label">Soul</span>
+                <span class="soul-strip-stats muted tiny">
+                  STR {{ fighter.soul.strength }} · SPD {{ fighter.soul.speed }} · VIT
+                  {{ fighter.soul.vitality }}
+                </span>
+              </div>
               <div class="bar-row">
                 <span>Life total</span>
                 <div class="bar-track">
                   <div
                     class="bar-fill life"
-                    :style="{ width: `${Math.max(0, Math.min(100, fighter.life))}%` }"
+                    :style="{ width: `${lifeBarWidth(fighter.life, fighter.soul)}%` }"
                   />
                 </div>
                 <span class="bar-value">{{ fighter.life }}</span>
@@ -328,6 +483,7 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
                 :seats="matchSeats"
                 :seat-index="seatIndex"
                 :slot-index="slotIndex"
+                :souls="matchSouls"
                 :next-ready-at="slot.nextReadyAt"
                 :now-ms="nowMs"
                 :is-flashing="slotIsFlashing(seatIndex, slotIndex)"
@@ -360,6 +516,110 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
   border-radius: 12px;
   padding: 16px 18px;
   background: color-mix(in srgb, var(--bg) 92%, var(--border));
+}
+.draft-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.draft-head h2 {
+  margin: 0;
+}
+.waiting-banner {
+  text-align: center;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg));
+  font-weight: 600;
+}
+.draft-offer {
+  margin-bottom: 18px;
+}
+.soul-panel {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+}
+.soul-panel h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.soul-stats {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.soul-favor {
+  margin: 8px 0 0;
+}
+.soul-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+}
+.soul-strip-label {
+  font-weight: 700;
+}
+.draft-offer h3,
+.draft-loadout h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.offer-choices {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.offer-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--bg) 85%, var(--border));
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.offer-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.offer-name {
+  font-weight: 700;
+}
+.draft-loadout-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.draft-loadout-list li {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
 }
 .seats {
   list-style: none;
@@ -458,7 +718,6 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
   text-align: center;
   font-size: 1.35rem;
   font-weight: 700;
-  margin-bottom: 16px;
   padding: 12px;
   border-radius: 10px;
   background: color-mix(in srgb, var(--accent) 22%, var(--bg));
@@ -520,8 +779,8 @@ const pendingRequests = computed(() => joinRequests.value ?? [])
   list-style: none;
   padding: 0;
   margin: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 </style>

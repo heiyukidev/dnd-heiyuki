@@ -1,13 +1,16 @@
 import { filter, flatMap, forEach, get, map, sum } from 'lodash'
 
 import type {
+  God,
   ItemCatalog,
+  ItemEffect,
   MatchSeatState,
   PassiveFilter,
   PassiveSeatTarget,
   PassiveStat,
   PassiveStatChange,
   SeatIndex,
+  SoulStats,
 } from './types'
 import { isFireCapableItem } from './types'
 
@@ -38,14 +41,39 @@ function carrierAffectsRecipientSeat(
   return true
 }
 
+function filterEffectKind(passiveFilter: PassiveFilter): ItemEffect | undefined {
+  if (passiveFilter === 'all') {
+    return undefined
+  }
+  if (typeof passiveFilter === 'string') {
+    return passiveFilter
+  }
+  return passiveFilter.effectKind
+}
+
+function filterGod(passiveFilter: PassiveFilter): God | undefined {
+  if (passiveFilter === 'all' || typeof passiveFilter === 'string') {
+    return undefined
+  }
+  return passiveFilter.god
+}
+
 function recipientMatchesFilter(
-  recipientEffect: NonNullable<ItemCatalog[string]['effect']>,
+  recipientDef: ItemCatalog[string],
   passiveFilter: PassiveFilter,
 ): boolean {
   if (passiveFilter === 'all') {
     return true
   }
-  return recipientEffect === passiveFilter
+  const effectKind = filterEffectKind(passiveFilter)
+  if (effectKind !== undefined && recipientDef.effect !== effectKind) {
+    return false
+  }
+  const god = filterGod(passiveFilter)
+  if (god !== undefined && recipientDef.god !== god) {
+    return false
+  }
+  return true
 }
 
 function collectPassiveChangesForStat(
@@ -70,12 +98,10 @@ function collectPassiveChangesForStat(
       if (passive === undefined) {
         return []
       }
-      if (
-        !carrierAffectsRecipientSeat(carrierSeat, recipient.seat, passive.seatTarget)
-      ) {
+      if (!carrierAffectsRecipientSeat(carrierSeat, recipient.seat, passive.seatTarget)) {
         return []
       }
-      if (!recipientMatchesFilter(recipientDef.effect, passive.filter)) {
+      if (!recipientMatchesFilter(recipientDef, passive.filter)) {
         return []
       }
       return filter(passive.changes, (change) => change.stat === stat)
@@ -83,11 +109,7 @@ function collectPassiveChangesForStat(
   )
 }
 
-function applyStatChanges(
-  base: number,
-  changes: PassiveStatChange[],
-  floor: number,
-): number {
+function applyStatChanges(base: number, changes: PassiveStatChange[], floor: number): number {
   const percentSum = sum(
     map(
       filter(changes, (change) => change.mode === 'percent'),
@@ -103,10 +125,33 @@ function applyStatChanges(
   return Math.max(floor, base * (1 + percentSum) + flatSum)
 }
 
+function applySoulToEffectiveStats(
+  stats: EffectiveSlotStats,
+  soul: SoulStats,
+  effect: ItemEffect,
+): EffectiveSlotStats {
+  const result: EffectiveSlotStats = { ...stats }
+
+  if (result.cooldownMs !== undefined) {
+    const speedReduction = soul.speed * 0.02
+    result.cooldownMs = Math.max(
+      MIN_EFFECTIVE_COOLDOWN_MS,
+      result.cooldownMs * (1 - speedReduction),
+    )
+  }
+
+  if (effect === 'damage' && result.potency !== undefined) {
+    result.potency = Math.max(MIN_EFFECTIVE_POTENCY, result.potency + soul.strength)
+  }
+
+  return result
+}
+
 export function resolveSlotEffectiveStats(
   seats: [MatchSeatState, MatchSeatState],
   recipient: SlotAddress,
   catalog: ItemCatalog,
+  souls?: [SoulStats, SoulStats],
 ): EffectiveSlotStats {
   const recipientSlot = get(seats[recipient.seat], ['slots', recipient.slotIndex])
   if (recipientSlot === undefined) {
@@ -117,31 +162,24 @@ export function resolveSlotEffectiveStats(
     return {}
   }
 
-  const cooldownChanges = collectPassiveChangesForStat(
-    seats,
-    recipient,
-    'cooldown',
-    catalog,
-  )
-  const potencyChanges = collectPassiveChangesForStat(
-    seats,
-    recipient,
-    'potency',
-    catalog,
-  )
+  const cooldownChanges = collectPassiveChangesForStat(seats, recipient, 'cooldown', catalog)
+  const potencyChanges = collectPassiveChangesForStat(seats, recipient, 'potency', catalog)
 
-  return {
+  const afterPassive: EffectiveSlotStats = {
     cooldownMs: applyStatChanges(
       recipientDef.cooldownMs,
       cooldownChanges,
       MIN_EFFECTIVE_COOLDOWN_MS,
     ),
-    potency: applyStatChanges(
-      recipientDef.potency,
-      potencyChanges,
-      MIN_EFFECTIVE_POTENCY,
-    ),
+    potency: applyStatChanges(recipientDef.potency, potencyChanges, MIN_EFFECTIVE_POTENCY),
   }
+
+  const soul = souls?.[recipient.seat]
+  if (soul === undefined) {
+    return afterPassive
+  }
+
+  return applySoulToEffectiveStats(afterPassive, soul, recipientDef.effect)
 }
 
 export function rewriteNextReadyAtForEffectiveCooldown(input: {
@@ -162,6 +200,7 @@ export function rewriteNextReadyAtForEffectiveCooldown(input: {
 export function resolveAllFireCapableEffectiveStats(
   seats: [MatchSeatState, MatchSeatState],
   catalog: ItemCatalog,
+  souls?: [SoulStats, SoulStats],
 ): EffectiveSlotStats[][] {
   const statsBySeat: EffectiveSlotStats[][] = [[], []]
   forEach([0, 1] as SeatIndex[], (seat) => {
@@ -170,6 +209,7 @@ export function resolveAllFireCapableEffectiveStats(
         seats,
         { seat, slotIndex },
         catalog,
+        souls,
       )
     })
   })

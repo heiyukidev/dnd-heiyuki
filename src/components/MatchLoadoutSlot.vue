@@ -8,13 +8,14 @@ import {
   PASSIVE_ICON_VIEWBOX,
 } from '../match/effectIcons'
 import { getLoadoutSlotPresentationForMatch } from '../match/loadoutSlotPresentation'
-import type { MatchSeatState, SeatIndex } from '../match/types'
+import type { MatchSeatState, SeatIndex, SoulStats } from '../match/types'
 
 const props = defineProps<{
   itemKey: string
   seats: [MatchSeatState, MatchSeatState]
   seatIndex: SeatIndex
   slotIndex: number
+  souls?: [SoulStats, SoulStats]
   nextReadyAt?: number
   nowMs: number
   isFlashing: boolean
@@ -34,6 +35,7 @@ const presentation = computed(() =>
     seats: props.seats,
     seat: props.seatIndex,
     slotIndex: props.slotIndex,
+    souls: props.souls,
   }),
 )
 

@@ -102,3 +102,4 @@ Extend the catalog and live sim so an **Item** may be **fire-only**, **Passive**
 - Issue tracker for this repo is local markdown under `.scratch/` (see `docs/agents/issue-tracker.md`).
 - Follow-up `/to-tickets` can split implementation into numbered issues under `.scratch/passive-items/issues/`.
 - Related in-flight work: loadout slot presentation (icons + potency + popover) — Passive faces and effective labels should compose with that helper rather than fork a second slot UI.
+- Loadout size is now five per seat (the out-of-scope “larger than three” line above was for this slice only).

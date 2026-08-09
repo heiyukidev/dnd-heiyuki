@@ -1,26 +1,19 @@
 import { describe, expect, it } from 'vitest'
 
-import { ITEM_CATALOG } from './itemCatalog'
 import {
   MIN_EFFECTIVE_COOLDOWN_MS,
   MIN_EFFECTIVE_POTENCY,
   resolveSlotEffectiveStats,
   rewriteNextReadyAtForEffectiveCooldown,
 } from './effectiveStats'
+import { ITEM_CATALOG } from './itemCatalog'
 import type { ItemCatalog, MatchSeatState, PassiveDefinition } from './types'
 
-function seat(
-  slots: MatchSeatState['slots'],
-  life = 100,
-  shield = 0,
-): MatchSeatState {
+function seat(slots: MatchSeatState['slots'], life = 100, shield = 0): MatchSeatState {
   return { life, shield, slots }
 }
 
-function dualSeats(
-  a: MatchSeatState,
-  b: MatchSeatState,
-): [MatchSeatState, MatchSeatState] {
+function dualSeats(a: MatchSeatState, b: MatchSeatState): [MatchSeatState, MatchSeatState] {
   return [a, b]
 }
 
@@ -29,6 +22,7 @@ const TEST_CATALOG = {
   enemy_haste: {
     key: 'enemy_haste',
     name: 'Enemy Haste',
+    god: 'Zeus',
     passive: {
       seatTarget: 'enemy',
       filter: 'damage',
@@ -38,6 +32,7 @@ const TEST_CATALOG = {
   global_slow: {
     key: 'global_slow',
     name: 'Global Slow',
+    god: 'Zeus',
     passive: {
       seatTarget: 'both',
       filter: 'all',
@@ -47,6 +42,7 @@ const TEST_CATALOG = {
   flat_potency_aura: {
     key: 'flat_potency_aura',
     name: 'Flat Potency Aura',
+    god: 'Hygieia',
     passive: {
       seatTarget: 'own',
       filter: 'all',
@@ -56,6 +52,7 @@ const TEST_CATALOG = {
   percent_potency_nerf: {
     key: 'percent_potency_nerf',
     name: 'Percent Potency Nerf',
+    god: 'Zeus',
     passive: {
       seatTarget: 'own',
       filter: 'damage',
@@ -65,6 +62,7 @@ const TEST_CATALOG = {
   hybrid_penalty: {
     key: 'hybrid_penalty',
     name: 'Hybrid Penalty',
+    god: 'Dynamite',
     effect: 'damage',
     potency: 10,
     cooldownMs: 1_000,
@@ -79,135 +77,161 @@ const TEST_CATALOG = {
 describe('resolveSlotEffectiveStats', () => {
   it('returns base stats when no passives are present', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'spark', nextReadyAt: 2_000 }]),
-      seat([{ itemKey: 'ward', nextReadyAt: 3_000 }]),
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
+      seat([{ itemKey: 'athena_aegis_chip', nextReadyAt: 2_500 }]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 1_200,
+      potency: 5,
+    })
+  })
+
+  it('applies own-seat damage cooldown percent from hermes_stolen_seconds', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'hermes_stolen_seconds' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+      ]),
+      seat([]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 1_020,
+      potency: 5,
+    })
+  })
+
+  it('does not shorten non-damage cooldowns for hermes_stolen_seconds', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'hermes_stolen_seconds' },
+        { itemKey: 'hygieia_soft_bandage', nextReadyAt: 2_000 },
+      ]),
+      seat([]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
       cooldownMs: 2_000,
-      potency: 8,
+      potency: 5,
     })
   })
 
-  it('applies own-seat damage cooldown percent from haste_charm', () => {
+  it('applies Hermes god filter without buffing Dynamite damage', () => {
     const seats = dualSeats(
       seat([
-        { itemKey: 'haste_charm' },
-        { itemKey: 'spark', nextReadyAt: 2_000 },
+        { itemKey: 'hermes_slipstream' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'dynamite_fuse_bomb', nextReadyAt: 5_000 },
       ]),
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: 1_600,
-      potency: 8,
+      cooldownMs: 900,
+      potency: 5,
+    })
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 5_000,
+      potency: 22,
     })
   })
 
-  it('does not shorten non-damage cooldowns for haste_charm', () => {
-    const seats = dualSeats(
-      seat([{ itemKey: 'haste_charm' }, { itemKey: 'salve', nextReadyAt: 2_500 }]),
-      seat([]),
-    )
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: 2_500,
-      potency: 6,
-    })
-  })
-
-  it('applies own-seat heal flat potency from vital_spark including self', () => {
+  it('applies own-seat heal flat potency from hygieia_vital_bloom including self', () => {
     const seats = dualSeats(
       seat([
-        { itemKey: 'vital_spark', nextReadyAt: 3_000 },
-        { itemKey: 'salve', nextReadyAt: 2_500 },
+        { itemKey: 'hygieia_vital_bloom', nextReadyAt: 2_500 },
+        { itemKey: 'hygieia_soft_bandage', nextReadyAt: 2_000 },
       ]),
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: 3_000,
-      potency: 7,
-    })
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
       cooldownMs: 2_500,
       potency: 8,
+    })
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 2_000,
+      potency: 7,
     })
   })
 
   it('applies enemy seat target passives to the opposing seat', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'spark', nextReadyAt: 2_000 }]),
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
       seat([{ itemKey: 'enemy_haste' }]),
     )
-    expect(
-      resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, TEST_CATALOG),
-    ).toEqual({
-      cooldownMs: 1_000,
-      potency: 8,
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, TEST_CATALOG)).toEqual({
+      cooldownMs: 600,
+      potency: 5,
     })
-    expect(
-      resolveSlotEffectiveStats(seats, { seat: 1, slotIndex: 0 }, TEST_CATALOG),
-    ).toEqual({})
+    expect(resolveSlotEffectiveStats(seats, { seat: 1, slotIndex: 0 }, TEST_CATALOG)).toEqual({})
+  })
+
+  it('lengthens enemy damage cooldown via zeus_thunder_tyrant', () => {
+    const seats = dualSeats(
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
+      seat([{ itemKey: 'zeus_thunder_tyrant' }]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 1_380,
+      potency: 5,
+    })
   })
 
   it('applies both-seat target passives to either seat', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'global_slow' }, { itemKey: 'spark', nextReadyAt: 2_000 }]),
-      seat([{ itemKey: 'salve', nextReadyAt: 2_500 }]),
+      seat([{ itemKey: 'global_slow' }, { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
+      seat([{ itemKey: 'hygieia_soft_bandage', nextReadyAt: 2_000 }]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG)).toEqual({
-      cooldownMs: 2_200,
-      potency: 8,
+      cooldownMs: 1_320,
+      potency: 5,
     })
     expect(resolveSlotEffectiveStats(seats, { seat: 1, slotIndex: 0 }, TEST_CATALOG)).toEqual({
-      cooldownMs: 2_750,
-      potency: 6,
+      cooldownMs: 2_200,
+      potency: 5,
     })
   })
 
   it('stacks percent modifiers before flat modifiers', () => {
     const seats = dualSeats(
       seat([
-        { itemKey: 'haste_charm' },
+        { itemKey: 'hermes_stolen_seconds' },
         { itemKey: 'flat_potency_aura' },
-        { itemKey: 'spark', nextReadyAt: 2_000 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
       ]),
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG)).toEqual({
-      cooldownMs: 1_600,
-      potency: 11,
+      cooldownMs: 1_020,
+      potency: 8,
     })
   })
 
   it('stacks duplicate passive carriers independently', () => {
     const seats = dualSeats(
       seat([
-        { itemKey: 'haste_charm' },
-        { itemKey: 'haste_charm' },
-        { itemKey: 'spark', nextReadyAt: 2_000 },
+        { itemKey: 'hermes_stolen_seconds' },
+        { itemKey: 'hermes_stolen_seconds' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
       ]),
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: 1_200,
-      potency: 8,
+      cooldownMs: 840,
+      potency: 5,
     })
   })
 
   it('floors effective cooldown at 500ms', () => {
     const seats = dualSeats(
       seat([
-        { itemKey: 'haste_charm' },
-        { itemKey: 'haste_charm' },
-        { itemKey: 'haste_charm' },
-        { itemKey: 'haste_charm' },
-        { itemKey: 'spark', nextReadyAt: 800 },
+        { itemKey: 'hermes_slipstream' },
+        { itemKey: 'hermes_slipstream' },
+        { itemKey: 'hermes_slipstream' },
+        { itemKey: 'hermes_quicksilver_jab', nextReadyAt: 800 },
       ]),
       seat([]),
     )
-    expect(
-      resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 4 }, ITEM_CATALOG),
-    ).toEqual({
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 3 }, ITEM_CATALOG)).toEqual({
       cooldownMs: MIN_EFFECTIVE_COOLDOWN_MS,
-      potency: 8,
+      potency: 4,
     })
   })
 
@@ -216,39 +240,77 @@ describe('resolveSlotEffectiveStats', () => {
       seat([
         { itemKey: 'percent_potency_nerf' },
         { itemKey: 'hybrid_penalty' },
-        { itemKey: 'spark', nextReadyAt: 2_000 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
       ]),
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG)).toEqual({
-      cooldownMs: 2_000,
+      cooldownMs: 1_200,
       potency: MIN_EFFECTIVE_POTENCY,
     })
   })
 
   it('returns no stats for passive-only recipients', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'haste_charm' }, { itemKey: 'spark', nextReadyAt: 2_000 }]),
+      seat([
+        { itemKey: 'hermes_stolen_seconds' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+      ]),
       seat([]),
     )
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual(
-      {},
-    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({})
   })
 
   it('lets passive-only carriers contribute without receiving rewrites', () => {
     const seats = dualSeats(
       seat([
-        { itemKey: 'haste_charm' },
+        { itemKey: 'hermes_stolen_seconds' },
         { itemKey: 'flat_potency_aura' },
-        { itemKey: 'spark', nextReadyAt: 2_000 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
       ]),
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, TEST_CATALOG)).toEqual({})
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG)).toEqual({
-      cooldownMs: 1_600,
-      potency: 11,
+      cooldownMs: 1_020,
+      potency: 8,
+    })
+  })
+
+  it('applies Soul Speed and Strength after Passive stacking', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'flat_potency_aura' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+      ]),
+      seat([]),
+    )
+    const souls: [import('./types').SoulStats, import('./types').SoulStats] = [
+      { strength: 4, speed: 10, vitality: 1 },
+      { strength: 0, speed: 0, vitality: 0 },
+    ]
+    expect(
+      resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG, souls),
+    ).toEqual({
+      cooldownMs: 960,
+      potency: 12,
+    })
+  })
+
+  it('does not add Soul Strength to heal or shield potency', () => {
+    const seats = dualSeats(
+      seat([{ itemKey: 'hygieia_soft_bandage', nextReadyAt: 1_000 }]),
+      seat([]),
+    )
+    const souls: [import('./types').SoulStats, import('./types').SoulStats] = [
+      { strength: 6, speed: 0, vitality: 0 },
+      { strength: 0, speed: 0, vitality: 0 },
+    ]
+    expect(
+      resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG, souls),
+    ).toEqual({
+      cooldownMs: 2_000,
+      potency: 5,
     })
   })
 })

@@ -15,18 +15,33 @@ export {
   rewriteNextReadyAtForEffectiveCooldown,
 } from '../src/match/effectiveStats'
 
-export { ITEM_CATALOG, ITEM_KEYS } from '../src/match/itemCatalog'
+export {
+  applyPick,
+  createDraftRngFromRandom,
+  createInitialDraftState,
+  draftLoadoutToMatchSlots,
+  DRAFT_PICK_COUNT,
+  generateOffer,
+  getEligibleGods,
+  initializeDraftSeat,
+  initializeDraftState,
+  isDraftComplete,
+  isSeatDraftComplete,
+  isSeatWaitingForOpponent,
+} from '../src/match/draftEngine'
 
-export type { ItemKey } from '../src/match/itemCatalog'
+export { BOON_CATALOG, BOON_KEYS, GODS, ITEM_CATALOG, ITEM_KEYS } from '../src/match/itemCatalog'
 
-export type {
-  EffectiveSlotStats,
-  SlotAddress,
-} from '../src/match/effectiveStats'
+export type { BoonKey, ItemKey } from '../src/match/itemCatalog'
+
+export type { BoonOffer, DraftRng, DraftSeatState, DraftState } from '../src/match/draftEngine'
+
+export type { EffectiveSlotStats, SlotAddress } from '../src/match/effectiveStats'
 
 export type {
   AnimationHint,
   FireCapableItemDefinition,
+  God,
   ItemDefinition,
   LoadoutSlot,
   MatchFire,
@@ -41,5 +56,14 @@ export type {
   PassiveStatChange,
   SeatIndex,
 } from '../src/match/types'
+
+export {
+  maxLifeFromSoul,
+  rollSoulStats,
+  soulFavorLine,
+  startingLifeFromVitality,
+} from '../src/match/soul'
+
+export type { SoulStats } from '../src/match/types'
 
 export { isFireCapableItem } from '../src/match/types'

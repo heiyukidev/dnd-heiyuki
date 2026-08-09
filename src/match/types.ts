@@ -1,10 +1,24 @@
 export type SeatIndex = 0 | 1
 
+export type SoulStats = {
+  strength: number
+  speed: number
+  vitality: number
+}
+
+export type God = 'Hermes' | 'Dynamite' | 'Hygieia' | 'Athena' | 'Zeus'
+
 export type ItemEffect = 'damage' | 'heal' | 'shield'
 
 export type PassiveSeatTarget = 'own' | 'enemy' | 'both'
 
-export type PassiveFilter = 'all' | ItemEffect
+export type PassiveFilter =
+  | 'all'
+  | ItemEffect
+  | {
+      effectKind?: ItemEffect
+      god?: God
+    }
 
 export type PassiveStat = 'cooldown' | 'potency'
 
@@ -25,6 +39,7 @@ export type PassiveDefinition = {
 export type ItemDefinition = {
   key: string
   name: string
+  god: God
   effect?: ItemEffect
   potency?: number
   cooldownMs?: number
@@ -97,4 +112,5 @@ export type ResolveMatchStepInput = {
   catalog: ItemCatalog
   matchStartedAt: number
   timeCapMs?: number
+  souls?: [SoulStats, SoulStats]
 }
