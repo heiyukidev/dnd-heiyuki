@@ -63,7 +63,7 @@ export const ITEM_CATALOG = {
     passive: {
       seatTarget: 'own',
       filter: { god: 'Hermes' },
-      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.25 }],
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.18 }],
     },
   },
   hermes_stolen_seconds: {
@@ -146,7 +146,7 @@ export const ITEM_CATALOG = {
     name: 'Soft Bandage',
     god: 'Hygieia',
     effect: 'heal',
-    potency: 5,
+    potency: 7,
     cooldownMs: 2_000,
   },
   hygieia_cleanse_draught: {
@@ -154,7 +154,7 @@ export const ITEM_CATALOG = {
     name: 'Cleanse Draught',
     god: 'Hygieia',
     effect: 'heal',
-    potency: 8,
+    potency: 11,
     cooldownMs: 3_000,
   },
   hygieia_field_surgery: {
@@ -162,7 +162,7 @@ export const ITEM_CATALOG = {
     name: 'Field Surgery',
     god: 'Hygieia',
     effect: 'heal',
-    potency: 12,
+    potency: 16,
     cooldownMs: 4_500,
   },
   hygieia_restorative_hymn: {
@@ -170,7 +170,7 @@ export const ITEM_CATALOG = {
     name: 'Restorative Hymn',
     god: 'Hygieia',
     effect: 'heal',
-    potency: 16,
+    potency: 22,
     cooldownMs: 6_000,
   },
   hygieia_vital_bloom: {
@@ -178,12 +178,12 @@ export const ITEM_CATALOG = {
     name: 'Vital Bloom',
     god: 'Hygieia',
     effect: 'heal',
-    potency: 6,
+    potency: 8,
     cooldownMs: 2_500,
     passive: {
       seatTarget: 'own',
       filter: 'heal',
-      changes: [{ stat: 'potency', mode: 'flat', value: 2 }],
+      changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
     },
   },
   hygieia_caduceus_whisper: {
@@ -193,7 +193,7 @@ export const ITEM_CATALOG = {
     passive: {
       seatTarget: 'own',
       filter: { god: 'Hygieia' },
-      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.2 }],
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.25 }],
     },
   },
   hygieia_overflow: {
@@ -203,7 +203,7 @@ export const ITEM_CATALOG = {
     passive: {
       seatTarget: 'own',
       filter: { effectKind: 'heal', weaponType: 'Wand' },
-      changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
+      changes: [{ stat: 'potency', mode: 'flat', value: 5 }],
     },
   },
   athena_aegis_chip: {
@@ -211,7 +211,7 @@ export const ITEM_CATALOG = {
     name: 'Aegis Chip',
     god: 'Athena',
     effect: 'shield',
-    potency: 6,
+    potency: 8,
     cooldownMs: 2_500,
   },
   athena_bronze_guard: {
@@ -219,7 +219,7 @@ export const ITEM_CATALOG = {
     name: 'Bronze Guard',
     god: 'Athena',
     effect: 'shield',
-    potency: 10,
+    potency: 14,
     cooldownMs: 3_500,
   },
   athena_tower_ward: {
@@ -227,7 +227,7 @@ export const ITEM_CATALOG = {
     name: 'Tower Ward',
     god: 'Athena',
     effect: 'shield',
-    potency: 14,
+    potency: 19,
     cooldownMs: 5_000,
   },
   athena_parthenon: {
@@ -235,7 +235,7 @@ export const ITEM_CATALOG = {
     name: 'Parthenon',
     god: 'Athena',
     effect: 'shield',
-    potency: 20,
+    potency: 27,
     cooldownMs: 7_000,
   },
   athena_reflective_plate: {
@@ -243,12 +243,12 @@ export const ITEM_CATALOG = {
     name: 'Reflective Plate',
     god: 'Athena',
     effect: 'shield',
-    potency: 8,
+    potency: 11,
     cooldownMs: 3_500,
     passive: {
       seatTarget: 'own',
       filter: { god: 'Athena', effectKind: 'shield' },
-      changes: [{ stat: 'potency', mode: 'flat', value: 2 }],
+      changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
     },
   },
   athena_phalanx: {
@@ -258,7 +258,7 @@ export const ITEM_CATALOG = {
     passive: {
       seatTarget: 'own',
       filter: { god: 'Athena' },
-      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.2 }],
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.25 }],
     },
   },
   athena_bastion_doctrine: {
@@ -268,7 +268,7 @@ export const ITEM_CATALOG = {
     passive: {
       seatTarget: 'own',
       filter: 'shield',
-      changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
+      changes: [{ stat: 'potency', mode: 'flat', value: 5 }],
     },
   },
   zeus_spark_arc: {

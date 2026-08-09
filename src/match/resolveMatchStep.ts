@@ -17,10 +17,12 @@ import type {
   SoulStats,
 } from './types'
 import { isFireCapableItem } from './types'
+import { MATCH_LIFE_CAP } from './soul'
 import { maxLifeForSeat } from './weapon'
 
+export { MATCH_LIFE_CAP } from './soul'
+
 export const DEFAULT_MATCH_TIME_CAP_MS = 60_000
-export const MATCH_LIFE_CAP = 100
 
 function otherSeat(seat: SeatIndex): SeatIndex {
   return seat === 0 ? 1 : 0

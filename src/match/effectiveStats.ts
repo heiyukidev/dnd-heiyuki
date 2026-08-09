@@ -18,6 +18,7 @@ import { weaponDefinition } from './weaponCatalog'
 
 export const MIN_EFFECTIVE_COOLDOWN_MS = 500
 export const MIN_EFFECTIVE_POTENCY = 0
+export const STRENGTH_DAMAGE_PER_POINT = 0.06
 
 export type SlotAddress = {
   seat: SeatIndex
@@ -169,7 +170,7 @@ function applySoulToEffectiveStats(
   }
 
   if (effect === 'damage' && result.potency !== undefined) {
-    const strengthMultiplier = 1 + soul.strength * 0.1
+    const strengthMultiplier = 1 + soul.strength * STRENGTH_DAMAGE_PER_POINT
     result.potency = Math.max(MIN_EFFECTIVE_POTENCY, result.potency * strengthMultiplier)
   }
 

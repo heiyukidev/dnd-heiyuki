@@ -21,13 +21,13 @@ export const WEAPON_CATALOG = {
     key: 'war_axe',
     name: 'War Axe',
     weaponType: 'Axe',
-    nudges: { damagePotencyPercent: 0.1, cooldownPercent: 0.08 },
+    nudges: { damagePotencyPercent: 0.1, cooldownPercent: 0.04 },
   },
   stone_maul: {
     key: 'stone_maul',
     name: 'Stone Maul',
     weaponType: 'Axe',
-    nudges: { damagePotencyPercent: 0.08, cooldownPercent: 0.1 },
+    nudges: { damagePotencyPercent: 0.08, cooldownPercent: 0.05 },
   },
   elder_wand: {
     key: 'elder_wand',
@@ -45,13 +45,13 @@ export const WEAPON_CATALOG = {
     key: 'hunters_bow',
     name: "Hunter's Bow",
     weaponType: 'Bow',
-    nudges: { cooldownPercent: -0.1 },
+    nudges: { cooldownPercent: -0.06 },
   },
   swift_shortbow: {
     key: 'swift_shortbow',
     name: 'Swift Shortbow',
     weaponType: 'Bow',
-    nudges: { cooldownPercent: -0.08, damagePotencyPercent: 0.05 },
+    nudges: { cooldownPercent: -0.05, damagePotencyPercent: 0.05 },
   },
 } as const satisfies WeaponCatalog
 

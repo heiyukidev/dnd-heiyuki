@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   effectiveSoul,
+  LIFE_PER_VITALITY,
+  MATCH_LIFE_CAP,
   rollSoulStats,
   SOUL_STAT_MAX,
   SOUL_STAT_TOTAL,
@@ -58,9 +60,9 @@ describe('soulFavorLine', () => {
 })
 
 describe('startingLifeFromVitality', () => {
-  it('adds vitality to the baseline life cap', () => {
-    expect(startingLifeFromVitality(0)).toBe(100)
-    expect(startingLifeFromVitality(7)).toBe(107)
+  it('adds vitality life per point to the baseline life cap', () => {
+    expect(startingLifeFromVitality(0)).toBe(MATCH_LIFE_CAP)
+    expect(startingLifeFromVitality(7)).toBe(MATCH_LIFE_CAP + 7 * LIFE_PER_VITALITY)
   })
 })
 

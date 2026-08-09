@@ -57,8 +57,8 @@ describe('weaponFavorLine', () => {
 
 describe('maxLifeForSeat', () => {
   it('adds vitality and weapon life bonus on the shared max-life path', () => {
-    expect(maxLifeForSeat({ strength: 0, speed: 0, vitality: 5 }, 'elder_wand')).toBe(108)
-    expect(maxLifeForSeat({ strength: 0, speed: 0, vitality: 5 }, 'steel_longsword')).toBe(105)
-    expect(maxLifeForSeat(undefined, undefined)).toBe(100)
+    expect(maxLifeForSeat({ strength: 0, speed: 0, vitality: 5 }, 'elder_wand')).toBe(218)
+    expect(maxLifeForSeat({ strength: 0, speed: 0, vitality: 5 }, 'steel_longsword')).toBe(215)
+    expect(maxLifeForSeat(undefined, undefined)).toBe(200)
   })
 })

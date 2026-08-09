@@ -4,6 +4,8 @@ import type { SoulStats } from './types'
 
 export const SOUL_STAT_TOTAL = 15
 export const SOUL_STAT_MAX = 10
+export const MATCH_LIFE_CAP = 200
+export const LIFE_PER_VITALITY = 3
 export const MATCH_GOLD_GRANT = 5
 export const GOLD_PER_SOUL_BUMP = 1
 
@@ -61,11 +63,11 @@ export function soulFavorLine(stats: SoulStats): string {
   }
 }
 
-export function startingLifeFromVitality(vitality: number, baseLife = 100): number {
-  return baseLife + vitality
+export function startingLifeFromVitality(vitality: number, baseLife = MATCH_LIFE_CAP): number {
+  return baseLife + vitality * LIFE_PER_VITALITY
 }
 
-export function maxLifeFromSoul(soul: SoulStats, baseLife = 100): number {
+export function maxLifeFromSoul(soul: SoulStats, baseLife = MATCH_LIFE_CAP): number {
   return startingLifeFromVitality(soul.vitality, baseLife)
 }
 

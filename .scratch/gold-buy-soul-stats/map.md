@@ -22,8 +22,6 @@ Playable **Match**-scoped currency: after the random **Soul** roll and after eac
 
 ## Not yet specified
 
-- Soft / soft-diminishing caps if the economy allows extreme stacks
-
 ## Out of scope
 
 - Session- or account-persistent currency

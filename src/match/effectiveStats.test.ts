@@ -107,7 +107,7 @@ describe('resolveSlotEffectiveStats', () => {
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
-      cooldownMs: 918,
+      cooldownMs: 958.8,
       potency: 5,
     })
   })
@@ -122,7 +122,7 @@ describe('resolveSlotEffectiveStats', () => {
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
       cooldownMs: 2_000,
-      potency: 5,
+      potency: 7,
     })
   })
 
@@ -136,7 +136,7 @@ describe('resolveSlotEffectiveStats', () => {
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: 900,
+      cooldownMs: expect.closeTo(984),
       potency: 5,
     })
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, ITEM_CATALOG)).toEqual({
@@ -155,11 +155,11 @@ describe('resolveSlotEffectiveStats', () => {
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({
       cooldownMs: 2_500,
-      potency: 8,
+      potency: 11,
     })
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
       cooldownMs: 2_000,
-      potency: 7,
+      potency: 10,
     })
   })
 
@@ -197,7 +197,7 @@ describe('resolveSlotEffectiveStats', () => {
     })
     expect(resolveSlotEffectiveStats(seats, { seat: 1, slotIndex: 0 }, TEST_CATALOG)).toEqual({
       cooldownMs: 2_200,
-      potency: 5,
+      potency: 7,
     })
   })
 
@@ -211,7 +211,7 @@ describe('resolveSlotEffectiveStats', () => {
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
-      cooldownMs: 918,
+      cooldownMs: 958.8,
       potency: 8,
     })
   })
@@ -225,10 +225,15 @@ describe('resolveSlotEffectiveStats', () => {
       ]),
       seat([]),
     )
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, ITEM_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
-      cooldownMs: 756,
-      potency: 5,
-    })
+    const result = resolveSlotEffectiveStats(
+      seats,
+      { seat: 0, slotIndex: 2 },
+      ITEM_CATALOG,
+      undefined,
+      BOW_AT_SEAT_0,
+    )
+    expect(result.cooldownMs).toBeCloseTo(789.6)
+    expect(result.potency).toBe(5)
   })
 
   it('floors effective cooldown at 500ms', () => {
@@ -284,7 +289,7 @@ describe('resolveSlotEffectiveStats', () => {
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, TEST_CATALOG)).toEqual({})
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
-      cooldownMs: 918,
+      cooldownMs: 958.8,
       potency: 8,
     })
   })
@@ -305,7 +310,7 @@ describe('resolveSlotEffectiveStats', () => {
       resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG, souls),
     ).toEqual({
       cooldownMs: 960,
-      potency: 11.2,
+      potency: 9.92,
     })
   })
 
@@ -326,7 +331,7 @@ describe('resolveSlotEffectiveStats', () => {
     })
   })
 
-  it('multiplies damage potency by 1.5 when Soul Strength is 5', () => {
+  it('multiplies damage potency by 1.3 when Soul Strength is 5', () => {
     const seats = dualSeats(
       seat([
         { itemKey: 'flat_potency_aura' },
@@ -342,11 +347,11 @@ describe('resolveSlotEffectiveStats', () => {
       resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG, souls),
     ).toEqual({
       cooldownMs: 1_200,
-      potency: 12,
+      potency: 10.4,
     })
   })
 
-  it('multiplies damage potency by 2 when Soul Strength is 10', () => {
+  it('multiplies damage potency by 1.6 when Soul Strength is 10', () => {
     const seats = dualSeats(
       seat([
         { itemKey: 'flat_potency_aura' },
@@ -362,7 +367,7 @@ describe('resolveSlotEffectiveStats', () => {
       resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG, souls),
     ).toEqual({
       cooldownMs: 1_200,
-      potency: 16,
+      potency: 12.8,
     })
   })
 
@@ -379,7 +384,7 @@ describe('resolveSlotEffectiveStats', () => {
       resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG, souls),
     ).toEqual({
       cooldownMs: 2_000,
-      potency: 5,
+      potency: 7,
     })
   })
 
@@ -401,7 +406,7 @@ describe('resolveSlotEffectiveStats', () => {
       weaponKeys,
     )
     expect(result.cooldownMs).toBe(1_200)
-    expect(result.potency).toBeCloseTo(7.35)
+    expect(result.potency).toBeCloseTo(6.51)
   })
 
   it('gates catalog Passive weaponType on the carrier equipped Weapon', () => {
@@ -436,7 +441,7 @@ describe('resolveSlotEffectiveStats', () => {
         axeWeaponKeys,
       ),
     ).toEqual({
-      cooldownMs: 1_296,
+      cooldownMs: 1_248,
       potency: 5.5,
     })
   })
@@ -473,7 +478,7 @@ describe('resolveSlotEffectiveStats', () => {
         axeWeaponKeys,
       ),
     ).toEqual({
-      cooldownMs: 1_296,
+      cooldownMs: 1_248,
       potency: 5.5,
     })
   })

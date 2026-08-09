@@ -119,28 +119,28 @@ describe('loadoutSlotPresentation', () => {
       itemKey: 'hygieia_soft_bandage',
       name: 'Soft Bandage',
       effect: 'heal',
-      potency: 5,
+      potency: 7,
       cooldownLine: 'Cooldown 2s',
     },
     {
       itemKey: 'hygieia_restorative_hymn',
       name: 'Restorative Hymn',
       effect: 'heal',
-      potency: 16,
+      potency: 22,
       cooldownLine: 'Cooldown 6s',
     },
     {
       itemKey: 'athena_aegis_chip',
       name: 'Aegis Chip',
       effect: 'shield',
-      potency: 6,
+      potency: 8,
       cooldownLine: 'Cooldown 2.5s',
     },
     {
       itemKey: 'athena_parthenon',
       name: 'Parthenon',
       effect: 'shield',
-      potency: 20,
+      potency: 27,
       cooldownLine: 'Cooldown 7s',
     },
   ]
@@ -190,8 +190,8 @@ describe('loadoutSlotPresentation', () => {
       faceKind: 'passive',
       kindColor: LOADOUT_PASSIVE_ACCENT_COLOR,
       showCooldownBar: false,
-      passiveCue: '−25% Hermes CD',
-      passiveSentence: 'Reduce your Hermes Boons Cooldown by 25%',
+      passiveCue: '−18% Hermes CD',
+      passiveSentence: 'Reduce your Hermes Boons Cooldown by 18%',
     })
   })
 
@@ -200,10 +200,10 @@ describe('loadoutSlotPresentation', () => {
     expect(presentation.faceKind).toBe('fire')
     expect(presentation.showCooldownBar).toBe(true)
     expect(presentation.effect).toBe('heal')
-    expect(presentation.potency).toBe(6)
-    expect(presentation.effectSentence).toBe('Heal 6')
+    expect(presentation.potency).toBe(8)
+    expect(presentation.effectSentence).toBe('Heal 8')
     expect(presentation.cooldownLine).toBe('Cooldown 2.5s')
-    expect(presentation.passiveSentence).toBe('Grant +2 potency to your heal Boons')
+    expect(presentation.passiveSentence).toBe('Grant +3 potency to your heal Boons')
   })
 
   it('formats passive templates for god and effect filters', () => {
@@ -226,7 +226,7 @@ describe('loadoutSlotPresentation', () => {
       loadoutKeys: ['hermes_stolen_seconds'],
       weaponKeys: ['hunters_bow', 'steel_longsword'],
     })
-    expect(offer.choices[0]?.cooldownLine).toBe('Cooldown 0.918s')
+    expect(offer.choices[0]?.cooldownLine).toBe('Cooldown 0.959s')
     expect(offer.choices[0]?.potency).toBe(5)
   })
 
@@ -239,7 +239,7 @@ describe('loadoutSlotPresentation', () => {
       loadoutKeys: [],
       souls: [{ strength: 2, speed: 3, vitality: 1 }, { strength: 0, speed: 0, vitality: 0 }],
     })
-    expect(offer.choices[0]?.potency).toBe(6)
+    expect(offer.choices[0]?.potency).toBeCloseTo(5.6)
     expect(offer.choices[0]?.cooldownLine).toBe('Cooldown 1.128s')
   })
 
@@ -271,8 +271,8 @@ describe('loadoutSlotPresentation', () => {
       weaponKeys: ['hunters_bow', 'steel_longsword'],
     })
     expect(presentation.potency).toBe(5)
-    expect(presentation.cooldownLine).toBe('Cooldown 0.918s')
-    expect(presentation.effectiveCooldownMs).toBe(918)
+    expect(presentation.cooldownLine).toBe('Cooldown 0.959s')
+    expect(presentation.effectiveCooldownMs).toBe(958.8)
   })
 
   it('uses effective potency when vital bloom is in the same loadout', () => {
@@ -284,8 +284,8 @@ describe('loadoutSlotPresentation', () => {
       seat: 0,
       slotIndex: 1,
     })
-    expect(presentation.potency).toBe(7)
-    expect(presentation.effectSentence).toBe('Heal 7')
+    expect(presentation.potency).toBe(10)
+    expect(presentation.effectSentence).toBe('Heal 10')
     expect(presentation.cooldownLine).toBe('Cooldown 2s')
   })
 

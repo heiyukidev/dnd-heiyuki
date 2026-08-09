@@ -1,7 +1,7 @@
 import { get, includes } from 'lodash'
 
 import { createDraftRngFromRandom, sampleWithoutReplacement, type DraftRng } from './draftEngine'
-import { startingLifeFromVitality } from './soul'
+import { MATCH_LIFE_CAP, startingLifeFromVitality } from './soul'
 import type { SoulStats, WeaponType } from './types'
 import { isWeaponKey, weaponDefinition, WEAPON_KEYS, WEAPON_TYPES } from './weaponCatalog'
 
@@ -53,7 +53,7 @@ export function weaponFavorLine(weaponTypeOrKey: WeaponType | string): string | 
 export function maxLifeForSeat(
   soul: SoulStats | undefined,
   weaponKey: string | undefined,
-  baseLife = 100,
+  baseLife = MATCH_LIFE_CAP,
 ): number {
   const vitalityLife =
     soul === undefined ? baseLife : startingLifeFromVitality(soul.vitality, baseLife)
