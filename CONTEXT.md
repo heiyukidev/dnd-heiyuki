@@ -67,23 +67,29 @@ The sole **Equipment** slot in this slice. At **Match start**, after **Soul**s a
 _Avoid_: Rolling the **Weapon** with no pick; drafting it inside Boon offers; mirroring the same three offers to both seats; empty Weapon slot; Weapon nudges that rewrite the Soul panel’s Strength/Speed/Vitality readout; treating **Weapon type** fantasy jobs as mandatory nudge formulas; linked fire / equip-only fire verbs on **Weapons** in this slice.
 
 **Weapon type**:
-The identity class of a **Weapon**. Prototype set: **Sword**, **Axe**, **Wand**, **Bow**. Soft catalog guidance: Sword mid damage/tempo, Axe heavy/slower, Wand soft/tempo/hybrid, Bow fast/poke. Used by **Passive** filters as an optional seat gate on the carrier’s equipped **Weapon**, by soft **Draft** favor copy (not offer odds), and by a narrow **Draft** eligibility rule: a **Boon** whose **Passive** declares a **Weapon type** gate is omitted from that seat’s **Boon offer** pool when the seat’s equipped **Weapon** does not match (covers **Passive**-only and **hybrid** — fire still works on a mismatched hybrid, but the card is withheld so half-dead Passives are not offered).
-_Avoid_: Dual-wield / spear / fists in this slice; tagging **Boons** with a weapon affinity (beyond the existing **Passive** carrier gate); broad **Draft** reweighting or **God**/kit bans by equipped type; offer-card highlights; **Boons** that rewrite **Soul stats**.
+The identity class of a **Weapon**. Prototype set: **Sword**, **Axe**, **Wand**, **Bow**, **Spear**. Soft catalog guidance: Sword mid damage/tempo, Axe heavy/slower, Wand soft/tempo/hybrid, Bow fast/poke, Spear reach/tempo-martial. Used by **Passive** filters as an optional seat gate on the carrier’s equipped **Weapon**, by optional **Required Weapon type** on a **Boon**, by **God weapon affiliation** (offer-god weights), by soft **Draft** favor copy, and by **Draft** eligibility omit rules (mismatched **Passive** gate or mismatched **Required Weapon type**).
+_Avoid_: Dual-wield / fists in this slice; banning whole **Gods** from Draft by equipped type; offer-card highlights as “recommended”; **Boons** that rewrite **Soul stats**.
 
 **God**:
-A named divinity identity that owns a fixed catalog of **Boons** sharing one thematic tempo/role fantasy (for example swift low-damage, slow high-damage, healing). The unit counted by a seat's **God pool**. Product names need not be strict classical Olympians (e.g. **Dynamite**).
+A named divinity identity that owns a fixed catalog of **Boons** sharing one thematic tempo/role fantasy (for example swift low-damage, slow high-damage, healing). The unit counted by a seat's **God pool**. Each **God** has exactly two **God weapon affiliation**s.
 _Avoid_: Treating **God** as only a UI label or catalog tag with no pool membership.
 
-**God catalog (v1)**:
-The shipped set of five **Gods**, each with seven **Boons** (35 total). Replaces the old spark/cannon/… and Passive-slice keys — those are not kept in parallel.
+**God weapon affiliation**:
+Exactly two **Weapon type**s linked to a **God**. Drives (1) **Boon offer** god-selection weights: while choosing among eligible **Gods**, each **God** affiliated with the seat’s equipped **Weapon type** gets **1.5×** weight versus unaffiliated eligible **Gods** (under pool cap and at cap). (2) Catalog authorship: that **God**’s two weapon-gated primary-fire **Boons** use **Required Weapon type** matching those affiliations. Does not force **God pool** membership and does not ban unaffiliated **Gods** from appearing.
+_Avoid_: Uniform god draws; hard-banning unaffiliated **Gods**; treating affiliation as a third **Loadout** slot.
 
-| God          | Fantasy                                              |
-| ------------ | ---------------------------------------------------- |
-| **Hermes**   | Swiftness — fast, lower-damage                       |
-| **Dynamite** | Destruction — slow, very high damage                 |
-| **Hygieia**  | Health — healing                                     |
-| **Athena**   | Aegis — shield / mitigation                          |
-| **Zeus**     | Lightning — mid-tempo damage and punchy **Passive**s |
+**God catalog (v1)**:
+The shipped set of five **Gods**, each with seven **Boons** (35 total). Replaces the old spark/cannon/… and Passive-slice keys — those are not kept in parallel. **Hygieia** is retired — healing identity is **Apollo**.
+
+| God          | Fantasy                                              | Affiliations        |
+| ------------ | ---------------------------------------------------- | -------------------- |
+| **Hermes**   | Swiftness — fast, lower-damage                       | **Spear**, **Sword** |
+| **Ares**     | War — slow, very high damage                           | **Axe**, **Sword**   |
+| **Apollo**   | Healing — sustain                                    | **Wand**, **Bow**    |
+| **Athena**   | Aegis — shield / mitigation                          | **Axe**, **Spear**   |
+| **Zeus**     | Lightning — mid-tempo damage and punchy **Passive**s | **Wand**, **Bow**    |
+
+Each **Weapon type** appears on exactly two **Gods**. Per **God** catalog shape: **2** primary-fire **Boons** with **Required Weapon type** (one per affiliation) + **1** any-weapon neutral primary-fire + **4** other cards (**Passive**-only / hybrid / extra neutrals). Author so each **God** keeps ≥**3** ungated offerable keys (no **Required Weapon type**, no mismatched-only **Passive** gate) so a seat whose **Weapon** matches neither affiliation can still open a legal **Boon offer** from that **God**.
 
 **God pool**:
 The set of **Gods** that have granted at least one **Boon** to a seat during the current **Match**'s **Draft**. Cap is **3**. A **God** enters when that seat accepts their first **Boon**. While at cap, further **Boon** offers for that seat may only come from **Gods** already in the pool. Resets when the **Match** ends (return to **Lobby**); does not persist across **Matches**.
@@ -98,12 +104,16 @@ The phase of a **Match** after both seats have picked a **Weapon** and before th
 _Avoid_: Lobby shop; drafting before the **Host** starts the **Match**; random five-pick without offers; open-information or alternating draft in this slice; per-offer pick timers / auto-pick in this slice.
 
 **Boon offer**:
-One **Draft** choice presented to a seat: exactly **3** **Boons** from a single **God**; the seat picks one into its **Loadout**. Which **God** is offered is chosen **uniformly at random** among eligible **Gods** (all five in the **God catalog** while under the pool cap; only pool **Gods** when at cap). Eligibility and the three options use that **God**'s remaining unowned **Boons** after excluding any **Boon** whose **Passive** has a **Weapon type** gate that does not match the seat’s equipped **Weapon**. A **God** is eligible only when that filtered pool has at least **3** keys (same rule as today’s unowned-count gate). Draws stay **uniform** among the filtered pool — no odds reweighting.
-_Avoid_: Mixed-god choice rows; picking more than one from a single offer; duplicate **Boon** keys in one seat's **Loadout**.
+One **Draft** choice presented to a seat: exactly **3** **Boons** from a single **God**; the seat picks one into its **Loadout**. Which **God** is offered is chosen by **weighted** draw among eligible **Gods** (all five in the **God catalog** while under the pool cap; only pool **Gods** when at cap): **God weapon affiliation** match with the seat’s equipped **Weapon type** → **1.5×** weight, else **1×**. Eligibility and the three options use that **God**'s remaining unowned **Boons** after excluding any **Boon** whose **Passive** has a **Weapon type** gate that does not match the seat’s equipped **Weapon**, and any **Boon** whose **Required Weapon type** does not match. A **God** is eligible only when that filtered pool has at least **3** keys. The three options are drawn **uniformly** among that filtered pool (weighting applies only to choosing the **God**, not to which three cards).
+_Avoid_: Mixed-god choice rows; picking more than one from a single offer; duplicate **Boon** keys in one seat's **Loadout**; uniform god draws that ignore **God weapon affiliation**.
 
 **Boon**:
-A combat unit on a **Player**'s **Loadout**. Every **Boon** belongs to exactly one **God**. A **Boon** has a catalog identity and must provide at least one of: a **fire effect** (damage, heal, or shield + **Cooldown** loop), or a **Passive**. Three valid shapes: **fire-only**, **Passive-only**, or **hybrid** (both). **Boons** do not have hit points. When a fire effect resolves: **damage** spends enemy **Shield** first then enemy **Life total** (floor 0); **heal** raises own **Life total** capped at that seat’s starting max (**300 + Vitality × 3**, or **300** without **Soul**); **shield** adds to own **Shield** buffer. **Passive**-only **Boons** never charge or fire.
-_Avoid_: Item (retired domain name for this concept); treating **Passive**-only as a non-**Boon** aura; requiring every **Boon** to fire; a **Boon** without a **God**.
+A combat unit on a **Player**'s **Loadout**. Every **Boon** belongs to exactly one **God**. A **Boon** has a catalog identity and must provide at least one of: a **fire effect** (damage, heal, or shield + **Cooldown** loop), or a **Passive**. Three valid shapes: **fire-only**, **Passive**-only, or **hybrid** (both). Optional **Required Weapon type** gates **Draft** eligibility (omit when the seat’s equipped **Weapon** does not match); it does not change combat resolution if the card is somehow already in a **Loadout**. **Boons** do not have hit points. When a fire effect resolves: **damage** spends enemy **Shield** first then enemy **Life total** (floor 0); **heal** raises own **Life total** capped at that seat’s starting max (**300 + Vitality × 3**, or **300** without **Soul**); **shield** adds to own **Shield** buffer. **Passive**-only **Boons** never charge or fire.
+_Avoid_: Item (retired domain name for this concept); treating **Passive**-only as a non-**Boon** aura; requiring every **Boon** to fire; a **Boon** without a **God**; using **Required Weapon type** as a mid-fight disable.
+
+**Required Weapon type**:
+Optional catalog field on a **Boon**. When set, that **Boon** is omitted from the seat’s **Boon offer** pool unless the seat’s equipped **Weapon** has that **Weapon type**. Distinct from a **Passive** carrier-seat **Weapon type** gate (which can also omit, and additionally makes the **Passive** inert when mismatched). Primary use: weapon-gated primary-fire cards (including **fire-only**) so same-DPS dial variants become distinct weapon fantasies. Omit the field for neutral / any-weapon cards.
+_Avoid_: Inferring the gate only from **God weapon affiliation** with no per-**Boon** field; requiring a **Passive** just to express a fire-card weapon gate.
 
 **Fire effect**:
 The damage, heal, or shield application a **Boon** performs when its **Cooldown** loop completes. Absent on **Passive**-only **Boons**.
@@ -159,12 +169,15 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 - Each fighting **Player** has one **Loadout** of **Boons** for a **Match**.
 - Every **Boon** belongs to exactly one **God**.
 - A **God** owns a fixed set of **Boons** (seven each in **God catalog (v1)**).
-- The **God catalog (v1)** has exactly five **Gods**: Hermes, Dynamite, Hygieia, Athena, Zeus.
+- The **God catalog (v1)** has exactly five **Gods**: Hermes, Ares, Apollo, Athena, Zeus.
+- Each **God** has exactly two **God weapon affiliation**s (each **Weapon type** appears on exactly two **Gods**).
 - Each fighting seat has one **God pool** for the current **Match** **Draft** (max **3** **Gods**); it resets when the **Match** ends.
 - A **Boon offer** presents 3 **Boons** from one **God**; the seat adds one pick to its **Loadout**.
+- Offered **God** is a **weighted** draw among eligible **Gods** (**1.5×** when the seat’s **Weapon type** matches a **God weapon affiliation**, else **1×**); the three options stay uniform on the filtered pool.
 - A **God** enters a seat's **God pool** when that seat accepts their first **Boon** from that **God**.
 - A **Boon** is **fire-only**, **Passive**-only, or **hybrid**; it must have a **fire effect**, a **Passive**, or both.
 - A **Boon** may carry at most one **Passive**.
+- A **Boon** may declare an optional **Required Weapon type** (Draft omit when mismatched).
 - Each **Passive** declares a seat target (**own**, **enemy**, or **both**), a **Boon** filter (**all**, and/or **effect kind**, and/or **God**, and/or **Weapon type** — AND when more than one is set; **Weapon type** gates on the carrier’s equipped **Weapon**), and one or more stat changes to **Cooldown** and/or **potency**.
 - Every fire-capable **Boon** in a **Loadout** charges in parallel on the shared **Match** clock; **Passive**-only slots do not schedule wakes. **effective Cooldown** / **effective potency** are recomputed on every wake and whenever **Passive** eligibility is re-evaluated (future condition triggers call that re-eval).
 - When **effective Cooldown** changes mid-charge, rewrite `nextReadyAt` by preserving charge progress fraction: `nextReadyAt = now + (1 − progress) × newEffectiveCooldown`.
@@ -184,21 +197,24 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 - **Equipment** (this slice): one **Weapon** slot; identity + light nudges; not a **Loadout** **Boon**.
 - **Weapon** pick: at **Match start**, simultaneous independent 1-of-3; must pick; Boon **Draft** waits on both; own visible once chosen; opponent fog until fight; Match-scoped clear on end/cancel.
 - **Weapon** light nudges: catalog fields on damage / fire-capable **Cooldown** / starting-max **Life** levers; apply **after Passive + Soul**; do not rewrite Soul panel numbers; keep magnitudes light. No linked fire on **Weapons** in this slice.
-- **Weapon type (v1):** **Sword**, **Axe**, **Wand**, **Bow**. Soft fantasy jobs only; every **Weapon** has one type.
-- **Weapon catalog (v1):** eight keys in `src/match/weaponCatalog.ts` (two per type): `steel_longsword`, `knight_blade` (Sword); `war_axe`, `stone_maul` (Axe); `elder_wand`, `crystal_staff` (Wand); `hunters_bow`, `swift_shortbow` (Bow). Light nudges only (still floor 500ms after all): `war_axe` **+10%** damage / **+4% Cooldown**; `stone_maul` **+8%** / **+5%**; `hunters_bow` **−6% Cooldown**; `swift_shortbow` **−5% Cooldown** / **+5%** damage; Sword/Wand rows per catalog (damage ±5–10%, CD ±5–10%, life +0–3 on Wands).
-- **Passive** filter may include optional **Weapon type** as a carrier-seat gate (AND with **effect kind** / **God**); omit = no weapon gate. No **Boon** weapon-affinity tags. Weapon-gated catalog **Passive**s (v1): `hermes_fleet_foot` (Sword · Hermes damage **−10% Cooldown**); `dynamite_scorched_earth` (Axe · Dynamite **+15%** potency); `hygieia_overflow` (Wand · heal **+3** flat potency); `hermes_stolen_seconds` (Bow · damage **−15% Cooldown**).
+- **Weapon type (v1):** **Sword**, **Axe**, **Wand**, **Bow**, **Spear**. Soft fantasy jobs only; every **Weapon** has one type.
+- **Weapon catalog (v1):** ten keys in `src/match/weaponCatalog.ts` (two per type): existing eight plus two **Spear** rows (names/nudges in that catalog build). Light nudges only (still floor 500ms after all).
+- **God weapon affiliation (v1):** Hermes **Spear**/**Sword**; Ares **Axe**/**Sword**; Apollo **Wand**/**Bow**; Athena **Axe**/**Spear**; Zeus **Wand**/**Bow**. Each type on exactly two **Gods**.
+- **Required Weapon type**: optional per-**Boon** Draft omit gate (fire-only allowed). Per **God**: two primary-fire cards gated to the two affiliations + one ungated primary-fire + four other cards; keep ≥**3** ungated offerable keys for mismatched **Weapon**s.
+- **Passive** filter may include optional **Weapon type** as a carrier-seat gate (AND with **effect kind** / **God**); omit = no weapon gate. Weapon-gated catalog **Passive**s retune with **Apollo** / **Spear** in the catalog build (prior Hygieia keys retired).
 - **Boons** do **not** rewrite **Soul stats** (Strength / Speed / Vitality on the panel or as a separate rewrite layer). Combat stacking stays Passive → Soul → Weapon.
-- Soft **Draft** guidance for **Weapon**: own **Weapon** plus at most one favor line from type — Sword → “Favors damage kits”; Axe → “Favors high-damage kits”; Wand → “Favors sustain / hybrid”; Bow → “Favors Hermes tempo”. No odds reweighting, no broad type bans, no offer-card highlights (same discipline as **Soul** soft guidance).
-- **Draft** eligibility (narrow): omit from a seat’s **Boon offer** pool any **Boon** whose **Passive** has a **Weapon type** gate that does not match that seat’s equipped **Weapon** (**Passive**-only and **hybrid**). **God** eligibility still requires ≥**3** keys in the filtered unowned pool; offer draws stay uniform on that pool. Not a **Boon** weapon-affinity tag system.
+- Soft **Draft** guidance for **Weapon**: own **Weapon** plus at most one favor line naming the two **Gods** affiliated with that **Weapon type** (e.g. Spear → “Favors Hermes, Athena”). No offer-card highlights.
+- **Draft** eligibility: omit from a seat’s **Boon offer** pool any **Boon** whose **Passive** has a mismatched **Weapon type** gate **or** whose **Required Weapon type** mismatches. **God** eligibility still requires ≥**3** keys in the filtered unowned pool; the three options stay uniform on that pool. Offered **God** uses **1.5×** weight for affiliation matches.
 - **Item** was renamed to **Boon**: same combat-unit concept; prefer **Boon** everywhere in domain language.
 - **God** is first-class (not a catalog tag only).
-- **God catalog (v1)**: Hermes, Dynamite, Hygieia, Athena, Zeus — 7 **Boons** each; retires the prior eight-key catalog. Authored table: `local/greek-gods/boon-catalog.md` (not inlined in this file).
+- **God catalog (v1)**: Hermes, Ares, Apollo, Athena, Zeus — 7 **Boons** each; **Hygieia** retired. Authored table: `local/greek-gods/boon-catalog.md` (not inlined in this file).
 - **Boon** definitions in that table are accepted for v1 (balance can tune later without renaming domain rules).
-- **Hygieia** / **Athena** sustain (v1): stacked heal + shield kits target **~55–70%** of mono damage throughput (full table in `local/greek-gods/boon-catalog.md`).
-- **Dynamite** is an intentional non-classical **God** name: god of **destruction** (slow/high-damage), not war/Ares.
+- **Apollo** / **Athena** sustain (v1): stacked heal + shield kits target **~55–70%** of mono damage throughput (full table in `local/greek-gods/boon-catalog.md`).
+- **Ares** is the god of **war** (slow, very high damage).
+- **Deploy (Hygieia→Apollo / Dynamite→Ares)**: before shipping schema/catalog cutovers, clear session-scoped match data — run `devTools:devClearAllSessionData` (dev) or **Match cancel** every live fight back to **Lobby**; no production migration in this prototype.
 - **God pool**: enters on first accepted **Boon** from that **God**; max 3; at cap offers only from pool **Gods**; resets when the **Match** ends.
 - **Draft** is a **Match** phase after both seats pick a **Weapon**, before the live fight (not a Lobby shop). Each seat picks exactly **5** **Boons**, then spends **Gold** on **Soul** bumps. Global phase stays `draft` through picking and spending.
-- A **Boon offer** is 3 **Boons** from one **God**; pick one. Offered **God** is uniform among eligible **Gods**; options uniform among that **God**'s unowned **Boons**.
+- A **Boon offer** is 3 **Boons** from one **God**; pick one. Offered **God** is weighted by **God weapon affiliation** among eligible **Gods**; options uniform among that **God**'s filtered unowned **Boons**.
 - **Draft** is simultaneous; opponent **Loadout** / offers / **God pool** / **Weapon** stay hidden until the fight starts.
 - **Boon** keys are unique per seat **Loadout**; already-picked keys are excluded from later offers.
 - No **Draft** pick timer or auto-pick in this slice; a finished seat waits on the other for picks and spend confirm.
@@ -254,7 +270,7 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 > **Domain expert:** "300 **Life total**, 0 **Shield**, every **Match** — **Vitality** can push higher."
 
 > **Dev:** "What **Boons** exist in the prototype?"
-> **Domain expert:** "Thirty-five — seven per **God** in the **God catalog (v1)**: Hermes, Dynamite, Hygieia, Athena, Zeus. Old spark/cannon keys are gone."
+> **Domain expert:** "Thirty-five — seven per **God** in the **God catalog (v1)**: Hermes, Ares, Apollo, Athena, Zeus. Old spark/cannon keys are gone."
 
 > **Dev:** "Does heal go above the baseline? Does shield stack?"
 > **Domain expert:** "Heal caps at that seat’s starting max **Life total** (**300 + Vitality × 3** with **Soul**, else **300**). Shield stacks by adding and only goes down when damage hits it."
@@ -303,9 +319,6 @@ When multiple **Boons** become ready at the same simulated instant, resolve usin
 
 > **Dev:** "Does the popover show catalog **Cooldown** or the hasted one?"
 > **Domain expert:** "**Effective** — same stacking math as the server. The bar already follows `nextReadyAt`; the label should not contradict it."
-
-> **Dev:** "Is **Dynamite** the god of war?"
-> **Domain expert:** "No — destruction. Slow, brutal damage — not Ares."
 
 > **Dev:** "When does the fight clock start?"
 > **Domain expert:** "After both seats finish **Draft**. **Match start** rolls **Soul**s, then **Weapon** pick (1 of 3), then **Draft** — the sim starts only when both finish drafting."

@@ -1,10 +1,11 @@
+import { includes } from 'lodash'
 import { describe, expect, it } from 'vitest'
 
 import { WEAPON_CATALOG, WEAPON_KEYS, WEAPON_TYPES, weaponsOfType } from './weaponCatalog'
 
 describe('WEAPON_CATALOG', () => {
-  it('has eight weapons with two per type', () => {
-    expect(WEAPON_KEYS).toHaveLength(8)
+  it('has ten weapons with two per type', () => {
+    expect(WEAPON_KEYS).toHaveLength(10)
     for (const weaponType of WEAPON_TYPES) {
       expect(weaponsOfType(weaponType)).toHaveLength(2)
     }

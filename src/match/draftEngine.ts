@@ -1,13 +1,22 @@
-import { filter, includes, map, uniq } from 'lodash'
+import { filter, includes, map, sum, uniq } from 'lodash'
 
-import { BOON_CATALOG, BOON_KEYS, GODS, boonsForGod, type BoonKey } from './itemCatalog'
+import {
+  BOON_CATALOG,
+  BOON_KEYS,
+  GODS,
+  boonsForGod,
+  isGodAffiliatedWithWeaponType,
+  type BoonKey,
+} from './itemCatalog'
 import { MATCH_GOLD_GRANT, ZERO_SOUL_BUMPS } from './soul'
-import type { God, PassiveFilter, SoulStats, WeaponType } from './types'
+import type { God, ItemDefinition, PassiveFilter, SoulStats, WeaponType } from './types'
 import { weaponDefinition } from './weaponCatalog'
 
 export const DRAFT_PICK_COUNT = 5
 export const GOD_POOL_MAX = 3
 export const OFFER_SIZE = 3
+export const AFFILIATED_GOD_OFFER_WEIGHT = 3
+export const UNAFFILIATED_GOD_OFFER_WEIGHT = 2
 
 export type BoonOffer = {
   god: God
@@ -66,13 +75,22 @@ function passiveFilterWeaponType(passiveFilter: PassiveFilter): WeaponType | und
 }
 
 function boonWeaponGateMismatch(boonKey: BoonKey, weaponKey: string): boolean {
-  const requiredWeaponType = passiveFilterWeaponType(
-    BOON_CATALOG[boonKey].passive?.filter ?? 'all',
-  )
-  if (requiredWeaponType === undefined) {
-    return false
+  const def: ItemDefinition = BOON_CATALOG[boonKey]
+  const equippedType = weaponDefinition(weaponKey)?.weaponType
+
+  const passiveRequiredWeaponType = passiveFilterWeaponType(def.passive?.filter ?? 'all')
+  if (
+    passiveRequiredWeaponType !== undefined &&
+    equippedType !== passiveRequiredWeaponType
+  ) {
+    return true
   }
-  return weaponDefinition(weaponKey)?.weaponType !== requiredWeaponType
+
+  if (def.requiredWeaponType !== undefined && equippedType !== def.requiredWeaponType) {
+    return true
+  }
+
+  return false
 }
 
 function unownedBoonsForGod(seat: DraftSeatState, god: God, weaponKey: string): BoonKey[] {
@@ -87,11 +105,45 @@ export function getEligibleGods(seat: DraftSeatState, weaponKey: string): God[] 
   return filter(candidateGods, (god) => unownedBoonsForGod(seat, god, weaponKey).length >= OFFER_SIZE)
 }
 
+export function godOfferWeight(god: God, weaponKey: string): number {
+  const weaponType = weaponDefinition(weaponKey)?.weaponType
+  if (weaponType === undefined) {
+    return UNAFFILIATED_GOD_OFFER_WEIGHT
+  }
+  return isGodAffiliatedWithWeaponType(god, weaponType)
+    ? AFFILIATED_GOD_OFFER_WEIGHT
+    : UNAFFILIATED_GOD_OFFER_WEIGHT
+}
+
 export function pickUniform<T>(items: readonly T[], rng: DraftRng): T {
   if (items.length === 0) {
     throw new Error('Cannot pick from an empty list')
   }
   return items[rng.int(items.length)]!
+}
+
+export function pickWeighted<T>(
+  items: readonly T[],
+  weightFn: (item: T) => number,
+  rng: DraftRng,
+): T {
+  if (items.length === 0) {
+    throw new Error('Cannot pick from an empty list')
+  }
+  const weights = map(items, weightFn)
+  const total = sum(weights)
+  if (total <= 0) {
+    throw new Error('Cannot pick from zero total weight')
+  }
+  let roll = rng.int(total)
+  for (let index = 0; index < items.length; index += 1) {
+    const weight = weights[index]!
+    if (roll < weight) {
+      return items[index]!
+    }
+    roll -= weight
+  }
+  return items[items.length - 1]!
 }
 
 export function sampleWithoutReplacement<T>(
@@ -122,7 +174,7 @@ export function generateOffer(
   if (eligibleGods.length === 0) {
     throw new Error('No eligible gods remain for this seat')
   }
-  const god = pickUniform(eligibleGods, rng)
+  const god = pickWeighted(eligibleGods, (candidate) => godOfferWeight(candidate, weaponKey), rng)
   const options = sampleWithoutReplacement(
     unownedBoonsForGod(seat, god, weaponKey),
     OFFER_SIZE,

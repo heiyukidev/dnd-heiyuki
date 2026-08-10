@@ -1,6 +1,7 @@
 import { get, includes } from 'lodash'
 
 import { createDraftRngFromRandom, sampleWithoutReplacement, type DraftRng } from './draftEngine'
+import { godsAffiliatedWithWeaponType } from './itemCatalog'
 import { MATCH_LIFE_CAP, startingLifeFromVitality } from './soul'
 import type { SoulStats, WeaponType } from './types'
 import { isWeaponKey, weaponDefinition, WEAPON_KEYS, WEAPON_TYPES } from './weaponCatalog'
@@ -36,18 +37,11 @@ export function weaponFavorLine(weaponTypeOrKey: WeaponType | string): string | 
     return null
   }
 
-  switch (weaponType) {
-    case 'Sword':
-      return 'Favors damage kits'
-    case 'Axe':
-      return 'Favors high-damage kits'
-    case 'Wand':
-      return 'Favors sustain / hybrid'
-    case 'Bow':
-      return 'Favors Hermes tempo'
-    default:
-      return null
+  const affiliatedGods = godsAffiliatedWithWeaponType(weaponType)
+  if (affiliatedGods.length === 0) {
+    return null
   }
+  return `Favors ${affiliatedGods.join(', ')}`
 }
 
 export function maxLifeForSeat(

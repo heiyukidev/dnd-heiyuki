@@ -17,10 +17,11 @@ const playPhase = v.union(
   v.literal('results'),
 )
 
+// God catalog renames (e.g. Dynamite→Ares, Hygieia→Apollo): clear session data first — see devTools:devClearAllSessionData.
 const godValidator = v.union(
   v.literal('Hermes'),
-  v.literal('Dynamite'),
-  v.literal('Hygieia'),
+  v.literal('Ares'),
+  v.literal('Apollo'),
   v.literal('Athena'),
   v.literal('Zeus'),
 )

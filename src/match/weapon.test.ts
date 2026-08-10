@@ -37,18 +37,20 @@ describe('isValidWeaponPick', () => {
 })
 
 describe('weaponFavorLine', () => {
-  it('returns favor copy from weapon type', () => {
-    expect(weaponFavorLine('Sword')).toBe('Favors damage kits')
-    expect(weaponFavorLine('Axe')).toBe('Favors high-damage kits')
-    expect(weaponFavorLine('Wand')).toBe('Favors sustain / hybrid')
-    expect(weaponFavorLine('Bow')).toBe('Favors Hermes tempo')
+  it('returns affiliated gods from weapon type', () => {
+    expect(weaponFavorLine('Spear')).toBe('Favors Hermes, Athena')
+    expect(weaponFavorLine('Sword')).toBe('Favors Hermes, Ares')
+    expect(weaponFavorLine('Axe')).toBe('Favors Ares, Athena')
+    expect(weaponFavorLine('Wand')).toBe('Favors Apollo, Zeus')
+    expect(weaponFavorLine('Bow')).toBe('Favors Apollo, Zeus')
   })
 
   it('resolves favor copy from catalog weapon keys', () => {
-    expect(weaponFavorLine('steel_longsword')).toBe('Favors damage kits')
-    expect(weaponFavorLine('war_axe')).toBe('Favors high-damage kits')
-    expect(weaponFavorLine('elder_wand')).toBe('Favors sustain / hybrid')
-    expect(weaponFavorLine('hunters_bow')).toBe('Favors Hermes tempo')
+    expect(weaponFavorLine('bronze_spear')).toBe('Favors Hermes, Athena')
+    expect(weaponFavorLine('steel_longsword')).toBe('Favors Hermes, Ares')
+    expect(weaponFavorLine('war_axe')).toBe('Favors Ares, Athena')
+    expect(weaponFavorLine('elder_wand')).toBe('Favors Apollo, Zeus')
+    expect(weaponFavorLine('hunters_bow')).toBe('Favors Apollo, Zeus')
   })
 
   it('returns null for unknown keys', () => {

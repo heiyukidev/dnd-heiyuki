@@ -19,7 +19,7 @@ import type { ItemEffect, MatchSeatState } from './types'
 
 function makeSeats(
   seat0Slots: string[],
-  seat1Slots: string[] = ['hermes_winged_needle', 'hygieia_soft_bandage', 'athena_aegis_chip'],
+  seat1Slots: string[] = ['hermes_winged_needle', 'apollo_sun_balm', 'athena_aegis_chip'],
 ): [MatchSeatState, MatchSeatState] {
   return [
     {
@@ -45,19 +45,19 @@ describe('loadoutSlotPresentation', () => {
     {
       effect: 'damage',
       potency: 5,
-      sentence: 'Deal 5 damage',
+      sentence: 'Deal 5.0 damage',
       kindColor: LOADOUT_EFFECT_KIND_COLORS.damage,
     },
     {
       effect: 'heal',
       potency: 5,
-      sentence: 'Heal 5',
+      sentence: 'Heal 5.0',
       kindColor: LOADOUT_EFFECT_KIND_COLORS.heal,
     },
     {
       effect: 'shield',
       potency: 6,
-      sentence: 'Gain 6 shield',
+      sentence: 'Gain 6.0 shield',
       kindColor: LOADOUT_EFFECT_KIND_COLORS.shield,
     },
   ]
@@ -71,9 +71,9 @@ describe('loadoutSlotPresentation', () => {
 
   const cooldownCases: { cooldownMs: number; line: string }[] = [
     { cooldownMs: 1_200, line: 'Cooldown 1.2s' },
-    { cooldownMs: 5_000, line: 'Cooldown 5s' },
-    { cooldownMs: 2_000, line: 'Cooldown 2s' },
-    { cooldownMs: 6_000, line: 'Cooldown 6s' },
+    { cooldownMs: 5_000, line: 'Cooldown 5.0s' },
+    { cooldownMs: 2_000, line: 'Cooldown 2.0s' },
+    { cooldownMs: 6_000, line: 'Cooldown 6.0s' },
   ]
 
   it('formats whole and fractional cooldown seconds', () => {
@@ -83,9 +83,9 @@ describe('loadoutSlotPresentation', () => {
   })
 
   const invalidCooldownCases: { cooldownMs: number; line: string }[] = [
-    { cooldownMs: Number.NaN, line: 'Cooldown 0s' },
-    { cooldownMs: Number.POSITIVE_INFINITY, line: 'Cooldown 0s' },
-    { cooldownMs: -500, line: 'Cooldown 0s' },
+    { cooldownMs: Number.NaN, line: 'Cooldown 0.0s' },
+    { cooldownMs: Number.POSITIVE_INFINITY, line: 'Cooldown 0.0s' },
+    { cooldownMs: -500, line: 'Cooldown 0.0s' },
   ]
 
   it('defaults invalid cooldown values to a safe line', () => {
@@ -105,29 +105,29 @@ describe('loadoutSlotPresentation', () => {
       itemKey: 'hermes_winged_needle',
       name: 'Winged Needle',
       effect: 'damage',
-      potency: 5,
-      cooldownLine: 'Cooldown 1.2s',
+      potency: 4,
+      cooldownLine: 'Cooldown 1.0s',
     },
     {
-      itemKey: 'dynamite_fuse_bomb',
-      name: 'Fuse Bomb',
+      itemKey: 'ares_blood_surge',
+      name: 'Blood Surge',
       effect: 'damage',
       potency: 22,
-      cooldownLine: 'Cooldown 5s',
+      cooldownLine: 'Cooldown 5.0s',
     },
     {
-      itemKey: 'hygieia_soft_bandage',
-      name: 'Soft Bandage',
+      itemKey: 'apollo_sun_balm',
+      name: 'Sun Balm',
       effect: 'heal',
       potency: 7,
-      cooldownLine: 'Cooldown 2s',
+      cooldownLine: 'Cooldown 2.0s',
     },
     {
-      itemKey: 'hygieia_restorative_hymn',
-      name: 'Restorative Hymn',
+      itemKey: 'apollo_healers_hand',
+      name: "Healer's Hand",
       effect: 'heal',
-      potency: 22,
-      cooldownLine: 'Cooldown 6s',
+      potency: 16,
+      cooldownLine: 'Cooldown 4.5s',
     },
     {
       itemKey: 'athena_aegis_chip',
@@ -137,23 +137,28 @@ describe('loadoutSlotPresentation', () => {
       cooldownLine: 'Cooldown 2.5s',
     },
     {
-      itemKey: 'athena_parthenon',
-      name: 'Parthenon',
+      itemKey: 'athena_tower_ward',
+      name: 'Tower Ward',
       effect: 'shield',
-      potency: 27,
-      cooldownLine: 'Cooldown 7s',
+      potency: 19,
+      cooldownLine: 'Cooldown 5.0s',
     },
   ]
 
   it('maps fire-only catalog items to face and popover fields with echoed potency', () => {
     map(catalogItemCases, ({ itemKey, name, effect, potency, cooldownLine }) => {
       const presentation = getLoadoutSlotPresentation(itemKey, ITEM_CATALOG)
+      const item = ITEM_CATALOG[itemKey]
+      const expectedSentence =
+        item.requiredWeaponType === undefined
+          ? formatEffectSentence(effect, potency)
+          : `${formatEffectSentence(effect, potency)} (${item.requiredWeaponType})`
       expect(presentation.name).toBe(name)
       expect(presentation.faceKind).toBe('fire')
       expect(presentation.showCooldownBar).toBe(true)
       expect(presentation.effect).toBe(effect)
       expect(presentation.potency).toBe(potency)
-      expect(presentation.effectSentence).toBe(formatEffectSentence(effect, potency))
+      expect(presentation.effectSentence).toBe(expectedSentence)
       expect(presentation.cooldownLine).toBe(cooldownLine)
       expect(presentation.effectiveCooldownMs).toBe(ITEM_CATALOG[itemKey].cooldownMs)
       expect(presentation.kindColor).toBe(getKindColor(effect))
@@ -178,7 +183,7 @@ describe('loadoutSlotPresentation', () => {
       effect: 'damage',
       potency: 0,
       effectSentence: 'Unknown boon',
-      cooldownLine: 'Cooldown 2s',
+      cooldownLine: 'Cooldown 2.0s',
       effectiveCooldownMs: 2_000,
     })
   })
@@ -190,30 +195,30 @@ describe('loadoutSlotPresentation', () => {
       faceKind: 'passive',
       kindColor: LOADOUT_PASSIVE_ACCENT_COLOR,
       showCooldownBar: false,
-      passiveCue: '−18% Hermes CD',
-      passiveSentence: 'Reduce your Hermes Boons Cooldown by 18%',
+      passiveCue: '−18.0% Hermes CD',
+      passiveSentence: 'Reduce your Hermes Boons Cooldown by 18.0%',
     })
   })
 
-  it('presents hybrid hygieia_vital_bloom with fire face and passive popover line', () => {
-    const presentation = getLoadoutSlotPresentation('hygieia_vital_bloom', ITEM_CATALOG)
+  it('presents hybrid apollo_vital_bloom with fire face and passive popover line', () => {
+    const presentation = getLoadoutSlotPresentation('apollo_vital_bloom', ITEM_CATALOG)
     expect(presentation.faceKind).toBe('fire')
     expect(presentation.showCooldownBar).toBe(true)
     expect(presentation.effect).toBe('heal')
     expect(presentation.potency).toBe(8)
-    expect(presentation.effectSentence).toBe('Heal 8')
+    expect(presentation.effectSentence).toBe('Heal 8.0')
     expect(presentation.cooldownLine).toBe('Cooldown 2.5s')
-    expect(presentation.passiveSentence).toBe('Grant +3 potency to your heal Boons')
+    expect(presentation.passiveSentence).toBe('Grant +3.0 potency to your heal Boons')
   })
 
   it('formats passive templates for god and effect filters', () => {
-    expect(formatPassiveCue(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe('−15% dmg Bow CD')
+    expect(formatPassiveCue(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe('−15.0% dmg Spear CD')
     expect(formatPassiveSentence(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe(
-      'Reduce your damage Bow Boons Cooldown by 15%',
+      'Reduce your damage Spear Boons Cooldown by 15.0%',
     )
-    expect(formatPassiveCue(ITEM_CATALOG.zeus_thunder_tyrant.passive!)).toBe('+15% dmg CD')
+    expect(formatPassiveCue(ITEM_CATALOG.zeus_thunder_tyrant.passive!)).toBe('+15.0% dmg CD')
     expect(formatPassiveSentence(ITEM_CATALOG.zeus_thunder_tyrant.passive!)).toBe(
-      'Increase enemy damage Boons Cooldown by 15%',
+      'Increase enemy damage Boons Cooldown by 15.0%',
     )
   })
 
@@ -224,10 +229,10 @@ describe('loadoutSlotPresentation', () => {
       catalog: ITEM_CATALOG,
       seat: 0,
       loadoutKeys: ['hermes_stolen_seconds'],
-      weaponKeys: ['hunters_bow', 'steel_longsword'],
+      weaponKeys: ['bronze_spear', 'steel_longsword'],
     })
-    expect(offer.choices[0]?.cooldownLine).toBe('Cooldown 0.959s')
-    expect(offer.choices[0]?.potency).toBe(5)
+    expect(offer.choices[0]?.cooldownLine).toBe('Cooldown 0.8s')
+    expect(offer.choices[0]?.potency).toBeCloseTo(4.16)
   })
 
   it('uses soul-adjusted stats in draft offer when soul is provided', () => {
@@ -239,8 +244,8 @@ describe('loadoutSlotPresentation', () => {
       loadoutKeys: [],
       souls: [{ strength: 2, speed: 3, vitality: 1 }, { strength: 0, speed: 0, vitality: 0 }],
     })
-    expect(offer.choices[0]?.potency).toBeCloseTo(5.6)
-    expect(offer.choices[0]?.cooldownLine).toBe('Cooldown 1.128s')
+    expect(offer.choices[0]?.potency).toBeCloseTo(4.48)
+    expect(offer.choices[0]?.cooldownLine).toBe('Cooldown 0.9s')
   })
 
   it('builds draft offer presentation with god label and three choices', () => {
@@ -260,7 +265,7 @@ describe('loadoutSlotPresentation', () => {
     const seats = makeSeats([
       'hermes_stolen_seconds',
       'hermes_winged_needle',
-      'hygieia_soft_bandage',
+      'apollo_sun_balm',
     ])
     const presentation = getLoadoutSlotPresentationForMatch({
       itemKey: 'hermes_winged_needle',
@@ -268,31 +273,31 @@ describe('loadoutSlotPresentation', () => {
       seats,
       seat: 0,
       slotIndex: 1,
-      weaponKeys: ['hunters_bow', 'steel_longsword'],
+      weaponKeys: ['bronze_spear', 'steel_longsword'],
     })
-    expect(presentation.potency).toBe(5)
-    expect(presentation.cooldownLine).toBe('Cooldown 0.959s')
-    expect(presentation.effectiveCooldownMs).toBe(958.8)
+    expect(presentation.potency).toBeCloseTo(4.16)
+    expect(presentation.cooldownLine).toBe('Cooldown 0.8s')
+    expect(presentation.effectiveCooldownMs).toBe(807.5)
   })
 
   it('uses effective potency when vital bloom is in the same loadout', () => {
-    const seats = makeSeats(['hygieia_vital_bloom', 'hygieia_soft_bandage', 'hermes_winged_needle'])
+    const seats = makeSeats(['apollo_vital_bloom', 'apollo_sun_balm', 'hermes_winged_needle'])
     const presentation = getLoadoutSlotPresentationForMatch({
-      itemKey: 'hygieia_soft_bandage',
+      itemKey: 'apollo_sun_balm',
       catalog: ITEM_CATALOG,
       seats,
       seat: 0,
       slotIndex: 1,
     })
     expect(presentation.potency).toBe(10)
-    expect(presentation.effectSentence).toBe('Heal 10')
-    expect(presentation.cooldownLine).toBe('Cooldown 2s')
+    expect(presentation.effectSentence).toBe('Heal 10.0 (Wand)')
+    expect(presentation.cooldownLine).toBe('Cooldown 2.0s')
   })
 
   it('applies opposing-seat passives when seat target is enemy', () => {
     const seats = makeSeats(
-      ['hermes_winged_needle', 'hygieia_soft_bandage', 'athena_aegis_chip'],
-      ['zeus_thunder_tyrant', 'hygieia_restorative_hymn', 'athena_parthenon'],
+      ['hermes_winged_needle', 'apollo_sun_balm', 'athena_aegis_chip'],
+      ['zeus_thunder_tyrant', 'apollo_paean', 'athena_parthenon'],
     )
     const presentation = getLoadoutSlotPresentationForMatch({
       itemKey: 'hermes_winged_needle',
@@ -301,12 +306,12 @@ describe('loadoutSlotPresentation', () => {
       seat: 0,
       slotIndex: 0,
     })
-    expect(presentation.cooldownLine).toBe('Cooldown 1.38s')
-    expect(presentation.effectiveCooldownMs).toBe(1_380)
+    expect(presentation.cooldownLine).toBe('Cooldown 1.1s')
+    expect(presentation.effectiveCooldownMs).toBe(1_150)
   })
 
   it('keeps base stats for match presentation when no passives apply', () => {
-    const seats = makeSeats(['hermes_winged_needle', 'hygieia_soft_bandage', 'athena_aegis_chip'])
+    const seats = makeSeats(['hermes_winged_needle', 'apollo_sun_balm', 'athena_aegis_chip'])
     const presentation = getLoadoutSlotPresentationForMatch({
       itemKey: 'hermes_winged_needle',
       catalog: ITEM_CATALOG,

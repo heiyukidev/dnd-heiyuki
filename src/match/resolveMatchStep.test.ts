@@ -22,7 +22,7 @@ function dualSeats(a: MatchSeatState, b: MatchSeatState): [MatchSeatState, Match
   return [a, b]
 }
 
-const BOW_AT_SEAT_0: [string, string] = ['hunters_bow', 'steel_longsword']
+const SPEAR_AT_SEAT_0: [string, string] = ['bronze_spear', 'steel_longsword']
 
 function seededAtMatchStart(
   matchStartedAt: number,
@@ -51,13 +51,13 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 0, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 5 },
+      { seat: 0, slotIndex: 0, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4 },
     ])
-    expect(result.seats[1].life).toBe(95)
-    expect(result.seats[0].slots[0].nextReadyAt).toBe(t + 1_200)
+    expect(result.seats[1].life).toBe(96)
+    expect(result.seats[0].slots[0].nextReadyAt).toBe(t + 1_000)
     expect(result.animationHints).toEqual([{ kind: 'damage', seat: 0, slotIndex: 0 }])
     expect(result.outcome).toEqual({ type: 'continue' })
-    expect(result.nextWakeAt).toBe(t + 1_200)
+    expect(result.nextWakeAt).toBe(t + 1_000)
   })
 
   it('orders same-timestamp fires by seat resolve order then slot index', () => {
@@ -66,9 +66,9 @@ describe('resolveMatchStep', () => {
     const seats = dualSeats(
       seat(100, 0, [
         { itemKey: 'hermes_winged_needle', nextReadyAt: t },
-        { itemKey: 'dynamite_fuse_bomb', nextReadyAt: t },
+        { itemKey: 'ares_blood_surge', nextReadyAt: t },
       ]),
-      seat(100, 0, [{ itemKey: 'hygieia_soft_bandage', nextReadyAt: t }]),
+      seat(100, 0, [{ itemKey: 'apollo_sun_balm', nextReadyAt: t }]),
     )
     const hostFirst = resolveMatchStep({
       seats: cloneDeep(seats),
@@ -79,8 +79,8 @@ describe('resolveMatchStep', () => {
     })
     expect(map(hostFirst.fires, (f) => `${f.seat}:${f.slotIndex}:${f.itemKey}`)).toEqual([
       '0:0:hermes_winged_needle',
-      '0:1:dynamite_fuse_bomb',
-      '1:0:hygieia_soft_bandage',
+      '0:1:ares_blood_surge',
+      '1:0:apollo_sun_balm',
     ])
 
     const guestFirst = resolveMatchStep({
@@ -91,16 +91,16 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
     })
     expect(map(guestFirst.fires, (f) => `${f.seat}:${f.slotIndex}:${f.itemKey}`)).toEqual([
-      '1:0:hygieia_soft_bandage',
+      '1:0:apollo_sun_balm',
       '0:0:hermes_winged_needle',
-      '0:1:dynamite_fuse_bomb',
+      '0:1:ares_blood_surge',
     ])
   })
 
   it('applies damage through shield before life', () => {
     const t = 5_000
     const seats = dualSeats(
-      seat(100, 0, [{ itemKey: 'dynamite_fuse_bomb', nextReadyAt: t }]),
+      seat(100, 0, [{ itemKey: 'ares_blood_surge', nextReadyAt: t }]),
       seat(100, 10, [{ itemKey: 'athena_aegis_chip', nextReadyAt: t + 99_000 }]),
     )
     const result = resolveMatchStep({
@@ -117,7 +117,7 @@ describe('resolveMatchStep', () => {
   it('caps heal at match life cap', () => {
     const t = 2_500
     const seats = dualSeats(
-      seat(MATCH_LIFE_CAP - 3, 0, [{ itemKey: 'hygieia_soft_bandage', nextReadyAt: t }]),
+      seat(MATCH_LIFE_CAP - 3, 0, [{ itemKey: 'apollo_sun_balm', nextReadyAt: t }]),
       seat(100, 0, [{ itemKey: 'hermes_winged_needle', nextReadyAt: t + 99_000 }]),
     )
     const result = resolveMatchStep({
@@ -149,7 +149,7 @@ describe('resolveMatchStep', () => {
   it('declares winner when one seat reaches 0 life', () => {
     const t = 2_000
     const seats = dualSeats(
-      seat(100, 0, [{ itemKey: 'dynamite_fuse_bomb', nextReadyAt: t }]),
+      seat(100, 0, [{ itemKey: 'ares_blood_surge', nextReadyAt: t }]),
       seat(10, 0, [{ itemKey: 'athena_aegis_chip', nextReadyAt: t + 99_000 }]),
     )
     const result = resolveMatchStep({
@@ -167,8 +167,8 @@ describe('resolveMatchStep', () => {
   it('draws on mutual kill at the same instant', () => {
     const t = 4_500
     const seats = dualSeats(
-      seat(10, 0, [{ itemKey: 'dynamite_fuse_bomb', nextReadyAt: t }]),
-      seat(10, 0, [{ itemKey: 'dynamite_fuse_bomb', nextReadyAt: t }]),
+      seat(10, 0, [{ itemKey: 'ares_blood_surge', nextReadyAt: t }]),
+      seat(10, 0, [{ itemKey: 'ares_blood_surge', nextReadyAt: t }]),
     )
     const result = resolveMatchStep({
       seats,
@@ -185,8 +185,8 @@ describe('resolveMatchStep', () => {
   it('does not resurrect via same-tick heal after lethal damage', () => {
     const t = 3_000
     const seats = dualSeats(
-      seat(100, 0, [{ itemKey: 'dynamite_fuse_bomb', nextReadyAt: t }]),
-      seat(10, 0, [{ itemKey: 'hygieia_soft_bandage', nextReadyAt: t }]),
+      seat(100, 0, [{ itemKey: 'ares_blood_surge', nextReadyAt: t }]),
+      seat(10, 0, [{ itemKey: 'apollo_sun_balm', nextReadyAt: t }]),
     )
     const result = resolveMatchStep({
       seats,
@@ -204,10 +204,10 @@ describe('resolveMatchStep', () => {
     const t = 4_000
     const seats = dualSeats(
       seat(10, 0, [
-        { itemKey: 'dynamite_fuse_bomb', nextReadyAt: t },
-        { itemKey: 'hygieia_soft_bandage', nextReadyAt: t },
+        { itemKey: 'ares_blood_surge', nextReadyAt: t },
+        { itemKey: 'apollo_sun_balm', nextReadyAt: t },
       ]),
-      seat(10, 0, [{ itemKey: 'dynamite_fuse_bomb', nextReadyAt: t }]),
+      seat(10, 0, [{ itemKey: 'ares_blood_surge', nextReadyAt: t }]),
     )
     const result = resolveMatchStep({
       seats,
@@ -265,8 +265,8 @@ describe('resolveMatchStep', () => {
     const matchStartedAt = 100
     const t = matchStartedAt + DEFAULT_MATCH_TIME_CAP_MS
     const seats = dualSeats(
-      seat(55, 20, [{ itemKey: 'hygieia_restorative_hymn', nextReadyAt: t }]),
-      seat(55, 0, [{ itemKey: 'athena_parthenon', nextReadyAt: t }]),
+      seat(55, 20, [{ itemKey: 'apollo_healers_hand', nextReadyAt: t }]),
+      seat(55, 0, [{ itemKey: 'athena_tower_ward', nextReadyAt: t }]),
     )
     const result = resolveMatchStep({
       seats,
@@ -285,7 +285,7 @@ describe('resolveMatchStep', () => {
     const seats = dualSeats(
       seat(100, 0, [
         { itemKey: 'hermes_winged_needle', nextReadyAt: t },
-        { itemKey: 'dynamite_fuse_bomb', nextReadyAt: 10_000 },
+        { itemKey: 'ares_blood_surge', nextReadyAt: 10_000 },
       ]),
       seat(100, 0, [{ itemKey: 'athena_aegis_chip', nextReadyAt: 7_000 }]),
     )
@@ -296,8 +296,8 @@ describe('resolveMatchStep', () => {
       catalog: ITEM_CATALOG,
       matchStartedAt,
     })
-    expect(result.seats[0].slots[0].nextReadyAt).toBe(t + 1_200)
-    expect(result.nextWakeAt).toBe(t + 1_200)
+    expect(result.seats[0].slots[0].nextReadyAt).toBe(t + 1_000)
+    expect(result.nextWakeAt).toBe(t + 1_000)
   })
 
   it('selects time cap as next wake when it is sooner than refreshed ready times', () => {
@@ -324,21 +324,21 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
       seat(100, 0, [
         { itemKey: 'hermes_winged_needle' },
-        { itemKey: 'hygieia_soft_bandage' },
+        { itemKey: 'apollo_sun_balm' },
         { itemKey: 'athena_aegis_chip' },
       ]),
       seat(100, 0, [
-        { itemKey: 'dynamite_fuse_bomb' },
-        { itemKey: 'hygieia_restorative_hymn' },
-        { itemKey: 'athena_parthenon' },
+        { itemKey: 'ares_blood_surge' },
+        { itemKey: 'zeus_thunderclap' },
+        { itemKey: 'athena_tower_ward' },
       ]),
     )
-    expect(seats[0].slots[0].nextReadyAt).toBe(matchStartedAt + 1_200)
+    expect(seats[0].slots[0].nextReadyAt).toBe(matchStartedAt + 1_000)
     expect(seats[0].slots[1].nextReadyAt).toBe(matchStartedAt + 2_000)
     expect(seats[0].slots[2].nextReadyAt).toBe(matchStartedAt + 2_500)
-    expect(earliestWakeAt(seats, matchStartedAt)).toBe(matchStartedAt + 1_200)
+    expect(earliestWakeAt(seats, matchStartedAt)).toBe(matchStartedAt + 1_000)
 
-    const t = matchStartedAt + 1_200
+    const t = matchStartedAt + 1_000
     const result = resolveMatchStep({
       seats: cloneDeep(seats),
       t,
@@ -347,10 +347,10 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 0, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 5 },
+      { seat: 0, slotIndex: 0, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4 },
     ])
-    expect(result.seats[0].slots[0].nextReadyAt).toBe(t + 1_200)
-    expect(result.seats[0].slots[0].lastChargeCooldownMs).toBe(1_200)
+    expect(result.seats[0].slots[0].nextReadyAt).toBe(t + 1_000)
+    expect(result.seats[0].slots[0].lastChargeCooldownMs).toBe(1_000)
     expect(result.nextWakeAt).toBe(matchStartedAt + 2_000)
   })
 
@@ -360,35 +360,35 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
       seat(100, 0, [{ itemKey: 'hermes_stolen_seconds' }, { itemKey: 'hermes_winged_needle' }]),
       seat(100, 0, [{ itemKey: 'athena_aegis_chip' }]),
-      BOW_AT_SEAT_0,
+      SPEAR_AT_SEAT_0,
     )
-    expect(seats[0].slots[1].nextReadyAt).toBe(matchStartedAt + 958.8)
-    expect(seats[0].slots[1].lastChargeCooldownMs).toBe(958.8)
-    expect(earliestWakeAt(seats, matchStartedAt)).toBe(matchStartedAt + 958.8)
+    expect(seats[0].slots[1].nextReadyAt).toBe(matchStartedAt + 807.5)
+    expect(seats[0].slots[1].lastChargeCooldownMs).toBe(807.5)
+    expect(earliestWakeAt(seats, matchStartedAt)).toBe(matchStartedAt + 807.5)
 
-    const t = matchStartedAt + 958.8
+    const t = matchStartedAt + 807.5
     const result = resolveMatchStep({
       seats: cloneDeep(seats),
       t,
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
-      weaponKeys: BOW_AT_SEAT_0,
+      weaponKeys: SPEAR_AT_SEAT_0,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 1, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 5 },
+      { seat: 0, slotIndex: 1, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4.16 },
     ])
-    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 958.8)
-    expect(result.nextWakeAt).toBe(t + 958.8)
+    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 807.5)
+    expect(result.nextWakeAt).toBe(t + 807.5)
   })
 
   it('shortens own-seat damage recharge when stolen seconds is present', () => {
     const matchStartedAt = 0
-    const t = 1_200
+    const t = 1_000
     const seats = dualSeats(
       seat(100, 0, [
         { itemKey: 'hermes_stolen_seconds' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: t, lastChargeCooldownMs: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: t, lastChargeCooldownMs: 1_000 },
       ]),
       seat(100, 0, [{ itemKey: 'athena_aegis_chip', nextReadyAt: t + 99_000 }]),
     )
@@ -398,14 +398,14 @@ describe('resolveMatchStep', () => {
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
-      weaponKeys: BOW_AT_SEAT_0,
+      weaponKeys: SPEAR_AT_SEAT_0,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 1, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 5 },
+      { seat: 0, slotIndex: 1, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4.16 },
     ])
-    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 958.8)
-    expect(result.seats[0].slots[1].lastChargeCooldownMs).toBe(958.8)
-    expect(result.nextWakeAt).toBe(t + 958.8)
+    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 807.5)
+    expect(result.seats[0].slots[1].lastChargeCooldownMs).toBe(807.5)
+    expect(result.nextWakeAt).toBe(t + 807.5)
   })
 
   it('buffs own-seat heal potency with vital bloom including self', () => {
@@ -413,8 +413,8 @@ describe('resolveMatchStep', () => {
     const t = 2_500
     const seats = dualSeats(
       seat(90, 0, [
-        { itemKey: 'hygieia_vital_bloom', nextReadyAt: t, lastChargeCooldownMs: 2_500 },
-        { itemKey: 'hygieia_soft_bandage', nextReadyAt: t + 99_000 },
+        { itemKey: 'apollo_vital_bloom', nextReadyAt: t, lastChargeCooldownMs: 2_500 },
+        { itemKey: 'apollo_sun_balm', nextReadyAt: t + 99_000 },
       ]),
       seat(100, 0, [{ itemKey: 'hermes_winged_needle', nextReadyAt: t + 99_000 }]),
     )
@@ -426,7 +426,7 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 0, itemKey: 'hygieia_vital_bloom', effect: 'heal', potency: 11 },
+      { seat: 0, slotIndex: 0, itemKey: 'apollo_vital_bloom', effect: 'heal', potency: 11 },
     ])
     expect(result.seats[0].life).toBe(101)
     expect(result.seats[0].slots[0].nextReadyAt).toBe(t + 2_500)
@@ -437,8 +437,8 @@ describe('resolveMatchStep', () => {
     const t = 2_000
     const seats = dualSeats(
       seat(90, 0, [
-        { itemKey: 'hygieia_vital_bloom', nextReadyAt: t + 99_000 },
-        { itemKey: 'hygieia_soft_bandage', nextReadyAt: t, lastChargeCooldownMs: 2_000 },
+        { itemKey: 'apollo_vital_bloom', nextReadyAt: t + 99_000 },
+        { itemKey: 'apollo_sun_balm', nextReadyAt: t, lastChargeCooldownMs: 2_000 },
       ]),
       seat(100, 0, [{ itemKey: 'hermes_winged_needle', nextReadyAt: t + 99_000 }]),
     )
@@ -450,7 +450,7 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 1, itemKey: 'hygieia_soft_bandage', effect: 'heal', potency: 10 },
+      { seat: 0, slotIndex: 1, itemKey: 'apollo_sun_balm', effect: 'heal', potency: 10 },
     ])
     expect(result.seats[0].life).toBe(100)
   })
@@ -462,7 +462,7 @@ describe('resolveMatchStep', () => {
       seat(100, 0, [
         { itemKey: 'hermes_stolen_seconds' },
         { itemKey: 'hermes_stolen_seconds' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: t, lastChargeCooldownMs: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: t, lastChargeCooldownMs: 1_000 },
       ]),
       seat(100, 0, [{ itemKey: 'hermes_stolen_seconds' }]),
     )
@@ -472,10 +472,10 @@ describe('resolveMatchStep', () => {
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
-      weaponKeys: BOW_AT_SEAT_0,
+      weaponKeys: SPEAR_AT_SEAT_0,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 2, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 5 },
+      { seat: 0, slotIndex: 2, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4.16 },
     ])
     expect(result.animationHints).toEqual([{ kind: 'damage', seat: 0, slotIndex: 2 }])
     expect(result.seats[0].slots[0].nextReadyAt).toBeUndefined()
@@ -490,7 +490,7 @@ describe('resolveMatchStep', () => {
         { itemKey: 'hermes_stolen_seconds' },
         { itemKey: 'hermes_stolen_seconds' },
         { itemKey: 'hermes_stolen_seconds' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: t, lastChargeCooldownMs: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: t, lastChargeCooldownMs: 1_000 },
       ]),
       seat(100, 0, [{ itemKey: 'athena_aegis_chip', nextReadyAt: t + 99_000 }]),
     )
@@ -500,10 +500,10 @@ describe('resolveMatchStep', () => {
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
-      weaponKeys: BOW_AT_SEAT_0,
+      weaponKeys: SPEAR_AT_SEAT_0,
     })
-    expect(result.seats[0].slots[3].nextReadyAt).toBe(t + 620.4)
-    expect(result.seats[0].slots[3].lastChargeCooldownMs).toBeCloseTo(620.4)
+    expect(result.seats[0].slots[3].nextReadyAt).toBe(t + 522.5)
+    expect(result.seats[0].slots[3].lastChargeCooldownMs).toBeCloseTo(522.5)
   })
 
   it('floors stacked haste at 500ms effective cooldown', () => {
@@ -516,7 +516,7 @@ describe('resolveMatchStep', () => {
         { itemKey: 'hermes_stolen_seconds' },
         { itemKey: 'hermes_stolen_seconds' },
         { itemKey: 'hermes_stolen_seconds' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: t, lastChargeCooldownMs: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: t, lastChargeCooldownMs: 1_000 },
       ]),
       seat(100, 0, [{ itemKey: 'athena_aegis_chip', nextReadyAt: t + 99_000 }]),
     )
@@ -526,7 +526,7 @@ describe('resolveMatchStep', () => {
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
-      weaponKeys: BOW_AT_SEAT_0,
+      weaponKeys: SPEAR_AT_SEAT_0,
     })
     expect(result.seats[0].slots[5].lastChargeCooldownMs).toBe(MIN_EFFECTIVE_COOLDOWN_MS)
     expect(result.seats[0].slots[5].nextReadyAt).toBe(t + MIN_EFFECTIVE_COOLDOWN_MS)
@@ -538,7 +538,7 @@ describe('resolveMatchStep', () => {
     const afterFire = resolveMatchStep({
       seats: dualSeats(
         seat(100, 0, [
-          { itemKey: 'hermes_winged_needle', nextReadyAt: tFire, lastChargeCooldownMs: 1_200 },
+          { itemKey: 'hermes_winged_needle', nextReadyAt: tFire, lastChargeCooldownMs: 1_000 },
         ]),
         seat(100, 0, [{ itemKey: 'athena_aegis_chip', nextReadyAt: tFire + 99_000 }]),
       ),
@@ -547,7 +547,7 @@ describe('resolveMatchStep', () => {
       catalog: ITEM_CATALOG,
       matchStartedAt,
     })
-    expect(afterFire.seats[0].slots[0].nextReadyAt).toBe(2_200)
+    expect(afterFire.seats[0].slots[0].nextReadyAt).toBe(2_000)
 
     const tReEval = 1_500
     const seatsWithCharm = dualSeats(
@@ -567,23 +567,23 @@ describe('resolveMatchStep', () => {
       seatResolveOrder: [0, 1],
       catalog: ITEM_CATALOG,
       matchStartedAt,
-      weaponKeys: BOW_AT_SEAT_0,
+      weaponKeys: SPEAR_AT_SEAT_0,
     })
     expect(reEvalResult.fires).toEqual([])
-    expect(reEvalResult.seats[0].slots[1].nextReadyAt).toBe(2_059.3)
-    expect(reEvalResult.seats[0].slots[1].lastChargeCooldownMs).toBe(958.8)
+    expect(reEvalResult.seats[0].slots[1].nextReadyAt).toBe(1_903.75)
+    expect(reEvalResult.seats[0].slots[1].lastChargeCooldownMs).toBe(807.5)
   })
 
   it('exposes reEvalFireCapableSlotSchedules for explicit prior-effective overrides', () => {
     const now = 1_000
     const seats = dualSeats(
       seat(100, 0, [
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 2_000, lastChargeCooldownMs: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 2_000, lastChargeCooldownMs: 1_000 },
       ]),
       seat(100, 0, []),
     )
     reEvalFireCapableSlotSchedules(seats, now, ITEM_CATALOG, [
-      [{ cooldownMs: 1_200, potency: 5 }],
+      [{ cooldownMs: 1_000, potency: 4 }],
       [],
     ])
     expect(seats[0].slots[0].nextReadyAt).toBe(2_000)
@@ -591,7 +591,7 @@ describe('resolveMatchStep', () => {
     const seatsWithCharm = dualSeats(
       seat(100, 0, [
         { itemKey: 'hermes_stolen_seconds' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 2_000, lastChargeCooldownMs: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 2_000, lastChargeCooldownMs: 1_000 },
       ]),
       seat(100, 0, []),
     )
@@ -599,12 +599,12 @@ describe('resolveMatchStep', () => {
       seatsWithCharm,
       now,
       ITEM_CATALOG,
-      [[{}, { cooldownMs: 1_200, potency: 5 }], []],
+      [[{}, { cooldownMs: 1_000, potency: 4 }], []],
       undefined,
-      BOW_AT_SEAT_0,
+      SPEAR_AT_SEAT_0,
     )
-    expect(seatsWithCharm[0].slots[1].nextReadyAt).toBe(1_799)
-    expect(seatsWithCharm[0].slots[1].lastChargeCooldownMs).toBe(958.8)
+    expect(seatsWithCharm[0].slots[1].nextReadyAt).toBe(1_807.5)
+    expect(seatsWithCharm[0].slots[1].lastChargeCooldownMs).toBe(807.5)
   })
 
   it('ignores passive-only slots when scheduling next wake', () => {
@@ -633,9 +633,9 @@ describe('resolveMatchStep', () => {
     const matchStartedAt = 0
     const t = 5_000
     const seats = dualSeats(
-      seat(100, 0, [{ itemKey: 'dynamite_fuse_bomb', nextReadyAt: t }]),
+      seat(100, 0, [{ itemKey: 'ares_blood_surge', nextReadyAt: t }]),
       seat(100, 0, [
-        { itemKey: 'hygieia_soft_bandage', nextReadyAt: t + 99_000 },
+        { itemKey: 'apollo_sun_balm', nextReadyAt: t + 99_000 },
         { itemKey: 'athena_aegis_chip', nextReadyAt: t + 99_000 },
         { itemKey: 'zeus_spark_arc', nextReadyAt: t + 99_000 },
       ]),
@@ -648,7 +648,7 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 0, itemKey: 'dynamite_fuse_bomb', effect: 'damage', potency: 22 },
+      { seat: 0, slotIndex: 0, itemKey: 'ares_blood_surge', effect: 'damage', potency: 22 },
     ])
     expect(result.seats[1].life).toBe(78)
   })
@@ -672,8 +672,8 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
       souls,
     })
-    expect(result.fires[0]?.potency).toBeCloseTo(5.9)
-    expect(result.seats[1].life).toBeCloseTo(94.1)
+    expect(result.fires[0]?.potency).toBeCloseTo(4.72)
+    expect(result.seats[1].life).toBeCloseTo(95.28)
   })
 
   it('caps heal at the seat max life from Vitality', () => {
@@ -685,7 +685,7 @@ describe('resolveMatchStep', () => {
     ]
     const t = 5_000
     const seats = dualSeats(
-      seat(startingLife - 5, 0, [{ itemKey: 'hygieia_soft_bandage', nextReadyAt: t }]),
+      seat(startingLife - 5, 0, [{ itemKey: 'apollo_sun_balm', nextReadyAt: t }]),
       seat(100, 0, []),
     )
     const result = resolveMatchStep({

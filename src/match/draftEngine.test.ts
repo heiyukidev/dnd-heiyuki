@@ -2,12 +2,14 @@ import { includes } from 'lodash'
 import { describe, expect, it } from 'vitest'
 
 import {
+  AFFILIATED_GOD_OFFER_WEIGHT,
   applyPick,
   createSeededDraftRng,
   DRAFT_PICK_COUNT,
   generateOffer,
   getEligibleGods,
   getSeatWaitingReason,
+  godOfferWeight,
   GOD_POOL_MAX,
   initializeDraftSeat,
   initializeDraftState,
@@ -15,6 +17,8 @@ import {
   isSeatDraftComplete,
   isSeatWaitingForOpponent,
   OFFER_SIZE,
+  pickWeighted,
+  UNAFFILIATED_GOD_OFFER_WEIGHT,
   type DraftRng,
   type DraftSeatState,
 } from './draftEngine'
@@ -25,17 +29,42 @@ const BOW_WEAPON_KEY = 'hunters_bow'
 const WAND_WEAPON_KEY = 'elder_wand'
 const SWORD_WEAPON_KEY = 'steel_longsword'
 const AXE_WEAPON_KEY = 'war_axe'
+const SPEAR_WEAPON_KEY = 'bronze_spear'
 
 const BOW_MISMATCH_GATES = [
-  'hygieia_overflow',
-  'dynamite_scorched_earth',
+  'apollo_radiant_overflow',
+  'apollo_sun_balm',
+  'ares_war_ground',
   'hermes_fleet_foot',
+  'hermes_stolen_seconds',
+  'hermes_winged_needle',
+  'zeus_spark_arc',
 ] as const satisfies readonly BoonKey[]
 
 const WAND_MISMATCH_GATES = [
-  'hermes_stolen_seconds',
+  'apollo_purifying_light',
+  'ares_blood_surge',
+  'ares_siege_break',
+  'ares_war_ground',
+  'athena_aegis_chip',
+  'athena_bronze_guard',
+  'hermes_dash_cut',
   'hermes_fleet_foot',
-  'dynamite_scorched_earth',
+  'hermes_stolen_seconds',
+  'hermes_winged_needle',
+  'zeus_chain_bolt',
+] as const satisfies readonly BoonKey[]
+
+const SPEAR_REQUIRED_KEYS = [
+  'hermes_winged_needle',
+  'athena_aegis_chip',
+] as const satisfies readonly BoonKey[]
+
+const AXE_HERMES_MISMATCH_GATES = [
+  'hermes_winged_needle',
+  'hermes_stolen_seconds',
+  'hermes_dash_cut',
+  'hermes_fleet_foot',
 ] as const satisfies readonly BoonKey[]
 
 function collectDraftOfferOptions(weaponKey: string, startSeed: number, seedCount: number): BoonKey[] {
@@ -78,29 +107,29 @@ describe('draftEngine', () => {
     expect(seat.currentOffer?.options).toHaveLength(OFFER_SIZE)
   })
 
-  it('chooses uniformly among all gods while under the god pool cap', () => {
+  it('chooses among all gods while under the god pool cap', () => {
     const seat: DraftSeatState = { loadoutKeys: [], godPool: [], currentOffer: null }
     expect(getEligibleGods(seat, DEFAULT_WEAPON_KEY)).toEqual([...GODS])
   })
 
   it('restricts offers to the god pool once three gods are committed', () => {
     const seat: DraftSeatState = {
-      loadoutKeys: ['hermes_winged_needle', 'dynamite_fuse_bomb', 'hygieia_soft_bandage'],
-      godPool: ['Hermes', 'Dynamite', 'Hygieia'],
+      loadoutKeys: ['hermes_winged_needle', 'ares_blood_surge', 'apollo_sun_balm'],
+      godPool: ['Hermes', 'Ares', 'Apollo'],
       currentOffer: null,
     }
-    expect(getEligibleGods(seat, DEFAULT_WEAPON_KEY)).toEqual(['Hermes', 'Dynamite', 'Hygieia'])
+    expect(getEligibleGods(seat, DEFAULT_WEAPON_KEY)).toEqual(['Hermes', 'Ares', 'Apollo'])
   })
 
   it('excludes owned keys from later offers', () => {
     const seat: DraftSeatState = {
-      loadoutKeys: ['hermes_winged_needle'],
+      loadoutKeys: ['hermes_quicksilver_jab'],
       godPool: ['Hermes'],
       currentOffer: null,
     }
     const offer = generateOffer(seat, rngFromRolls([0, 0, 1, 2]), DEFAULT_WEAPON_KEY)
     expect(offer?.god).toBe('Hermes')
-    expect(offer?.options).not.toContain('hermes_winged_needle')
+    expect(offer?.options).not.toContain('hermes_quicksilver_jab')
     expect(offer?.options).toHaveLength(OFFER_SIZE)
   })
 
@@ -115,15 +144,15 @@ describe('draftEngine', () => {
   it('rejects duplicate keys and invalid offer picks', () => {
     const seat = initializeDraftSeat(createSeededDraftRng(7), DEFAULT_WEAPON_KEY)
     const duplicateSeat: DraftSeatState = {
-      loadoutKeys: ['hermes_winged_needle'],
+      loadoutKeys: ['hermes_quicksilver_jab'],
       godPool: ['Hermes'],
       currentOffer: {
         god: 'Hermes',
-        options: ['hermes_winged_needle', 'hermes_dash_cut', 'hermes_quicksilver_jab'],
+        options: ['hermes_quicksilver_jab', 'hermes_dash_cut', 'hermes_slipstream'],
       },
     }
     expect(() =>
-      applyPick(duplicateSeat, 'hermes_winged_needle', createSeededDraftRng(9), DEFAULT_WEAPON_KEY),
+      applyPick(duplicateSeat, 'hermes_quicksilver_jab', createSeededDraftRng(9), DEFAULT_WEAPON_KEY),
     ).toThrow(/already in loadout/)
     const invalidKey = BOON_KEYS.find((key) => !includes(seat.currentOffer!.options, key))!
     expect(() => applyPick(seat, invalidKey, createSeededDraftRng(9), DEFAULT_WEAPON_KEY)).toThrow(
@@ -239,7 +268,7 @@ describe('draftEngine', () => {
     for (const key of BOW_MISMATCH_GATES) {
       expect(offered).not.toContain(key)
     }
-    expect(offered).toContain('hermes_stolen_seconds')
+    expect(offered).toContain('apollo_purifying_light')
   })
 
   it('omits weapon-gated boons that do not match a Wand', () => {
@@ -247,20 +276,63 @@ describe('draftEngine', () => {
     for (const key of WAND_MISMATCH_GATES) {
       expect(offered).not.toContain(key)
     }
-    expect(offered).toContain('hygieia_overflow')
+    expect(offered).toContain('apollo_radiant_overflow')
+  })
+
+  it('omits required-weapon-type boons that do not match equipped type', () => {
+    const offered = collectDraftOfferOptions(WAND_WEAPON_KEY, 200, 50)
+    for (const key of SPEAR_REQUIRED_KEYS) {
+      expect(offered).not.toContain(key)
+    }
+    const spearOffered = collectDraftOfferOptions(SPEAR_WEAPON_KEY, 300, 50)
+    for (const key of SPEAR_REQUIRED_KEYS) {
+      expect(spearOffered).toContain(key)
+    }
+  })
+
+  it('omits weapon-gated Hermes boons that do not match an Axe', () => {
+    const offered = collectDraftOfferOptions(AXE_WEAPON_KEY, 500, 50)
+    for (const key of AXE_HERMES_MISMATCH_GATES) {
+      expect(offered).not.toContain(key)
+    }
+    expect(offered).toContain('ares_war_ground')
+    expect(offered).toContain('ares_blood_surge')
   })
 
   it('keeps weapon-gated boons when the equipped type matches', () => {
-    const swordOffered = collectDraftOfferOptions(SWORD_WEAPON_KEY, 200, 50)
+    const swordOffered = collectDraftOfferOptions(SWORD_WEAPON_KEY, 400, 50)
     expect(swordOffered).toContain('hermes_fleet_foot')
-
-    const axeOffered = collectDraftOfferOptions(AXE_WEAPON_KEY, 300, 50)
-    expect(axeOffered).toContain('dynamite_scorched_earth')
+    expect(swordOffered).toContain('hermes_dash_cut')
   })
 
   it('still requires at least three filtered boons per eligible god', () => {
     const seat: DraftSeatState = { loadoutKeys: [], godPool: [], currentOffer: null }
     expect(getEligibleGods(seat, BOW_WEAPON_KEY)).toEqual([...GODS])
     expect(getEligibleGods(seat, WAND_WEAPON_KEY)).toEqual([...GODS])
+    expect(getEligibleGods(seat, SPEAR_WEAPON_KEY)).toEqual([...GODS])
+  })
+
+  it('weights affiliated gods at 1.5x for offer selection', () => {
+    expect(godOfferWeight('Hermes', SWORD_WEAPON_KEY)).toBe(AFFILIATED_GOD_OFFER_WEIGHT)
+    expect(godOfferWeight('Ares', SWORD_WEAPON_KEY)).toBe(AFFILIATED_GOD_OFFER_WEIGHT)
+    expect(godOfferWeight('Apollo', SWORD_WEAPON_KEY)).toBe(UNAFFILIATED_GOD_OFFER_WEIGHT)
+    expect(pickWeighted(['Hermes', 'Apollo'], (god) => godOfferWeight(god, SWORD_WEAPON_KEY), rngFromRolls([0]))).toBe(
+      'Hermes',
+    )
+    expect(pickWeighted(['Hermes', 'Apollo'], (god) => godOfferWeight(god, SWORD_WEAPON_KEY), rngFromRolls([3]))).toBe(
+      'Apollo',
+    )
+  })
+
+  it('applies affiliation weights when the god pool is at cap', () => {
+    const seat: DraftSeatState = {
+      loadoutKeys: ['hermes_quicksilver_jab', 'ares_crushing_blow', 'apollo_healers_hand'],
+      godPool: ['Hermes', 'Ares', 'Apollo'],
+      currentOffer: null,
+    }
+    expect(getEligibleGods(seat, SWORD_WEAPON_KEY)).toEqual(['Hermes', 'Ares', 'Apollo'])
+    expect(godOfferWeight('Hermes', SWORD_WEAPON_KEY)).toBe(AFFILIATED_GOD_OFFER_WEIGHT)
+    expect(godOfferWeight('Ares', SWORD_WEAPON_KEY)).toBe(AFFILIATED_GOD_OFFER_WEIGHT)
+    expect(godOfferWeight('Apollo', SWORD_WEAPON_KEY)).toBe(UNAFFILIATED_GOD_OFFER_WEIGHT)
   })
 })

@@ -1,6 +1,6 @@
 export type SeatIndex = 0 | 1
 
-export type WeaponType = 'Sword' | 'Axe' | 'Wand' | 'Bow'
+export type WeaponType = 'Sword' | 'Axe' | 'Wand' | 'Bow' | 'Spear'
 
 export type WeaponNudges = {
   damagePotencyPercent?: number
@@ -25,7 +25,7 @@ export type SoulStats = {
   vitality: number
 }
 
-export type God = 'Hermes' | 'Dynamite' | 'Hygieia' | 'Athena' | 'Zeus'
+export type God = 'Hermes' | 'Ares' | 'Apollo' | 'Athena' | 'Zeus'
 
 export type ItemEffect = 'damage' | 'heal' | 'shield'
 
@@ -63,6 +63,7 @@ export type ItemDefinition = {
   effect?: ItemEffect
   potency?: number
   cooldownMs?: number
+  requiredWeaponType?: WeaponType
   passive?: PassiveDefinition
 }
 

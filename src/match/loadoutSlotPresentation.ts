@@ -1,5 +1,6 @@
 import { get, map } from 'lodash'
 
+import { displayNumber } from '../lib/displayNumber'
 import { resolveSlotEffectiveStats } from './effectiveStats'
 import type {
   God,
@@ -77,11 +78,7 @@ function normalizeCooldownMs(cooldownMs: number): number {
 }
 
 function formatCooldownSeconds(cooldownMs: number): string {
-  const seconds = normalizeCooldownMs(cooldownMs) / 1000
-  if (Number.isInteger(seconds)) {
-    return String(seconds)
-  }
-  return String(parseFloat(seconds.toFixed(3)))
+  return displayNumber(normalizeCooldownMs(cooldownMs) / 1000)
 }
 
 export function formatCooldownLine(cooldownMs: number): string {
@@ -91,11 +88,11 @@ export function formatCooldownLine(cooldownMs: number): string {
 export function formatEffectSentence(effect: ItemEffect, potency: number): string {
   switch (effect) {
     case 'damage':
-      return `Deal ${potency} damage`
+      return `Deal ${displayNumber(potency)} damage`
     case 'heal':
-      return `Heal ${potency}`
+      return `Heal ${displayNumber(potency)}`
     case 'shield':
-      return `Gain ${potency} shield`
+      return `Gain ${displayNumber(potency)} shield`
     default: {
       const exhaustiveCheck: never = effect
       return exhaustiveCheck
@@ -119,11 +116,7 @@ export function getKindColor(effect: ItemEffect): string {
 }
 
 function formatPercentMagnitude(value: number): string {
-  const percent = Math.abs(value * 100)
-  if (Number.isInteger(percent)) {
-    return String(percent)
-  }
-  return String(parseFloat(percent.toFixed(1)))
+  return displayNumber(Math.abs(value * 100))
 }
 
 function formatSignedPercent(value: number): string {
@@ -133,7 +126,7 @@ function formatSignedPercent(value: number): string {
 
 function formatSignedFlat(value: number): string {
   const sign = value < 0 ? '−' : '+'
-  return `${sign}${Math.abs(value)}`
+  return `${sign}${displayNumber(Math.abs(value))}`
 }
 
 function seatTargetPhrase(seatTarget: PassiveSeatTarget): string {
@@ -228,7 +221,7 @@ function formatPassiveChangeSentence(
       return `${verb} ${target} ${items} Cooldown by ${formatPercentMagnitude(change.value)}%`
     }
     const verb = change.value < 0 ? 'Reduce' : 'Increase'
-    return `${verb} ${target} ${items} Cooldown by ${Math.abs(change.value)}ms`
+    return `${verb} ${target} ${items} Cooldown by ${displayNumber(Math.abs(change.value))}ms`
   }
   if (change.mode === 'flat') {
     return `Grant ${formatSignedFlat(change.value)} potency to ${target} ${items}`
@@ -269,9 +262,13 @@ function buildFirePresentation(
   item: FireCapableItemDefinition,
   effective: { cooldownMs?: number; potency?: number },
 ): LoadoutSlotPresentation {
-  const { name, effect } = item
+  const { name, effect, requiredWeaponType } = item
   const potency = effective.potency ?? item.potency
   const effectiveCooldownMs = effective.cooldownMs ?? item.cooldownMs
+  const effectSentence =
+    requiredWeaponType === undefined
+      ? formatEffectSentence(effect, potency)
+      : `${formatEffectSentence(effect, potency)} (${requiredWeaponType})`
   const presentation: LoadoutSlotPresentation = {
     name,
     faceKind: 'fire',
@@ -279,7 +276,7 @@ function buildFirePresentation(
     showCooldownBar: true,
     effect,
     potency,
-    effectSentence: formatEffectSentence(effect, potency),
+    effectSentence,
     cooldownLine: formatCooldownLine(effectiveCooldownMs),
     effectiveCooldownMs,
   }

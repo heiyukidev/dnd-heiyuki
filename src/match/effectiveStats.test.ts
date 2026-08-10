@@ -17,7 +17,7 @@ function dualSeats(a: MatchSeatState, b: MatchSeatState): [MatchSeatState, Match
   return [a, b]
 }
 
-const BOW_AT_SEAT_0: [string, string] = ['hunters_bow', 'steel_longsword']
+const SPEAR_AT_SEAT_0: [string, string] = ['bronze_spear', 'steel_longsword']
 
 const TEST_CATALOG = {
   ...ITEM_CATALOG,
@@ -44,7 +44,7 @@ const TEST_CATALOG = {
   flat_potency_aura: {
     key: 'flat_potency_aura',
     name: 'Flat Potency Aura',
-    god: 'Hygieia',
+    god: 'Apollo',
     passive: {
       seatTarget: 'own',
       filter: 'all',
@@ -64,7 +64,7 @@ const TEST_CATALOG = {
   hybrid_penalty: {
     key: 'hybrid_penalty',
     name: 'Hybrid Penalty',
-    god: 'Dynamite',
+    god: 'Ares',
     effect: 'damage',
     potency: 10,
     cooldownMs: 1_000,
@@ -89,12 +89,12 @@ const TEST_CATALOG = {
 describe('resolveSlotEffectiveStats', () => {
   it('returns base stats when no passives are present', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 }]),
       seat([{ itemKey: 'athena_aegis_chip', nextReadyAt: 2_500 }]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: 1_200,
-      potency: 5,
+      cooldownMs: 1_000,
+      potency: 4,
     })
   })
 
@@ -102,13 +102,13 @@ describe('resolveSlotEffectiveStats', () => {
     const seats = dualSeats(
       seat([
         { itemKey: 'hermes_stolen_seconds' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
       ]),
       seat([]),
     )
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
-      cooldownMs: 958.8,
-      potency: 5,
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG, undefined, SPEAR_AT_SEAT_0)).toEqual({
+      cooldownMs: 807.5,
+      potency: 4.16,
     })
   })
 
@@ -116,7 +116,7 @@ describe('resolveSlotEffectiveStats', () => {
     const seats = dualSeats(
       seat([
         { itemKey: 'hermes_stolen_seconds' },
-        { itemKey: 'hygieia_soft_bandage', nextReadyAt: 2_000 },
+        { itemKey: 'apollo_sun_balm', nextReadyAt: 2_000 },
       ]),
       seat([]),
     )
@@ -126,18 +126,18 @@ describe('resolveSlotEffectiveStats', () => {
     })
   })
 
-  it('applies Hermes god filter without buffing Dynamite damage', () => {
+  it('applies Hermes god filter without buffing Ares damage', () => {
     const seats = dualSeats(
       seat([
         { itemKey: 'hermes_slipstream' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
-        { itemKey: 'dynamite_fuse_bomb', nextReadyAt: 5_000 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
+        { itemKey: 'ares_blood_surge', nextReadyAt: 5_000 },
       ]),
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: expect.closeTo(984),
-      potency: 5,
+      cooldownMs: expect.closeTo(820),
+      potency: 4,
     })
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, ITEM_CATALOG)).toEqual({
       cooldownMs: 5_000,
@@ -145,11 +145,11 @@ describe('resolveSlotEffectiveStats', () => {
     })
   })
 
-  it('applies own-seat heal flat potency from hygieia_vital_bloom including self', () => {
+  it('applies own-seat heal flat potency from apollo_vital_bloom including self', () => {
     const seats = dualSeats(
       seat([
-        { itemKey: 'hygieia_vital_bloom', nextReadyAt: 2_500 },
-        { itemKey: 'hygieia_soft_bandage', nextReadyAt: 2_000 },
+        { itemKey: 'apollo_vital_bloom', nextReadyAt: 2_500 },
+        { itemKey: 'apollo_sun_balm', nextReadyAt: 2_000 },
       ]),
       seat([]),
     )
@@ -165,35 +165,35 @@ describe('resolveSlotEffectiveStats', () => {
 
   it('applies enemy seat target passives to the opposing seat', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 }]),
       seat([{ itemKey: 'enemy_haste' }]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, TEST_CATALOG)).toEqual({
-      cooldownMs: 600,
-      potency: 5,
+      cooldownMs: 500,
+      potency: 4,
     })
     expect(resolveSlotEffectiveStats(seats, { seat: 1, slotIndex: 0 }, TEST_CATALOG)).toEqual({})
   })
 
   it('lengthens enemy damage cooldown via zeus_thunder_tyrant', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 }]),
       seat([{ itemKey: 'zeus_thunder_tyrant' }]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: 1_380,
-      potency: 5,
+      cooldownMs: 1_150,
+      potency: 4,
     })
   })
 
   it('applies both-seat target passives to either seat', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'global_slow' }, { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
-      seat([{ itemKey: 'hygieia_soft_bandage', nextReadyAt: 2_000 }]),
+      seat([{ itemKey: 'global_slow' }, { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 }]),
+      seat([{ itemKey: 'apollo_sun_balm', nextReadyAt: 2_000 }]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG)).toEqual({
-      cooldownMs: 1_320,
-      potency: 5,
+      cooldownMs: 1_100,
+      potency: 4,
     })
     expect(resolveSlotEffectiveStats(seats, { seat: 1, slotIndex: 0 }, TEST_CATALOG)).toEqual({
       cooldownMs: 2_200,
@@ -206,13 +206,13 @@ describe('resolveSlotEffectiveStats', () => {
       seat([
         { itemKey: 'hermes_stolen_seconds' },
         { itemKey: 'flat_potency_aura' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
       ]),
       seat([]),
     )
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
-      cooldownMs: 958.8,
-      potency: 8,
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG, undefined, SPEAR_AT_SEAT_0)).toEqual({
+      cooldownMs: 807.5,
+      potency: 7.28,
     })
   })
 
@@ -221,7 +221,7 @@ describe('resolveSlotEffectiveStats', () => {
       seat([
         { itemKey: 'hermes_stolen_seconds' },
         { itemKey: 'hermes_stolen_seconds' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
       ]),
       seat([]),
     )
@@ -230,10 +230,10 @@ describe('resolveSlotEffectiveStats', () => {
       { seat: 0, slotIndex: 2 },
       ITEM_CATALOG,
       undefined,
-      BOW_AT_SEAT_0,
+      SPEAR_AT_SEAT_0,
     )
-    expect(result.cooldownMs).toBeCloseTo(789.6)
-    expect(result.potency).toBe(5)
+    expect(result.cooldownMs).toBeCloseTo(665)
+    expect(result.potency).toBe(4.16)
   })
 
   it('floors effective cooldown at 500ms', () => {
@@ -247,8 +247,8 @@ describe('resolveSlotEffectiveStats', () => {
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 3 }, ITEM_CATALOG)).toEqual({
-      cooldownMs: MIN_EFFECTIVE_COOLDOWN_MS,
-      potency: 4,
+      cooldownMs: 552,
+      potency: 5,
     })
   })
 
@@ -257,12 +257,12 @@ describe('resolveSlotEffectiveStats', () => {
       seat([
         { itemKey: 'percent_potency_nerf' },
         { itemKey: 'hybrid_penalty' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
       ]),
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG)).toEqual({
-      cooldownMs: 1_200,
+      cooldownMs: 1_000,
       potency: MIN_EFFECTIVE_POTENCY,
     })
   })
@@ -271,7 +271,7 @@ describe('resolveSlotEffectiveStats', () => {
     const seats = dualSeats(
       seat([
         { itemKey: 'hermes_stolen_seconds' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
       ]),
       seat([]),
     )
@@ -283,14 +283,14 @@ describe('resolveSlotEffectiveStats', () => {
       seat([
         { itemKey: 'hermes_stolen_seconds' },
         { itemKey: 'flat_potency_aura' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
       ]),
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, TEST_CATALOG)).toEqual({})
-    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG, undefined, BOW_AT_SEAT_0)).toEqual({
-      cooldownMs: 958.8,
-      potency: 8,
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG, undefined, SPEAR_AT_SEAT_0)).toEqual({
+      cooldownMs: 807.5,
+      potency: 7.28,
     })
   })
 
@@ -298,7 +298,7 @@ describe('resolveSlotEffectiveStats', () => {
     const seats = dualSeats(
       seat([
         { itemKey: 'flat_potency_aura' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
       ]),
       seat([]),
     )
@@ -309,14 +309,14 @@ describe('resolveSlotEffectiveStats', () => {
     expect(
       resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG, souls),
     ).toEqual({
-      cooldownMs: 960,
-      potency: 9.92,
+      cooldownMs: 800,
+      potency: 8.68,
     })
   })
 
   it('leaves damage potency unchanged when Soul Strength is 0', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 }]),
       seat([]),
     )
     const souls: [import('./types').SoulStats, import('./types').SoulStats] = [
@@ -326,8 +326,8 @@ describe('resolveSlotEffectiveStats', () => {
     expect(
       resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG, souls),
     ).toEqual({
-      cooldownMs: 1_200,
-      potency: 5,
+      cooldownMs: 1_000,
+      potency: 4,
     })
   })
 
@@ -335,7 +335,7 @@ describe('resolveSlotEffectiveStats', () => {
     const seats = dualSeats(
       seat([
         { itemKey: 'flat_potency_aura' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
       ]),
       seat([]),
     )
@@ -346,8 +346,8 @@ describe('resolveSlotEffectiveStats', () => {
     expect(
       resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG, souls),
     ).toEqual({
-      cooldownMs: 1_200,
-      potency: 10.4,
+      cooldownMs: 1_000,
+      potency: 9.1,
     })
   })
 
@@ -355,7 +355,7 @@ describe('resolveSlotEffectiveStats', () => {
     const seats = dualSeats(
       seat([
         { itemKey: 'flat_potency_aura' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
       ]),
       seat([]),
     )
@@ -366,14 +366,14 @@ describe('resolveSlotEffectiveStats', () => {
     expect(
       resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, TEST_CATALOG, souls),
     ).toEqual({
-      cooldownMs: 1_200,
-      potency: 12.8,
+      cooldownMs: 1_000,
+      potency: expect.closeTo(11.2),
     })
   })
 
   it('does not multiply Soul Strength into heal or shield potency', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'hygieia_soft_bandage', nextReadyAt: 1_000 }]),
+      seat([{ itemKey: 'apollo_sun_balm', nextReadyAt: 1_000 }]),
       seat([]),
     )
     const souls: [import('./types').SoulStats, import('./types').SoulStats] = [
@@ -390,7 +390,7 @@ describe('resolveSlotEffectiveStats', () => {
 
   it('applies Weapon nudges after Soul on the shared effective-stat path', () => {
     const seats = dualSeats(
-      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 }]),
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 }]),
       seat([]),
     )
     const souls: [import('./types').SoulStats, import('./types').SoulStats] = [
@@ -405,8 +405,8 @@ describe('resolveSlotEffectiveStats', () => {
       souls,
       weaponKeys,
     )
-    expect(result.cooldownMs).toBe(1_200)
-    expect(result.potency).toBeCloseTo(6.51)
+    expect(result.cooldownMs).toBe(1_000)
+    expect(result.potency).toBeCloseTo(5.21)
   })
 
   it('gates catalog Passive weaponType on the carrier equipped Weapon', () => {
@@ -427,8 +427,8 @@ describe('resolveSlotEffectiveStats', () => {
         swordWeaponKeys,
       ),
     ).toEqual({
-      cooldownMs: 1_026,
-      potency: 5,
+      cooldownMs: 855,
+      potency: 4,
     })
 
     const axeWeaponKeys: [string, string] = ['war_axe', 'knight_blade']
@@ -441,8 +441,8 @@ describe('resolveSlotEffectiveStats', () => {
         axeWeaponKeys,
       ),
     ).toEqual({
-      cooldownMs: 1_248,
-      potency: 5.5,
+      cooldownMs: 1_040,
+      potency: 4.4,
     })
   })
 
@@ -450,7 +450,7 @@ describe('resolveSlotEffectiveStats', () => {
     const seats = dualSeats(
       seat([
         { itemKey: 'sword_only_haste' },
-        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_200 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
       ]),
       seat([]),
     )
@@ -464,8 +464,8 @@ describe('resolveSlotEffectiveStats', () => {
         swordWeaponKeys,
       ),
     ).toEqual({
-      cooldownMs: 1_083,
-      potency: 5,
+      cooldownMs: 902.5,
+      potency: 4,
     })
 
     const axeWeaponKeys: [string, string] = ['war_axe', 'knight_blade']
@@ -478,8 +478,8 @@ describe('resolveSlotEffectiveStats', () => {
         axeWeaponKeys,
       ),
     ).toEqual({
-      cooldownMs: 1_248,
-      potency: 5.5,
+      cooldownMs: 1_040,
+      potency: 4.4,
     })
   })
 })

@@ -1,14 +1,30 @@
-import { filter, map } from 'lodash'
+import { filter, includes, map } from 'lodash'
 
-import type { God, ItemCatalog } from './types'
+import type { God, ItemCatalog, WeaponType } from './types'
 
 export const GODS = [
   'Hermes',
-  'Dynamite',
-  'Hygieia',
+  'Ares',
+  'Apollo',
   'Athena',
   'Zeus',
 ] as const satisfies readonly God[]
+
+export const GOD_WEAPON_AFFILIATIONS = {
+  Hermes: ['Spear', 'Sword'],
+  Ares: ['Axe', 'Sword'],
+  Apollo: ['Wand', 'Bow'],
+  Athena: ['Axe', 'Spear'],
+  Zeus: ['Wand', 'Bow'],
+} as const satisfies Readonly<Record<God, readonly [WeaponType, WeaponType]>>
+
+export function isGodAffiliatedWithWeaponType(god: God, weaponType: WeaponType): boolean {
+  return includes(GOD_WEAPON_AFFILIATIONS[god], weaponType)
+}
+
+export function godsAffiliatedWithWeaponType(weaponType: WeaponType): God[] {
+  return filter(GODS, (god) => isGodAffiliatedWithWeaponType(god, weaponType))
+}
 
 export const ITEM_CATALOG = {
   hermes_winged_needle: {
@@ -16,8 +32,9 @@ export const ITEM_CATALOG = {
     name: 'Winged Needle',
     god: 'Hermes',
     effect: 'damage',
-    potency: 5,
-    cooldownMs: 1_200,
+    potency: 4,
+    cooldownMs: 1_000,
+    requiredWeaponType: 'Spear',
   },
   hermes_dash_cut: {
     key: 'hermes_dash_cut',
@@ -26,22 +43,25 @@ export const ITEM_CATALOG = {
     effect: 'damage',
     potency: 7,
     cooldownMs: 1_600,
+    requiredWeaponType: 'Sword',
   },
   hermes_quicksilver_jab: {
     key: 'hermes_quicksilver_jab',
     name: 'Quicksilver Jab',
     god: 'Hermes',
     effect: 'damage',
-    potency: 4,
-    cooldownMs: 1_000,
+    potency: 5,
+    cooldownMs: 1_200,
   },
   hermes_messengers_sting: {
     key: 'hermes_messengers_sting',
     name: "Messenger's Sting",
     god: 'Hermes',
-    effect: 'damage',
-    potency: 9,
-    cooldownMs: 2_000,
+    passive: {
+      seatTarget: 'own',
+      filter: { god: 'Hermes', effectKind: 'damage' },
+      changes: [{ stat: 'potency', mode: 'flat', value: 2 }],
+    },
   },
   hermes_fleet_foot: {
     key: 'hermes_fleet_foot',
@@ -72,111 +92,119 @@ export const ITEM_CATALOG = {
     god: 'Hermes',
     passive: {
       seatTarget: 'own',
-      filter: { effectKind: 'damage', weaponType: 'Bow' },
+      filter: { effectKind: 'damage', weaponType: 'Spear' },
       changes: [{ stat: 'cooldown', mode: 'percent', value: -0.15 }],
     },
   },
-  dynamite_fuse_bomb: {
-    key: 'dynamite_fuse_bomb',
-    name: 'Fuse Bomb',
-    god: 'Dynamite',
+  ares_blood_surge: {
+    key: 'ares_blood_surge',
+    name: 'Blood Surge',
+    god: 'Ares',
     effect: 'damage',
     potency: 22,
     cooldownMs: 5_000,
+    requiredWeaponType: 'Axe',
   },
-  dynamite_demolition_charge: {
-    key: 'dynamite_demolition_charge',
-    name: 'Demolition Charge',
-    god: 'Dynamite',
+  ares_siege_break: {
+    key: 'ares_siege_break',
+    name: 'Siege Break',
+    god: 'Ares',
     effect: 'damage',
     potency: 28,
     cooldownMs: 6_500,
+    requiredWeaponType: 'Sword',
   },
-  dynamite_crater: {
-    key: 'dynamite_crater',
-    name: 'Crater',
-    god: 'Dynamite',
+  ares_crushing_blow: {
+    key: 'ares_crushing_blow',
+    name: 'Crushing Blow',
+    god: 'Ares',
     effect: 'damage',
     potency: 36,
     cooldownMs: 8_000,
   },
-  dynamite_ruin: {
-    key: 'dynamite_ruin',
-    name: 'Ruin',
-    god: 'Dynamite',
-    effect: 'damage',
-    potency: 42,
-    cooldownMs: 9_000,
+  ares_war_crush: {
+    key: 'ares_war_crush',
+    name: 'War Crush',
+    god: 'Ares',
+    passive: {
+      seatTarget: 'own',
+      filter: { god: 'Ares', effectKind: 'damage' },
+      changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
+    },
   },
-  dynamite_aftershock: {
-    key: 'dynamite_aftershock',
-    name: 'Aftershock',
-    god: 'Dynamite',
+  ares_bloodlust: {
+    key: 'ares_bloodlust',
+    name: 'Bloodlust',
+    god: 'Ares',
     effect: 'damage',
     potency: 20,
     cooldownMs: 5_500,
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Dynamite', effectKind: 'damage' },
+      filter: { god: 'Ares', effectKind: 'damage' },
       changes: [{ stat: 'potency', mode: 'flat', value: 4 }],
     },
   },
-  dynamite_scorched_earth: {
-    key: 'dynamite_scorched_earth',
-    name: 'Scorched Earth',
-    god: 'Dynamite',
+  ares_war_ground: {
+    key: 'ares_war_ground',
+    name: 'War Ground',
+    god: 'Ares',
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Dynamite', weaponType: 'Axe' },
+      filter: { god: 'Ares', weaponType: 'Axe' },
       changes: [{ stat: 'potency', mode: 'percent', value: 0.15 }],
     },
   },
-  dynamite_slow_burn: {
-    key: 'dynamite_slow_burn',
-    name: 'Slow Burn',
-    god: 'Dynamite',
+  ares_rising_fury: {
+    key: 'ares_rising_fury',
+    name: 'Rising Fury',
+    god: 'Ares',
     passive: {
       seatTarget: 'own',
       filter: 'damage',
       changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
     },
   },
-  hygieia_soft_bandage: {
-    key: 'hygieia_soft_bandage',
-    name: 'Soft Bandage',
-    god: 'Hygieia',
+  apollo_sun_balm: {
+    key: 'apollo_sun_balm',
+    name: 'Sun Balm',
+    god: 'Apollo',
     effect: 'heal',
     potency: 7,
     cooldownMs: 2_000,
+    requiredWeaponType: 'Wand',
   },
-  hygieia_cleanse_draught: {
-    key: 'hygieia_cleanse_draught',
-    name: 'Cleanse Draught',
-    god: 'Hygieia',
+  apollo_purifying_light: {
+    key: 'apollo_purifying_light',
+    name: 'Purifying Light',
+    god: 'Apollo',
     effect: 'heal',
     potency: 11,
     cooldownMs: 3_000,
+    requiredWeaponType: 'Bow',
   },
-  hygieia_field_surgery: {
-    key: 'hygieia_field_surgery',
-    name: 'Field Surgery',
-    god: 'Hygieia',
+  apollo_healers_hand: {
+    key: 'apollo_healers_hand',
+    name: "Healer's Hand",
+    god: 'Apollo',
     effect: 'heal',
     potency: 16,
     cooldownMs: 4_500,
   },
-  hygieia_restorative_hymn: {
-    key: 'hygieia_restorative_hymn',
-    name: 'Restorative Hymn',
-    god: 'Hygieia',
-    effect: 'heal',
-    potency: 22,
-    cooldownMs: 6_000,
+  apollo_paean: {
+    key: 'apollo_paean',
+    name: 'Paean',
+    god: 'Apollo',
+    passive: {
+      seatTarget: 'own',
+      filter: { god: 'Apollo', effectKind: 'heal' },
+      changes: [{ stat: 'potency', mode: 'flat', value: 4 }],
+    },
   },
-  hygieia_vital_bloom: {
-    key: 'hygieia_vital_bloom',
+  apollo_vital_bloom: {
+    key: 'apollo_vital_bloom',
     name: 'Vital Bloom',
-    god: 'Hygieia',
+    god: 'Apollo',
     effect: 'heal',
     potency: 8,
     cooldownMs: 2_500,
@@ -186,20 +214,20 @@ export const ITEM_CATALOG = {
       changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
     },
   },
-  hygieia_caduceus_whisper: {
-    key: 'hygieia_caduceus_whisper',
-    name: 'Caduceus Whisper',
-    god: 'Hygieia',
+  apollo_solar_grace: {
+    key: 'apollo_solar_grace',
+    name: 'Solar Grace',
+    god: 'Apollo',
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Hygieia' },
+      filter: { god: 'Apollo' },
       changes: [{ stat: 'cooldown', mode: 'percent', value: -0.25 }],
     },
   },
-  hygieia_overflow: {
-    key: 'hygieia_overflow',
-    name: 'Overflow',
-    god: 'Hygieia',
+  apollo_radiant_overflow: {
+    key: 'apollo_radiant_overflow',
+    name: 'Radiant Overflow',
+    god: 'Apollo',
     passive: {
       seatTarget: 'own',
       filter: { effectKind: 'heal', weaponType: 'Wand' },
@@ -213,6 +241,7 @@ export const ITEM_CATALOG = {
     effect: 'shield',
     potency: 8,
     cooldownMs: 2_500,
+    requiredWeaponType: 'Spear',
   },
   athena_bronze_guard: {
     key: 'athena_bronze_guard',
@@ -221,6 +250,7 @@ export const ITEM_CATALOG = {
     effect: 'shield',
     potency: 14,
     cooldownMs: 3_500,
+    requiredWeaponType: 'Axe',
   },
   athena_tower_ward: {
     key: 'athena_tower_ward',
@@ -234,9 +264,11 @@ export const ITEM_CATALOG = {
     key: 'athena_parthenon',
     name: 'Parthenon',
     god: 'Athena',
-    effect: 'shield',
-    potency: 27,
-    cooldownMs: 7_000,
+    passive: {
+      seatTarget: 'own',
+      filter: { god: 'Athena', effectKind: 'shield' },
+      changes: [{ stat: 'potency', mode: 'flat', value: 4 }],
+    },
   },
   athena_reflective_plate: {
     key: 'athena_reflective_plate',
@@ -278,6 +310,7 @@ export const ITEM_CATALOG = {
     effect: 'damage',
     potency: 10,
     cooldownMs: 2_500,
+    requiredWeaponType: 'Wand',
   },
   zeus_chain_bolt: {
     key: 'zeus_chain_bolt',
@@ -286,6 +319,7 @@ export const ITEM_CATALOG = {
     effect: 'damage',
     potency: 12,
     cooldownMs: 3_000,
+    requiredWeaponType: 'Bow',
   },
   zeus_thunderclap: {
     key: 'zeus_thunderclap',
@@ -299,9 +333,11 @@ export const ITEM_CATALOG = {
     key: 'zeus_skyfall',
     name: 'Skyfall',
     god: 'Zeus',
-    effect: 'damage',
-    potency: 18,
-    cooldownMs: 4_500,
+    passive: {
+      seatTarget: 'own',
+      filter: { god: 'Zeus', effectKind: 'damage' },
+      changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
+    },
   },
   zeus_storm_crown: {
     key: 'zeus_storm_crown',

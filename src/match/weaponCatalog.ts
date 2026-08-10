@@ -2,7 +2,7 @@ import { filter, map } from 'lodash'
 
 import type { WeaponCatalog, WeaponDefinition, WeaponType } from './types'
 
-export const WEAPON_TYPES = ['Sword', 'Axe', 'Wand', 'Bow'] as const satisfies readonly WeaponType[]
+export const WEAPON_TYPES = ['Sword', 'Axe', 'Wand', 'Bow', 'Spear'] as const satisfies readonly WeaponType[]
 
 export const WEAPON_CATALOG = {
   steel_longsword: {
@@ -52,6 +52,18 @@ export const WEAPON_CATALOG = {
     name: 'Swift Shortbow',
     weaponType: 'Bow',
     nudges: { cooldownPercent: -0.05, damagePotencyPercent: 0.05 },
+  },
+  bronze_spear: {
+    key: 'bronze_spear',
+    name: 'Bronze Spear',
+    weaponType: 'Spear',
+    nudges: { cooldownPercent: -0.05, damagePotencyPercent: 0.04 },
+  },
+  hoplite_lance: {
+    key: 'hoplite_lance',
+    name: 'Hoplite Lance',
+    weaponType: 'Spear',
+    nudges: { cooldownPercent: -0.06 },
   },
 } as const satisfies WeaponCatalog
 

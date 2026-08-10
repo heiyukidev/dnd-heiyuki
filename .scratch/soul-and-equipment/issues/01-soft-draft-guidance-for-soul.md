@@ -7,7 +7,7 @@ Status: resolved
 
 What does soft **Draft** guidance look like when your **Soul** is visible?
 
-Locked already: cues only — no offer reweighting, no bans; Strength → Dynamite/Zeus damage kits, Speed → Hermes tempo, Vitality → Hygieia/Athena sustain (as directional hints).
+Locked already: cues only — no offer reweighting, no bans; Strength → Ares/Zeus damage kits, Speed → Hermes tempo, Vitality → Hygieia/Athena sustain (as directional hints).
 
 Decide: copy-only tips, highlighted offer cards, a static “your Soul favors …” panel, or something else — and how strong the cue may be without becoming a second tutorial wall.
 

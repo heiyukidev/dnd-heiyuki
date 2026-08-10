@@ -4,7 +4,7 @@ Status: ready-for-agent
 
 ## Problem Statement
 
-**Match start** still rolls a random **Loadout** and starts the fight immediately. There is no player choice, no **God** fantasy, and no Hades-style offers — so tempo/theme kits (swift Hermes vs destructive Dynamite vs healing Hygieia) cannot emerge. Domain language still centers on retired “Item” random assignment rather than **Boons** granted by **Gods** under a capped **God pool**.
+**Match start** still rolls a random **Loadout** and starts the fight immediately. There is no player choice, no **God** fantasy, and no Hades-style offers — so tempo/theme kits (swift Hermes vs warlike Ares vs healing Hygieia) cannot emerge. Domain language still centers on retired “Item” random assignment rather than **Boons** granted by **Gods** under a capped **God pool**.
 
 ## Solution
 
@@ -14,12 +14,12 @@ Rename combat units to **Boons**, each owned by one **God**. **Match start** ope
 
 1. As a **Player**, I want combat pieces called **Boons**, so that language matches the god-granted fantasy.
 2. As a **Player**, I want every **Boon** to belong to exactly one **God**, so that kits feel themed.
-3. As a **Player**, I want five **Gods** (Hermes, Dynamite, Hygieia, Athena, Zeus), so that draft has meaningful identity choices.
-4. As a **Player**, I want Dynamite to be the god of destruction (slow, huge damage), so that the fantasy is not “war/Ares.”
+3. As a **Player**, I want five **Gods** (Hermes, Ares, Hygieia, Athena, Zeus), so that draft has meaningful identity choices.
+4. As a **Player**, I want Ares to be the god of war (slow, huge damage), so that heavy damage kits have a clear identity.
 5. As a **Player**, I want Hermes **Boons** to be fast and lower damage, so that swiftness reads in the numbers.
 6. As a **Player**, I want Hygieia **Boons** to heal, so that sustain is a god identity.
 7. As a **Player**, I want Athena **Boons** to shield, so that mitigation is a god identity.
-8. As a **Player**, I want Zeus **Boons** to be mid-tempo damage with punchy **Passive**s (including enemy sabotage), so that lightning feels distinct from Hermes and Dynamite.
+8. As a **Player**, I want Zeus **Boons** to be mid-tempo damage with punchy **Passive**s (including enemy sabotage), so that lightning feels distinct from Hermes and Ares.
 9. As a **Player**, I want seven **Boons** per **God** (thirty-five total), so that offers have depth without an infinite catalog.
 10. As a **Player**, I want the old spark/cannon/… and Passive-slice keys retired, so that there is one catalog, not two pools.
 11. As a **Host**, I want **Match start** to open **Draft** instead of rolling a random **Loadout**, so that choice replaces luck-at-start.
@@ -46,7 +46,7 @@ Rename combat units to **Boons**, each owned by one **God**. **Match start** ope
 32. As a joiner **Player**, I want **Match cancel** to be Host-only, so that the opponent cannot unilaterally abort.
 33. As a **Player**, I want **Match cancel** to clear **Loadout**s and **God pool**s and return to the **Lobby**, so that the next **Match** starts clean.
 34. As a reconnecting **Player**, I want to resume mid-**Draft** with my current offer and picks, so that closing the tab does not forfeit the draft.
-35. As a **Player**, I want **Passive** filters to support **all**, **effect kind**, and/or **God** (AND when both kind and **God** are set), so that Hermes can haste Hermes damage without buffing Dynamite nukes.
+35. As a **Player**, I want **Passive** filters to support **all**, **effect kind**, and/or **God** (AND when both kind and **God** are set), so that Hermes can haste Hermes damage without buffing Ares nukes.
 36. As a **Player**, I want authored catalog **Boons** (including **Passive**-only and hybrids) to work in the live fight under ADR 0001 / 0002, so that draft choices matter in combat.
 37. As a **Player**, I want Zeus’s Thunder Tyrant to lengthen enemy damage **Cooldown**s, so that sabotage **Passive**s are expressible.
 38. As a **Player**, I want fight **Loadout** slot presentation to keep working with the new catalog (**effective** stats, **Passive**-only faces), so that mid-fight scanning still works.
@@ -67,7 +67,7 @@ Rename combat units to **Boons**, each owned by one **God**. **Match start** ope
 - **Respect ADR 0002**: Effective stats recompute every wake; mid-charge `nextReadyAt` rewrite by progress fraction; eligibility re-eval hook unchanged.
 - **Respect ADR 0003**: **Match start** → **Draft** → live fight; no random five-pick at start.
 - **Rename**: Domain and product language use **Boon** (retire **Item**). Implementation may rename modules/types toward Boon in the same slice or as a coordinated rename with catalog swap — behavior follows glossary.
-- **God catalog (v1)**: Hermes, Dynamite (destruction), Hygieia, Athena, Zeus — seven **Boons** each. Authoritative numbers/names/shapes: `local/greek-gods/boon-catalog.md`. Retire prior eight-key catalog; not a parallel pool.
+- **God catalog (v1)**: Hermes, Ares (war), Hygieia, Athena, Zeus — seven **Boons** each. Authoritative numbers/names/shapes: `local/greek-gods/boon-catalog.md`. Retire prior eight-key catalog; not a parallel pool.
 - **Draft rules**: 5 picks; each **Boon offer** = 3 **Boons** from one **God**; pick one; unique keys; **God pool** max 3; god enters on first accepted **Boon**; at cap offers only from pool; offered god uniform among eligible; three options uniform among that god’s remaining unowned **Boons**; simultaneous; opponent draft hidden until fight; no timer/auto-pick/reroll.
 - **Play phase**: Session play phase must distinguish **Draft** from live fight (and existing lobby / results). Fight scheduling (`nextReadyAt`, wake jobs) begins only when both seats complete **Draft**.
 - **Match cancel**: Host-only; allowed in **Draft** or live fight; returns to **Lobby**; clears match draft/fight state; does not archive **Session**. Cancel wake jobs if any.
@@ -86,7 +86,7 @@ Rename combat units to **Boons**, each owned by one **God**. **Match start** ope
 - Good tests assert external behavior only: given draft state + injected rolls → offer/pick/completion; given **Loadout**s + catalog → effective stats / fires / `nextReadyAt` / presentation fields. Do not assert Vue DOM, Convex scheduler internals, or private helpers beyond public seams.
 - **Draft engine**: table-driven cases for under-cap vs at-cap god eligibility; unique-key exclusion; five-pick completion; both-seats-ready gate; refusing duplicate keys; offer always size 3 when ≥3 unowned remain for that god (v1 catalog guarantees this for 5 picks).
 - **Effective-stats**: extend prior art tests for **God** filter, combined **God**+kind, and enemy-targeted **Cooldown** lengthening (Thunder Tyrant).
-- **`resolveMatchStep`**: prior art vitest suite — smoke/regression with representative new **Boons** (Hermes tempo, Dynamite nuke, Hygieia heal, Athena shield, Zeus enemy passive).
+- **`resolveMatchStep`**: prior art vitest suite — smoke/regression with representative new **Boons** (Hermes tempo, Ares nuke, Hygieia heal, Athena shield, Zeus enemy passive).
 - **Presentation**: prior art loadout slot tests updated for new keys; add pure draft-offer model tests (god label + three choice summaries).
 - No required E2E / Convex integration tests; Convex remains thin auth/persist/schedule over pure modules.
 

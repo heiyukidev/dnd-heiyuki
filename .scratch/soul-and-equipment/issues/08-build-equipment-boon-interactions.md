@@ -18,6 +18,6 @@ Done when a Match can draft Weapon-gated **Passive**s and show the Weapon favor 
 
 Shipped:
 
-- **Weapon-gated Passives** (retrofit within 7/God): `hermes_fleet_foot` Sword; `dynamite_scorched_earth` Axe; `hygieia_overflow` Wand; `hermes_stolen_seconds` Bow.
+- **Weapon-gated Passives** (retrofit within 7/God): `hermes_fleet_foot` Sword; `ares_war_ground` Axe; `hygieia_overflow` Wand; `hermes_stolen_seconds` Bow.
 - **`weaponFavorLine`**: helper + Draft/weapon play-state + SessionView soft cue; no offer reweighting.
 - Catalog markdown + CONTEXT keys locked. **91** tests pass. Hopper: no critical/high.

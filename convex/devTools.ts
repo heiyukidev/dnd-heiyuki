@@ -1,6 +1,16 @@
 import { internalMutation } from './_generated/server'
 
-/** Wipes all session-scoped tables (dev only). Run: `npx convex run devTools:devClearAllSessionData` */
+/**
+ * Wipes all session-scoped tables (dev only).
+ *
+ * Required before deploying a god catalog rename (schema `godValidator` and catalog keys
+ * — e.g. Dynamite→Ares, Hygieia→Apollo): run this, or have every live **Session**
+ * **Match cancel** back to **Lobby** and clear in-flight draft/match state, so no
+ * persisted old god names or `*_` keys remain. Otherwise in-flight `godPool` /
+ * `currentOffer.god` / loadout keys will fail validation or orphan.
+ *
+ * Run: `npx convex run devTools:devClearAllSessionData`
+ */
 export const devClearAllSessionData = internalMutation({
   args: {},
   handler: async (ctx) => {
