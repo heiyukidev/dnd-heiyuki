@@ -1,69 +1,131 @@
-import { filter, map } from 'lodash'
+import { filter, map, mapValues } from 'lodash'
 
-import type { WeaponCatalog, WeaponDefinition, WeaponType } from './types'
+import type { WeaponCatalog, WeaponDefinition, WeaponNudges, WeaponRarity, WeaponType } from './types'
 
 export const WEAPON_TYPES = ['Sword', 'Axe', 'Wand', 'Bow', 'Spear'] as const satisfies readonly WeaponType[]
+
+export const WEAPON_RARITIES = [
+  'Common',
+  'Uncommon',
+  'Rare',
+  'Epic',
+  'Legendary',
+] as const satisfies readonly WeaponRarity[]
+
+export const WEAPON_RARITY_OFFER_WEIGHT: Record<WeaponRarity, number> = {
+  Common: 40,
+  Uncommon: 25,
+  Rare: 15,
+  Epic: 10,
+  Legendary: 5,
+}
+
+export const WEAPON_RARITY_STRENGTH: Record<WeaponRarity, number> = {
+  Common: 1,
+  Uncommon: 1.25,
+  Rare: 1.5,
+  Epic: 1.75,
+  Legendary: 2,
+}
+
+export const WEAPON_TYPE_EMOJI: Record<WeaponType, string> = {
+  Sword: '⚔️',
+  Axe: '🪓',
+  Wand: '🪄',
+  Bow: '🏹',
+  Spear: '🔱',
+}
+
+export function weaponTypeEmoji(weaponType: WeaponType): string {
+  return WEAPON_TYPE_EMOJI[weaponType]
+}
+
+export function weaponEmojiForKey(weaponKey: string): string | undefined {
+  const weapon = weaponDefinition(weaponKey)
+  if (weapon === undefined) {
+    return undefined
+  }
+  return weaponTypeEmoji(weapon.weaponType)
+}
+
+export function formatWeaponTypeLabel(weaponType: WeaponType): string {
+  return `${weaponTypeEmoji(weaponType)} ${weaponType}`
+}
+
+export function formatWeaponRarityLabel(rarity: WeaponRarity): string {
+  return rarity
+}
 
 export const WEAPON_CATALOG = {
   steel_longsword: {
     key: 'steel_longsword',
     name: 'Steel Longsword',
     weaponType: 'Sword',
-    nudges: { damagePotencyPercent: 0.05 },
+    rarity: 'Common',
+    nudges: { damagePotencyPercent: 0.04 },
   },
   knight_blade: {
     key: 'knight_blade',
     name: 'Knight Blade',
     weaponType: 'Sword',
-    nudges: { cooldownPercent: -0.05 },
+    rarity: 'Rare',
+    nudges: { cooldownPercent: -0.04 },
   },
   war_axe: {
     key: 'war_axe',
     name: 'War Axe',
     weaponType: 'Axe',
-    nudges: { damagePotencyPercent: 0.1, cooldownPercent: 0.04 },
+    rarity: 'Epic',
+    nudges: { damagePotencyPercent: 0.06, cooldownPercent: 0.03 },
   },
   stone_maul: {
     key: 'stone_maul',
     name: 'Stone Maul',
     weaponType: 'Axe',
-    nudges: { damagePotencyPercent: 0.08, cooldownPercent: 0.05 },
+    rarity: 'Uncommon',
+    nudges: { damagePotencyPercent: 0.06, cooldownPercent: 0.03 },
   },
   elder_wand: {
     key: 'elder_wand',
     name: 'Elder Wand',
     weaponType: 'Wand',
-    nudges: { cooldownPercent: -0.08, lifeBonus: 3 },
+    rarity: 'Legendary',
+    nudges: { cooldownPercent: -0.04, lifeBonus: 2 },
   },
   crystal_staff: {
     key: 'crystal_staff',
     name: 'Crystal Staff',
     weaponType: 'Wand',
-    nudges: { cooldownPercent: -0.05, damagePotencyPercent: 0.05 },
+    rarity: 'Rare',
+    nudges: { cooldownPercent: -0.04, damagePotencyPercent: 0.04 },
   },
   hunters_bow: {
     key: 'hunters_bow',
     name: "Hunter's Bow",
     weaponType: 'Bow',
-    nudges: { cooldownPercent: -0.06 },
+    rarity: 'Uncommon',
+    nudges: { cooldownPercent: -0.04 },
   },
   swift_shortbow: {
     key: 'swift_shortbow',
     name: 'Swift Shortbow',
     weaponType: 'Bow',
-    nudges: { cooldownPercent: -0.05, damagePotencyPercent: 0.05 },
+    rarity: 'Epic',
+    nudges: { cooldownPercent: -0.04, damagePotencyPercent: 0.04 },
   },
   bronze_spear: {
     key: 'bronze_spear',
     name: 'Bronze Spear',
     weaponType: 'Spear',
-    nudges: { cooldownPercent: -0.05, damagePotencyPercent: 0.04 },
+    rarity: 'Common',
+    nudges: { cooldownPercent: -0.04, damagePotencyPercent: 0.03 },
   },
   hoplite_lance: {
     key: 'hoplite_lance',
     name: 'Hoplite Lance',
     weaponType: 'Spear',
-    nudges: { cooldownPercent: -0.06 },
+    rarity: 'Legendary',
+    nudges: { cooldownPercent: -0.04, damagePotencyPercent: 0.03 },
   },
 } as const satisfies WeaponCatalog
 
@@ -84,4 +146,25 @@ export function weaponDefinition(key: string): WeaponDefinition | undefined {
 
 export function weaponsOfType(weaponType: WeaponType): WeaponKey[] {
   return filter(WEAPON_KEYS, (key) => WEAPON_CATALOG[key].weaponType === weaponType)
+}
+
+export function weaponsOfRarity(rarity: WeaponRarity): WeaponKey[] {
+  return filter(WEAPON_KEYS, (key) => WEAPON_CATALOG[key].rarity === rarity)
+}
+
+export function weaponOfferWeight(key: string): number {
+  const weapon = weaponDefinition(key)
+  if (weapon === undefined) {
+    return 0
+  }
+  return WEAPON_RARITY_OFFER_WEIGHT[weapon.rarity]
+}
+
+export function resolveWeaponNudges(key: string): WeaponNudges | undefined {
+  const weapon = weaponDefinition(key)
+  if (weapon?.nudges === undefined) {
+    return undefined
+  }
+  const strength = WEAPON_RARITY_STRENGTH[weapon.rarity]
+  return mapValues(weapon.nudges, (value) => value * strength)
 }

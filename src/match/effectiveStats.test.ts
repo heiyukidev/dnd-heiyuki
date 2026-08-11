@@ -107,8 +107,8 @@ describe('resolveSlotEffectiveStats', () => {
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG, undefined, SPEAR_AT_SEAT_0)).toEqual({
-      cooldownMs: 807.5,
-      potency: 4.16,
+      cooldownMs: 816,
+      potency: 4.12,
     })
   })
 
@@ -186,6 +186,198 @@ describe('resolveSlotEffectiveStats', () => {
     })
   })
 
+  it('shortens own-seat damage cooldown via hermes_messengers_sting', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'hermes_messengers_sting' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
+      ]),
+      seat([]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 900,
+      potency: 4,
+    })
+  })
+
+  it('shortens own-seat Ares cooldown via ares_war_crush without buffing Hermes', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'ares_war_crush' },
+        { itemKey: 'ares_blood_surge', nextReadyAt: 5_000 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
+      ]),
+      seat([]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 4_250,
+      potency: 22,
+    })
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 1_000,
+      potency: 4,
+    })
+  })
+
+  it('applies percent damage potency from ares_bloodlust hybrid passive', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'ares_bloodlust', nextReadyAt: 5_500 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
+      ]),
+      seat([]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 1_000,
+      potency: 4.48,
+    })
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 5_500,
+      potency: expect.closeTo(22.4),
+    })
+  })
+
+  it('shortens own-seat heal cooldown via apollo_paean', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'apollo_paean' },
+        { itemKey: 'apollo_sun_balm', nextReadyAt: 2_000 },
+      ]),
+      seat([]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 1_760,
+      potency: 7,
+    })
+  })
+
+  it('shortens own-seat shield cooldown via athena_parthenon', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'athena_parthenon' },
+        { itemKey: 'athena_aegis_chip', nextReadyAt: 2_500 },
+      ]),
+      seat([]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 2_200,
+      potency: 8,
+    })
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({})
+  })
+
+  it('gates ares_war_ground damage cooldown on carrier equipped Axe', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'ares_war_ground' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
+        { itemKey: 'apollo_sun_balm', nextReadyAt: 2_000 },
+      ]),
+      seat([]),
+    )
+    const axeWeaponKeys: [string, string] = ['war_axe', 'knight_blade']
+    expect(
+      resolveSlotEffectiveStats(
+        seats,
+        { seat: 0, slotIndex: 1 },
+        ITEM_CATALOG,
+        undefined,
+        axeWeaponKeys,
+      ),
+    ).toEqual({
+      cooldownMs: 926.2,
+      potency: 4.42,
+    })
+    expect(
+      resolveSlotEffectiveStats(
+        seats,
+        { seat: 0, slotIndex: 2 },
+        ITEM_CATALOG,
+        undefined,
+        axeWeaponKeys,
+      ),
+    ).toEqual({
+      cooldownMs: 2_105,
+      potency: 7,
+    })
+
+    const swordWeaponKeys: [string, string] = ['knight_blade', 'war_axe']
+    expect(
+      resolveSlotEffectiveStats(
+        seats,
+        { seat: 0, slotIndex: 1 },
+        ITEM_CATALOG,
+        undefined,
+        swordWeaponKeys,
+      ),
+    ).toEqual({
+      cooldownMs: 940,
+      potency: 4,
+    })
+  })
+
+  it('shortens own-seat damage cooldown via zeus_storm_crown hybrid passive', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'zeus_storm_crown', nextReadyAt: 3_000 },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
+        { itemKey: 'apollo_sun_balm', nextReadyAt: 2_000 },
+      ]),
+      seat([]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 2_700,
+      potency: 11,
+    })
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 900,
+      potency: 4,
+    })
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 2_000,
+      potency: 7,
+    })
+  })
+
+  it('applies kind-wide percent damage potency via zeus_skyfall', () => {
+    const seats = dualSeats(
+      seat([
+        { itemKey: 'zeus_skyfall' },
+        { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 },
+        { itemKey: 'zeus_thunderclap', nextReadyAt: 3_500 },
+        { itemKey: 'apollo_sun_balm', nextReadyAt: 2_000 },
+      ]),
+      seat([]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 1 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 1_000,
+      potency: 4.48,
+    })
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 3_500,
+      potency: expect.closeTo(13.44),
+    })
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 3 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 2_000,
+      potency: 7,
+    })
+  })
+
+  it('lengthens opposing damage cooldown via athena_reflective_plate hybrid passive', () => {
+    const seats = dualSeats(
+      seat([{ itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 }]),
+      seat([{ itemKey: 'athena_reflective_plate', nextReadyAt: 3_500 }]),
+    )
+    expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 1_120,
+      potency: 4,
+    })
+    expect(resolveSlotEffectiveStats(seats, { seat: 1, slotIndex: 0 }, ITEM_CATALOG)).toEqual({
+      cooldownMs: 3_500,
+      potency: 11,
+    })
+  })
+
   it('applies both-seat target passives to either seat', () => {
     const seats = dualSeats(
       seat([{ itemKey: 'global_slow' }, { itemKey: 'hermes_winged_needle', nextReadyAt: 1_000 }]),
@@ -211,8 +403,8 @@ describe('resolveSlotEffectiveStats', () => {
       seat([]),
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG, undefined, SPEAR_AT_SEAT_0)).toEqual({
-      cooldownMs: 807.5,
-      potency: 7.28,
+      cooldownMs: 816,
+      potency: 7.21,
     })
   })
 
@@ -232,8 +424,8 @@ describe('resolveSlotEffectiveStats', () => {
       undefined,
       SPEAR_AT_SEAT_0,
     )
-    expect(result.cooldownMs).toBeCloseTo(665)
-    expect(result.potency).toBe(4.16)
+    expect(result.cooldownMs).toBeCloseTo(672)
+    expect(result.potency).toBe(4.12)
   })
 
   it('floors effective cooldown at 500ms', () => {
@@ -248,7 +440,7 @@ describe('resolveSlotEffectiveStats', () => {
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 3 }, ITEM_CATALOG)).toEqual({
       cooldownMs: 552,
-      potency: 5,
+      potency: 4,
     })
   })
 
@@ -289,8 +481,8 @@ describe('resolveSlotEffectiveStats', () => {
     )
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 0 }, TEST_CATALOG)).toEqual({})
     expect(resolveSlotEffectiveStats(seats, { seat: 0, slotIndex: 2 }, TEST_CATALOG, undefined, SPEAR_AT_SEAT_0)).toEqual({
-      cooldownMs: 807.5,
-      potency: 7.28,
+      cooldownMs: 816,
+      potency: 7.21,
     })
   })
 
@@ -406,7 +598,7 @@ describe('resolveSlotEffectiveStats', () => {
       weaponKeys,
     )
     expect(result.cooldownMs).toBe(1_000)
-    expect(result.potency).toBeCloseTo(5.21)
+    expect(result.potency).toBeCloseTo(5.1584)
   })
 
   it('gates catalog Passive weaponType on the carrier equipped Weapon', () => {
@@ -427,7 +619,7 @@ describe('resolveSlotEffectiveStats', () => {
         swordWeaponKeys,
       ),
     ).toEqual({
-      cooldownMs: 855,
+      cooldownMs: 846,
       potency: 4,
     })
 
@@ -441,8 +633,8 @@ describe('resolveSlotEffectiveStats', () => {
         axeWeaponKeys,
       ),
     ).toEqual({
-      cooldownMs: 1_040,
-      potency: 4.4,
+      cooldownMs: 1_052.5,
+      potency: 4.42,
     })
   })
 
@@ -464,7 +656,7 @@ describe('resolveSlotEffectiveStats', () => {
         swordWeaponKeys,
       ),
     ).toEqual({
-      cooldownMs: 902.5,
+      cooldownMs: 893,
       potency: 4,
     })
 
@@ -478,8 +670,8 @@ describe('resolveSlotEffectiveStats', () => {
         axeWeaponKeys,
       ),
     ).toEqual({
-      cooldownMs: 1_040,
-      potency: 4.4,
+      cooldownMs: 1_052.5,
+      potency: 4.42,
     })
   })
 })

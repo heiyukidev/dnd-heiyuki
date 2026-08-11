@@ -14,16 +14,18 @@ import type {
   PassiveStatChange,
   SeatIndex,
   SoulStats,
+  WeaponType,
 } from './types'
 import { isFireCapableItem } from './types'
+import { formatWeaponTypeLabel } from './weaponCatalog'
 
 export const LOADOUT_EFFECT_KIND_COLORS: Record<ItemEffect, string> = {
-  damage: '#c45a3a',
+  damage: '#8a7898',
   heal: '#3a8f5a',
   shield: '#4a7bbd',
 }
 
-export const LOADOUT_PASSIVE_ACCENT_COLOR = '#a07850'
+export const LOADOUT_PASSIVE_ACCENT_COLOR = '#6b4a72'
 
 const DEFAULT_UNKNOWN_COOLDOWN_MS = 2_000
 const UNKNOWN_BOON_EFFECT_SENTENCE = 'Unknown boon'
@@ -36,10 +38,17 @@ const PASSIVE_FILTER_SHORT: Record<ItemEffect, string> = {
 
 export type LoadoutSlotFaceKind = 'fire' | 'passive'
 
+export type LoadoutModeTag = 'Active' | 'Passive'
+
+export type LoadoutEffectTag = 'Damage' | 'Heal' | 'Shield'
+
 export type LoadoutSlotPresentation = {
   name: string
   faceKind: LoadoutSlotFaceKind
   kindColor: string
+  modeTag: LoadoutModeTag
+  effectTag?: LoadoutEffectTag
+  weaponGateTag?: string
   showCooldownBar: boolean
   effect?: ItemEffect
   potency?: number
@@ -115,6 +124,35 @@ export function getKindColor(effect: ItemEffect): string {
   }
 }
 
+export function getEffectTag(effect: ItemEffect): LoadoutEffectTag {
+  switch (effect) {
+    case 'damage':
+      return 'Damage'
+    case 'heal':
+      return 'Heal'
+    case 'shield':
+      return 'Shield'
+    default: {
+      const exhaustiveCheck: never = effect
+      return exhaustiveCheck
+    }
+  }
+}
+
+function buildPresentationTags(input: {
+  faceKind: LoadoutSlotFaceKind
+  effect?: ItemEffect
+  requiredWeaponType?: WeaponType
+}): Pick<LoadoutSlotPresentation, 'modeTag' | 'effectTag' | 'weaponGateTag'> {
+  const { faceKind, effect, requiredWeaponType } = input
+  return {
+    modeTag: faceKind === 'fire' ? 'Active' : 'Passive',
+    effectTag: faceKind === 'fire' && effect !== undefined ? getEffectTag(effect) : undefined,
+    weaponGateTag:
+      requiredWeaponType === undefined ? undefined : formatWeaponTypeLabel(requiredWeaponType),
+  }
+}
+
 function formatPercentMagnitude(value: number): string {
   return displayNumber(Math.abs(value * 100))
 }
@@ -159,7 +197,7 @@ function passiveFilterShortLabel(filter: PassiveFilter): string {
     parts.push(PASSIVE_FILTER_SHORT[filter.effectKind])
   }
   if (filter.weaponType !== undefined) {
-    parts.push(filter.weaponType)
+    parts.push(formatWeaponTypeLabel(filter.weaponType))
   }
   if (parts.length === 0) {
     return 'all'
@@ -182,7 +220,7 @@ function filterPhrase(filter: PassiveFilter): string {
     parts.push(`${filter.effectKind}`)
   }
   if (filter.weaponType !== undefined) {
-    parts.push(`${filter.weaponType}`)
+    parts.push(formatWeaponTypeLabel(filter.weaponType))
   }
   if (parts.length === 0) {
     return 'Boons'
@@ -238,11 +276,16 @@ export function formatPassiveSentence(passive: PassiveDefinition): string {
 
 function buildPassiveOnlyPresentation(item: ItemDefinition): LoadoutSlotPresentation {
   const passive = item.passive
+  const tags = buildPresentationTags({
+    faceKind: 'passive',
+    requiredWeaponType: item.requiredWeaponType,
+  })
   if (passive === undefined) {
     return {
       name: item.name,
       faceKind: 'passive',
       kindColor: LOADOUT_PASSIVE_ACCENT_COLOR,
+      ...tags,
       showCooldownBar: false,
       passiveCue: UNKNOWN_BOON_EFFECT_SENTENCE,
       passiveSentence: UNKNOWN_BOON_EFFECT_SENTENCE,
@@ -252,6 +295,7 @@ function buildPassiveOnlyPresentation(item: ItemDefinition): LoadoutSlotPresenta
     name: item.name,
     faceKind: 'passive',
     kindColor: LOADOUT_PASSIVE_ACCENT_COLOR,
+    ...tags,
     showCooldownBar: false,
     passiveCue: formatPassiveCue(passive),
     passiveSentence: formatPassiveSentence(passive),
@@ -268,11 +312,12 @@ function buildFirePresentation(
   const effectSentence =
     requiredWeaponType === undefined
       ? formatEffectSentence(effect, potency)
-      : `${formatEffectSentence(effect, potency)} (${requiredWeaponType})`
+      : `${formatEffectSentence(effect, potency)} (${formatWeaponTypeLabel(requiredWeaponType)})`
   const presentation: LoadoutSlotPresentation = {
     name,
     faceKind: 'fire',
     kindColor: getKindColor(effect),
+    ...buildPresentationTags({ faceKind: 'fire', effect, requiredWeaponType }),
     showCooldownBar: true,
     effect,
     potency,
@@ -297,6 +342,7 @@ function buildUnknownPresentation(itemKey: string): LoadoutSlotPresentation {
     name: itemKey,
     faceKind: 'fire',
     kindColor: getKindColor('damage'),
+    ...buildPresentationTags({ faceKind: 'fire', effect: 'damage' }),
     showCooldownBar: true,
     effect: 'damage',
     potency: 0,

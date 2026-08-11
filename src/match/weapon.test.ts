@@ -9,7 +9,8 @@ import {
 } from './weapon'
 import { createDraftRngFromRandom } from './draftEngine'
 import { MATCH_LIFE_CAP } from './soul'
-import { WEAPON_KEYS } from './weaponCatalog'
+import type { WeaponRarity } from './types'
+import { WEAPON_KEYS, WEAPON_RARITIES, weaponDefinition } from './weaponCatalog'
 
 describe('generateWeaponOffers', () => {
   it('returns three distinct catalog weapons', () => {
@@ -23,6 +24,31 @@ describe('generateWeaponOffers', () => {
     expect(new Set(offers).size).toBe(WEAPON_OFFER_COUNT)
     for (const key of offers) {
       expect(WEAPON_KEYS).toContain(key)
+    }
+  })
+
+  it('weights offers by rarity (Common most frequent, Legendary rarest)', () => {
+    const counts: Record<WeaponRarity, number> = {
+      Common: 0,
+      Uncommon: 0,
+      Rare: 0,
+      Epic: 0,
+      Legendary: 0,
+    }
+    const trials = 5000
+    for (let trial = 0; trial < trials; trial += 1) {
+      const offers = generateWeaponOffers(createDraftRngFromRandom(() => Math.random()))
+      for (const key of offers) {
+        const rarity = weaponDefinition(key)?.rarity
+        if (rarity !== undefined) {
+          counts[rarity] += 1
+        }
+      }
+    }
+    for (let i = 0; i < WEAPON_RARITIES.length - 1; i += 1) {
+      const higher = WEAPON_RARITIES[i]!
+      const lower = WEAPON_RARITIES[i + 1]!
+      expect(counts[higher]).toBeGreaterThan(counts[lower])
     }
   })
 })
@@ -61,7 +87,7 @@ describe('weaponFavorLine', () => {
 describe('maxLifeForSeat', () => {
   it('adds vitality and weapon life bonus on the shared max-life path', () => {
     expect(maxLifeForSeat({ strength: 0, speed: 0, vitality: 5 }, 'elder_wand')).toBe(
-      MATCH_LIFE_CAP + 5 * 3 + 3,
+      MATCH_LIFE_CAP + 5 * 3 + 4,
     )
     expect(maxLifeForSeat({ strength: 0, speed: 0, vitality: 5 }, 'steel_longsword')).toBe(
       MATCH_LIFE_CAP + 5 * 3,

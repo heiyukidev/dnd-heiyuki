@@ -1,0 +1,72 @@
+{
+  "title": "Choose the Match visual world",
+  "question": "More Greek-god. The roll assigned Kylix Tondo Arena. Keep it, take an alternate, re-roll, or take the category standard. A third re-roll will ask what quality is still missing.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Kylix Tondo Arena",
+      "kicker": "THE ROLL",
+      "lineage": "Attic red-figure drinking cups with circular interior scenes",
+      "thesis": "Match is the god-painted tondo; the run shell is the cup rim; Draft walks the exterior frieze of Olympians.",
+      "palette": ["#0c0a08", "#c45a1a", "#e8d4b8", "#8b1e2d", "#b08d57"],
+      "materials": ["glossy black slip", "coral-ochre figure paint", "bronze rim", "white-slip detail lines"],
+      "viewport": "Desktop: cup rim and handles as run chrome; circular Match stage center; Hermes–Zeus frieze as offer banks; dual seats as opposed figures in the tondo; Life as painted bands on the rim.",
+      "risk": "Museum-poster calm if fight fires stay static brush marks instead of living figure action.",
+      "sketch": ".impeccable/sketches/greek-assigned.webp"
+    },
+    {
+      "id": "challenger-cyclorama",
+      "label": "Cyclorama Dawn",
+      "lineage": "Theater cycloramas that pass from night through cobalt and rose into day",
+      "thesis": "Gods arrive as light: Match phases are night, first light, dawn, day behind a contained agon stage.",
+      "palette": ["#050508", "#1e3a6e", "#c46b7a", "#f2efe8", "#d4af37"],
+      "materials": ["depthless cyc cloth", "horizon light bands", "bronze cue stencils"],
+      "viewport": "Run shell as black house; Match as actors on a banded horizon; Draft as cue racks; fight climax washes the cyc to day.",
+      "risk": "Olympian identity can blur into generic stage lighting without cult statues or god cues.",
+      "case": "Wins divine theatrical presence; weaker specific Olympian iconography than the kylix.",
+      "sketch": ".impeccable/sketches/greek-cyclorama.webp",
+      "hero": "https://impeccable.style/worlds/cards/stagecraft-theater-lighting-cyclorama-dawn-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/stagecraft-theater-lighting-cyclorama-dawn.webp"
+    },
+    {
+      "id": "challenger-anime-wall",
+      "label": "Mecha Crisis Wall",
+      "lineage": "Nineties mecha-anime command walls with phosphor type and hazard bands",
+      "thesis": "Each God is a crisis schematic; Draft arms the wall; the fight is the countdown and condition bars.",
+      "palette": ["#000000", "#ff6a00", "#7cff3f", "#ff2030", "#ffe566"],
+      "materials": ["phosphor orange type", "hazard chevrons", "seven-segment countdowns"],
+      "viewport": "Run shell as black command frame; Match schematic center; god labels as bilingual blocks; Life as monumental digits.",
+      "risk": "Reads anime ops before Olympus unless god silhouettes own the center.",
+      "case": "Wins fight urgency and spectacle; Greek gods are bolted on, not native.",
+      "sketch": ".impeccable/sketches/greek-anime-wall.webp",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-anime-command-center-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/pop-culture-shelf-anime-command-center.webp"
+    },
+    {
+      "id": "challenger-scope",
+      "label": "Signal Oscilloscope",
+      "lineage": "CRT oscilloscope benches with phosphor traces on etched graticules",
+      "thesis": "Boon fires are triggered traces; Gods are channels; Draft arms probes before the sweep locks.",
+      "palette": ["#0a0f0a", "#39ff14", "#6a736a", "#ffb000"],
+      "materials": ["phosphor green glass", "etched graticule", "detented knobs"],
+      "viewport": "Run shell as instrument bezel; Match as dual-channel Life traces; offers as channel arming; cooldown as timebase.",
+      "risk": "Almost no mythic identity without inventing god channel art outside the grammar.",
+      "case": "Wins cooldown/fire clarity; fuses poorly with Greek-god presence.",
+      "sketch": ".impeccable/sketches/greek-scope.webp",
+      "hero": "https://impeccable.style/worlds/cards/scientific-notation-oscilloscope-signal-bench-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/scientific-notation-oscilloscope-signal-bench.webp"
+    }
+  ],
+  "reroll": true,
+  "steer": true,
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "Dark auto-battler HUD with a light Greek skin on card art, executed at full craft.",
+    "viewport": "Familiar TFT chrome; gods appear mainly as card illustrations and names.",
+    "palette": ["#0e1116", "#1c2330", "#6c8cff", "#e8ecf4"],
+    "materials": ["matte dark panels", "soft neon accents", "card-shop chrome"],
+    "risk": "Expected; Olympus stays decoration, not the system.",
+    "sketch": ".impeccable/sketches/greek-canon.webp"
+  }
+}

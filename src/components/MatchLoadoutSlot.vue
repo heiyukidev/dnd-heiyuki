@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import { displayNumber } from '../lib/displayNumber'
 import { ITEM_CATALOG } from '../match/itemCatalog'
 import {
   getEffectIconPath,
@@ -203,11 +204,13 @@ onUnmounted(() => {
           <path :d="iconPath" fill="currentColor" />
         </svg>
         <span v-if="isPassiveFace" class="passive-cue">{{ presentation.passiveCue }}</span>
-        <span v-else class="potency">{{ presentation.potency }}</span>
+        <span v-else class="potency">{{
+          presentation.potency !== undefined ? displayNumber(presentation.potency) : ''
+        }}</span>
       </div>
     </div>
     <div v-if="presentation.showCooldownBar" class="cooldown-track" aria-hidden="true">
-      <div class="cooldown-fill" :style="{ width: `${cooldownFillWidth}%` }" />
+      <div class="cooldown-fill" :style="{ transform: `scaleX(${cooldownFillWidth / 100})` }" />
     </div>
     <div v-if="isOpen" class="slot-popover" role="tooltip">
       <p class="popover-title">{{ presentation.name }}</p>
@@ -230,23 +233,37 @@ onUnmounted(() => {
   position: relative;
   padding: 8px;
   border-radius: 8px;
-  border: 1px solid transparent;
-  background: color-mix(in srgb, var(--bg) 80%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--kylix-rim, var(--border)) 50%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--kylix-ground, var(--bg)) 85%,
+    var(--kylix-bronze, var(--border))
+  );
   transition:
     border-color 120ms ease,
-    background 120ms ease;
+    background 120ms ease,
+    box-shadow 120ms ease;
   cursor: default;
   outline: none;
 }
 .slot:focus-visible {
-  border-color: color-mix(in srgb, var(--text) 35%, var(--border));
+  border-color: color-mix(in srgb, var(--kylix-ice-bright, var(--text)) 50%, var(--border));
+  outline: 2px solid var(--kylix-ice-bright, var(--text));
+  outline-offset: 1px;
 }
 .slot.flash {
-  border-color: var(--flash-color);
-  background: color-mix(in srgb, var(--flash-color) 28%, var(--bg));
+  border-color: var(--flash-color, var(--kylix-coral, #e85d3a));
+  background: color-mix(
+    in srgb,
+    var(--flash-color, var(--kylix-coral, #e85d3a)) 28%,
+    var(--kylix-ground, var(--bg))
+  );
+  box-shadow: 0 0 12px
+    color-mix(in srgb, var(--flash-color, var(--kylix-coral, #e85d3a)) 40%, transparent);
 }
 .slot.passive {
-  background: color-mix(in srgb, var(--bg) 72%, #a07850 12%);
+  background: color-mix(in srgb, var(--kylix-ground, var(--bg)) 80%, var(--kylix-god, #6b4a72) 12%);
+  border-color: color-mix(in srgb, var(--kylix-god, #6b4a72) 35%, var(--kylix-rim, var(--border)));
 }
 .slot.popover-open {
   z-index: 2;
@@ -261,6 +278,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  color: var(--kylix-ice-bright, var(--text-h, var(--text)));
 }
 .passive-kind {
   align-items: flex-start;
@@ -284,13 +302,27 @@ onUnmounted(() => {
 .cooldown-track {
   height: 10px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--border) 60%, var(--bg));
+  background: color-mix(
+    in srgb,
+    var(--kylix-rim, var(--border)) 40%,
+    var(--kylix-ground, var(--bg))
+  );
   overflow: hidden;
 }
 .cooldown-fill {
   height: 100%;
-  background: var(--accent);
-  transition: width 80ms linear;
+  width: 100%;
+  transform-origin: left center;
+  background: var(--kylix-ice, var(--accent));
+  transition: transform 80ms linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cooldown-fill {
+    transition: none;
+  }
+  .slot {
+    transition: none;
+  }
 }
 .slot-popover {
   position: absolute;
@@ -299,15 +331,17 @@ onUnmounted(() => {
   bottom: calc(100% + 6px);
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--text) 12%, transparent);
+  border: 1px solid var(--kylix-rim, var(--border));
+  background: var(--kylix-ground, var(--bg));
+  color: var(--kylix-ice, var(--text));
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--kylix-ground, #070b14) 60%, transparent);
   pointer-events: none;
 }
 .popover-title {
   margin: 0 0 4px;
   font-weight: 700;
   font-size: 0.95rem;
+  color: var(--kylix-ice-bright, var(--text-h, var(--text)));
 }
 .popover-effect,
 .popover-passive,

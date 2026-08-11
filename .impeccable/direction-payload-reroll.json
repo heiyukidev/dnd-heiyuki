@@ -1,0 +1,72 @@
+{
+  "title": "Choose the Match visual world",
+  "question": "Re-roll with Greek gods in the mix. The roll assigned Divine Chariot Tote. Keep it, take an alternate, re-roll, or take the category standard.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Divine Chariot Tote",
+      "kicker": "THE ROLL",
+      "lineage": "Hippodrome tote boards and god-patron chariot cards",
+      "thesis": "Draft picks god-backed entries; the Match is the race under the tote glass inside the run booth.",
+      "palette": ["#14100c", "#c45c1a", "#d4af37", "#6b1d2a", "#e8dcc8"],
+      "materials": ["lacquered tote slate", "bronze numerals", "ochre entry tickets", "Tyrian purple course line"],
+      "viewport": "Desktop: run shell as stadium booth rails; center tote glass with dual-seat entry columns; Weapon/Boon offers as god-stamped tickets; fight as live odds/Life reels with purple active leg.",
+      "risk": "Can read as sportsbook chrome if god seals and divine entry art stay weak.",
+      "sketch": ".impeccable/sketches/reroll-assigned.webp"
+    },
+    {
+      "id": "challenger-orienteering",
+      "label": "Orienteering Course",
+      "lineage": "ISO orienteering maps with purple course over terrain",
+      "thesis": "The run is terrain; Match is the purple course leg you punch through god-marked controls.",
+      "palette": ["#f4f1ea", "#5c4030", "#2f5d8a", "#6b2d8b", "#3d5c34"],
+      "materials": ["waterproof map stock", "brown contours", "purple course overlay", "control circles"],
+      "viewport": "Map fills the run shell; Match is a clipped purple leg window; Draft is control descriptions; Life punches check off.",
+      "risk": "God identity is only in control names unless seals and icons carry weight.",
+      "case": "Wins run-shell navigation clarity; thin on divine spectacle.",
+      "sketch": ".impeccable/sketches/reroll-orienteering.webp",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-orienteering-map-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/notation-diagram-systems-orienteering-map.webp"
+    },
+    {
+      "id": "challenger-teletext",
+      "label": "Broadcast Teletext",
+      "lineage": "40×24 teletext magazines with live scores and REVEAL",
+      "thesis": "Match is a keyed results page; Draft is a magazine; fog lifts on REVEAL when the fight starts.",
+      "palette": ["#000000", "#ffffff", "#ffff00", "#00ffff", "#ff0000"],
+      "materials": ["flat broadcast black", "block-mosaic sixels", "double-height headers"],
+      "viewport": "Run shell as page index; Match page with twin cyan Life figures; offer rows as numbered blocks; opponent fog as REVEAL-hidden spans.",
+      "risk": "Myth flavor is almost none unless god pages earn mosaic art.",
+      "case": "Wins live-score clarity and Draft fog; fuses poorly with Greek-god presence.",
+      "sketch": ".impeccable/sketches/reroll-teletext.webp",
+      "hero": "https://impeccable.style/worlds/cards/broadcast-programming-teletext-service-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/broadcast-programming-teletext-service.webp"
+    },
+    {
+      "id": "challenger-crt-arcade",
+      "label": "CRT Arcade Glow",
+      "lineage": "Pixel arcade cabinets with phosphor bloom and scanlines",
+      "thesis": "Gods are sprite bosses; Draft is the select screen; the fight is the glowing playfield inside the run cabinet.",
+      "palette": ["#050508", "#1a1a2e", "#ffcc33", "#ff3366", "#33ffcc"],
+      "materials": ["phosphor black", "fat luminous pixels", "scanline gaps", "sixteen-color sprites"],
+      "viewport": "Integer-scaled Match stage in shell; god select as sprite roster; Loadout as HUD icons; fires as palette-flash hits.",
+      "risk": "Reads as generic arcade unless god roster art is unmistakable.",
+      "case": "Wins kinetic spectacle; god flavor is painted on, not native to CRT grammar.",
+      "sketch": ".impeccable/sketches/reroll-crt.webp",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-crt-arcade-pixel-glow-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/medium-native-crt-arcade-pixel-glow.webp"
+    }
+  ],
+  "reroll": true,
+  "steer": true,
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "Dark auto-battler HUD with shop-row Draft and twin HP bars, executed at full craft.",
+    "viewport": "Familiar TFT/Auto Chess chrome with a light Greek skin on card names only.",
+    "palette": ["#0e1116", "#1c2330", "#6c8cff", "#e8ecf4"],
+    "materials": ["matte dark panels", "soft neon accents", "card-shop chrome"],
+    "risk": "Expected; gods stay labels, not the visual system.",
+    "sketch": ".impeccable/sketches/reroll-canon.webp"
+  }
+}

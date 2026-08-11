@@ -8,6 +8,7 @@ import {
   formatPassiveCue,
   formatPassiveSentence,
   getDraftOfferPresentation,
+  getEffectTag,
   getKindColor,
   getLoadoutSlotPresentation,
   getLoadoutSlotPresentationForMatch,
@@ -16,6 +17,7 @@ import {
   LOADOUT_PASSIVE_ACCENT_COLOR,
 } from './loadoutSlotPresentation'
 import type { ItemEffect, MatchSeatState } from './types'
+import { formatWeaponTypeLabel } from './weaponCatalog'
 
 function makeSeats(
   seat0Slots: string[],
@@ -152,7 +154,7 @@ describe('loadoutSlotPresentation', () => {
       const expectedSentence =
         item.requiredWeaponType === undefined
           ? formatEffectSentence(effect, potency)
-          : `${formatEffectSentence(effect, potency)} (${item.requiredWeaponType})`
+          : `${formatEffectSentence(effect, potency)} (${formatWeaponTypeLabel(item.requiredWeaponType)})`
       expect(presentation.name).toBe(name)
       expect(presentation.faceKind).toBe('fire')
       expect(presentation.showCooldownBar).toBe(true)
@@ -162,6 +164,13 @@ describe('loadoutSlotPresentation', () => {
       expect(presentation.cooldownLine).toBe(cooldownLine)
       expect(presentation.effectiveCooldownMs).toBe(ITEM_CATALOG[itemKey].cooldownMs)
       expect(presentation.kindColor).toBe(getKindColor(effect))
+      expect(presentation.modeTag).toBe('Active')
+      expect(presentation.effectTag).toBe(getEffectTag(effect))
+      expect(presentation.weaponGateTag).toBe(
+        item.requiredWeaponType === undefined
+          ? undefined
+          : formatWeaponTypeLabel(item.requiredWeaponType),
+      )
       expect(presentation.passiveSentence).toBeUndefined()
     })
   })
@@ -179,6 +188,8 @@ describe('loadoutSlotPresentation', () => {
       name: 'missing-item',
       faceKind: 'fire',
       kindColor: LOADOUT_EFFECT_KIND_COLORS.damage,
+      modeTag: 'Active',
+      effectTag: 'Damage',
       showCooldownBar: true,
       effect: 'damage',
       potency: 0,
@@ -194,6 +205,7 @@ describe('loadoutSlotPresentation', () => {
       name: 'Slipstream',
       faceKind: 'passive',
       kindColor: LOADOUT_PASSIVE_ACCENT_COLOR,
+      modeTag: 'Passive',
       showCooldownBar: false,
       passiveCue: '−18.0% Hermes CD',
       passiveSentence: 'Reduce your Hermes Boons Cooldown by 18.0%',
@@ -212,13 +224,38 @@ describe('loadoutSlotPresentation', () => {
   })
 
   it('formats passive templates for god and effect filters', () => {
-    expect(formatPassiveCue(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe('−15.0% dmg Spear CD')
+    expect(formatPassiveCue(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe(
+      '−15.0% dmg 🔱 Spear CD',
+    )
     expect(formatPassiveSentence(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe(
-      'Reduce your damage Spear Boons Cooldown by 15.0%',
+      'Reduce your damage 🔱 Spear Boons Cooldown by 15.0%',
     )
     expect(formatPassiveCue(ITEM_CATALOG.zeus_thunder_tyrant.passive!)).toBe('+15.0% dmg CD')
     expect(formatPassiveSentence(ITEM_CATALOG.zeus_thunder_tyrant.passive!)).toBe(
       'Increase enemy damage Boons Cooldown by 15.0%',
+    )
+  })
+
+  it('formats reworked god-filtered potency passives as cooldown or percent potency', () => {
+    expect(formatPassiveCue(ITEM_CATALOG.hermes_messengers_sting.passive!)).toBe('−10.0% dmg CD')
+    expect(formatPassiveSentence(ITEM_CATALOG.hermes_messengers_sting.passive!)).toBe(
+      'Reduce your damage Boons Cooldown by 10.0%',
+    )
+    expect(formatPassiveCue(ITEM_CATALOG.ares_war_crush.passive!)).toBe('−15.0% Ares CD')
+    expect(formatPassiveSentence(ITEM_CATALOG.ares_war_crush.passive!)).toBe(
+      'Reduce your Ares Boons Cooldown by 15.0%',
+    )
+    expect(formatPassiveCue(ITEM_CATALOG.ares_bloodlust.passive!)).toBe('+12.0% dmg')
+    expect(formatPassiveSentence(ITEM_CATALOG.ares_bloodlust.passive!)).toBe(
+      'Increase your damage Boons potency by 12.0%',
+    )
+    expect(formatPassiveCue(ITEM_CATALOG.athena_reflective_plate.passive!)).toBe('+12.0% dmg CD')
+    expect(formatPassiveSentence(ITEM_CATALOG.athena_reflective_plate.passive!)).toBe(
+      'Increase enemy damage Boons Cooldown by 12.0%',
+    )
+    expect(formatPassiveCue(ITEM_CATALOG.zeus_skyfall.passive!)).toBe('+12.0% dmg')
+    expect(formatPassiveSentence(ITEM_CATALOG.zeus_skyfall.passive!)).toBe(
+      'Increase your damage Boons potency by 12.0%',
     )
   })
 
@@ -232,7 +269,7 @@ describe('loadoutSlotPresentation', () => {
       weaponKeys: ['bronze_spear', 'steel_longsword'],
     })
     expect(offer.choices[0]?.cooldownLine).toBe('Cooldown 0.8s')
-    expect(offer.choices[0]?.potency).toBeCloseTo(4.16)
+    expect(offer.choices[0]?.potency).toBeCloseTo(4.12)
   })
 
   it('uses soul-adjusted stats in draft offer when soul is provided', () => {
@@ -258,7 +295,21 @@ describe('loadoutSlotPresentation', () => {
     expect(offer.choices).toHaveLength(3)
     expect(offer.choices[0]?.key).toBe('hermes_winged_needle')
     expect(offer.choices[0]?.name).toBe('Winged Needle')
+    expect(offer.choices[0]?.modeTag).toBe('Active')
+    expect(offer.choices[0]?.effectTag).toBe('Damage')
     expect(offer.choices[2]?.faceKind).toBe('passive')
+    expect(offer.choices[2]?.modeTag).toBe('Passive')
+    expect(offer.choices[2]?.effectTag).toBeUndefined()
+  })
+
+  it('exposes weapon gate tag for gated boons in draft offers', () => {
+    const offer = getDraftOfferPresentation({
+      god: 'Apollo',
+      optionKeys: ['apollo_sun_balm'],
+      catalog: ITEM_CATALOG,
+    })
+    expect(offer.choices[0]?.weaponGateTag).toBe('🪄 Wand')
+    expect(offer.choices[0]?.effectTag).toBe('Heal')
   })
 
   it('uses effective cooldown when stolen seconds is in the same loadout', () => {
@@ -275,9 +326,9 @@ describe('loadoutSlotPresentation', () => {
       slotIndex: 1,
       weaponKeys: ['bronze_spear', 'steel_longsword'],
     })
-    expect(presentation.potency).toBeCloseTo(4.16)
+    expect(presentation.potency).toBeCloseTo(4.12)
     expect(presentation.cooldownLine).toBe('Cooldown 0.8s')
-    expect(presentation.effectiveCooldownMs).toBe(807.5)
+    expect(presentation.effectiveCooldownMs).toBe(816)
   })
 
   it('uses effective potency when vital bloom is in the same loadout', () => {
@@ -290,7 +341,7 @@ describe('loadoutSlotPresentation', () => {
       slotIndex: 1,
     })
     expect(presentation.potency).toBe(10)
-    expect(presentation.effectSentence).toBe('Heal 10.0 (Wand)')
+    expect(presentation.effectSentence).toBe('Heal 10.0 (🪄 Wand)')
     expect(presentation.cooldownLine).toBe('Cooldown 2.0s')
   })
 

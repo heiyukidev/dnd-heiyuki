@@ -50,7 +50,7 @@ export const ITEM_CATALOG = {
     name: 'Quicksilver Jab',
     god: 'Hermes',
     effect: 'damage',
-    potency: 5,
+    potency: 4,
     cooldownMs: 1_200,
   },
   hermes_messengers_sting: {
@@ -59,8 +59,8 @@ export const ITEM_CATALOG = {
     god: 'Hermes',
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Hermes', effectKind: 'damage' },
-      changes: [{ stat: 'potency', mode: 'flat', value: 2 }],
+      filter: 'damage',
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.1 }],
     },
   },
   hermes_fleet_foot: {
@@ -119,7 +119,7 @@ export const ITEM_CATALOG = {
     name: 'Crushing Blow',
     god: 'Ares',
     effect: 'damage',
-    potency: 36,
+    potency: 30,
     cooldownMs: 8_000,
   },
   ares_war_crush: {
@@ -128,8 +128,8 @@ export const ITEM_CATALOG = {
     god: 'Ares',
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Ares', effectKind: 'damage' },
-      changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
+      filter: { god: 'Ares' },
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.15 }],
     },
   },
   ares_bloodlust: {
@@ -141,8 +141,8 @@ export const ITEM_CATALOG = {
     cooldownMs: 5_500,
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Ares', effectKind: 'damage' },
-      changes: [{ stat: 'potency', mode: 'flat', value: 4 }],
+      filter: 'damage',
+      changes: [{ stat: 'potency', mode: 'percent', value: 0.12 }],
     },
   },
   ares_war_ground: {
@@ -151,8 +151,8 @@ export const ITEM_CATALOG = {
     god: 'Ares',
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Ares', weaponType: 'Axe' },
-      changes: [{ stat: 'potency', mode: 'percent', value: 0.15 }],
+      filter: { effectKind: 'damage', weaponType: 'Axe' },
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.12 }],
     },
   },
   ares_rising_fury: {
@@ -197,8 +197,8 @@ export const ITEM_CATALOG = {
     god: 'Apollo',
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Apollo', effectKind: 'heal' },
-      changes: [{ stat: 'potency', mode: 'flat', value: 4 }],
+      filter: 'heal',
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.12 }],
     },
   },
   apollo_vital_bloom: {
@@ -266,8 +266,8 @@ export const ITEM_CATALOG = {
     god: 'Athena',
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Athena', effectKind: 'shield' },
-      changes: [{ stat: 'potency', mode: 'flat', value: 4 }],
+      filter: 'shield',
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.12 }],
     },
   },
   athena_reflective_plate: {
@@ -278,9 +278,9 @@ export const ITEM_CATALOG = {
     potency: 11,
     cooldownMs: 3_500,
     passive: {
-      seatTarget: 'own',
-      filter: { god: 'Athena', effectKind: 'shield' },
-      changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
+      seatTarget: 'enemy',
+      filter: 'damage',
+      changes: [{ stat: 'cooldown', mode: 'percent', value: 0.12 }],
     },
   },
   athena_phalanx: {
@@ -326,7 +326,7 @@ export const ITEM_CATALOG = {
     name: 'Thunderclap',
     god: 'Zeus',
     effect: 'damage',
-    potency: 14,
+    potency: 12,
     cooldownMs: 3_500,
   },
   zeus_skyfall: {
@@ -335,8 +335,8 @@ export const ITEM_CATALOG = {
     god: 'Zeus',
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Zeus', effectKind: 'damage' },
-      changes: [{ stat: 'potency', mode: 'flat', value: 3 }],
+      filter: 'damage',
+      changes: [{ stat: 'potency', mode: 'percent', value: 0.12 }],
     },
   },
   zeus_storm_crown: {
@@ -348,8 +348,8 @@ export const ITEM_CATALOG = {
     cooldownMs: 3_000,
     passive: {
       seatTarget: 'own',
-      filter: { god: 'Zeus', effectKind: 'damage' },
-      changes: [{ stat: 'potency', mode: 'percent', value: 0.1 }],
+      filter: 'damage',
+      changes: [{ stat: 'cooldown', mode: 'percent', value: -0.1 }],
     },
   },
   zeus_olympian_tempo: {

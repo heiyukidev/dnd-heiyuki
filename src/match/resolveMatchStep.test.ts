@@ -362,11 +362,11 @@ describe('resolveMatchStep', () => {
       seat(100, 0, [{ itemKey: 'athena_aegis_chip' }]),
       SPEAR_AT_SEAT_0,
     )
-    expect(seats[0].slots[1].nextReadyAt).toBe(matchStartedAt + 807.5)
-    expect(seats[0].slots[1].lastChargeCooldownMs).toBe(807.5)
-    expect(earliestWakeAt(seats, matchStartedAt)).toBe(matchStartedAt + 807.5)
+    expect(seats[0].slots[1].nextReadyAt).toBe(matchStartedAt + 816)
+    expect(seats[0].slots[1].lastChargeCooldownMs).toBe(816)
+    expect(earliestWakeAt(seats, matchStartedAt)).toBe(matchStartedAt + 816)
 
-    const t = matchStartedAt + 807.5
+    const t = matchStartedAt + 816
     const result = resolveMatchStep({
       seats: cloneDeep(seats),
       t,
@@ -376,10 +376,10 @@ describe('resolveMatchStep', () => {
       weaponKeys: SPEAR_AT_SEAT_0,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 1, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4.16 },
+      { seat: 0, slotIndex: 1, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4.12 },
     ])
-    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 807.5)
-    expect(result.nextWakeAt).toBe(t + 807.5)
+    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 816)
+    expect(result.nextWakeAt).toBe(t + 816)
   })
 
   it('shortens own-seat damage recharge when stolen seconds is present', () => {
@@ -401,11 +401,11 @@ describe('resolveMatchStep', () => {
       weaponKeys: SPEAR_AT_SEAT_0,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 1, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4.16 },
+      { seat: 0, slotIndex: 1, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4.12 },
     ])
-    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 807.5)
-    expect(result.seats[0].slots[1].lastChargeCooldownMs).toBe(807.5)
-    expect(result.nextWakeAt).toBe(t + 807.5)
+    expect(result.seats[0].slots[1].nextReadyAt).toBe(t + 816)
+    expect(result.seats[0].slots[1].lastChargeCooldownMs).toBe(816)
+    expect(result.nextWakeAt).toBe(t + 816)
   })
 
   it('buffs own-seat heal potency with vital bloom including self', () => {
@@ -475,7 +475,7 @@ describe('resolveMatchStep', () => {
       weaponKeys: SPEAR_AT_SEAT_0,
     })
     expect(result.fires).toEqual([
-      { seat: 0, slotIndex: 2, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4.16 },
+      { seat: 0, slotIndex: 2, itemKey: 'hermes_winged_needle', effect: 'damage', potency: 4.12 },
     ])
     expect(result.animationHints).toEqual([{ kind: 'damage', seat: 0, slotIndex: 2 }])
     expect(result.seats[0].slots[0].nextReadyAt).toBeUndefined()
@@ -502,8 +502,8 @@ describe('resolveMatchStep', () => {
       matchStartedAt,
       weaponKeys: SPEAR_AT_SEAT_0,
     })
-    expect(result.seats[0].slots[3].nextReadyAt).toBe(t + 522.5)
-    expect(result.seats[0].slots[3].lastChargeCooldownMs).toBeCloseTo(522.5)
+    expect(result.seats[0].slots[3].nextReadyAt).toBe(t + 528)
+    expect(result.seats[0].slots[3].lastChargeCooldownMs).toBeCloseTo(528)
   })
 
   it('floors stacked haste at 500ms effective cooldown', () => {
@@ -570,8 +570,8 @@ describe('resolveMatchStep', () => {
       weaponKeys: SPEAR_AT_SEAT_0,
     })
     expect(reEvalResult.fires).toEqual([])
-    expect(reEvalResult.seats[0].slots[1].nextReadyAt).toBe(1_903.75)
-    expect(reEvalResult.seats[0].slots[1].lastChargeCooldownMs).toBe(807.5)
+    expect(reEvalResult.seats[0].slots[1].nextReadyAt).toBe(1_908)
+    expect(reEvalResult.seats[0].slots[1].lastChargeCooldownMs).toBe(816)
   })
 
   it('exposes reEvalFireCapableSlotSchedules for explicit prior-effective overrides', () => {
@@ -603,8 +603,8 @@ describe('resolveMatchStep', () => {
       undefined,
       SPEAR_AT_SEAT_0,
     )
-    expect(seatsWithCharm[0].slots[1].nextReadyAt).toBe(1_807.5)
-    expect(seatsWithCharm[0].slots[1].lastChargeCooldownMs).toBe(807.5)
+    expect(seatsWithCharm[0].slots[1].nextReadyAt).toBe(1_816)
+    expect(seatsWithCharm[0].slots[1].lastChargeCooldownMs).toBe(816)
   })
 
   it('ignores passive-only slots when scheduling next wake', () => {

@@ -2,6 +2,8 @@ export type SeatIndex = 0 | 1
 
 export type WeaponType = 'Sword' | 'Axe' | 'Wand' | 'Bow' | 'Spear'
 
+export type WeaponRarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary'
+
 export type WeaponNudges = {
   damagePotencyPercent?: number
   cooldownPercent?: number
@@ -12,6 +14,7 @@ export type WeaponDefinition = {
   key: string
   name: string
   weaponType: WeaponType
+  rarity: WeaponRarity
   nudges?: WeaponNudges
 }
 

@@ -1,0 +1,32 @@
+{
+  "title": "Boon offer encoding",
+  "question": "Draft frieze offers (Vital Bloom / Paean / Sun Balm) are ice text only. Loadout slots already tint by effect and show SVG icons. How should these offers communicate?",
+  "options": [
+    {
+      "id": "match-slots",
+      "label": "Match the slot language",
+      "kicker": "RECOMMENDED",
+      "thesis": "Reuse effect/passive colors + the same SVG icons; add Active / Passive / Heal|Damage|Shield tags (and weapon gate when gated).",
+      "materials": ["icons", "tags", "kindColor", "kylix frieze"],
+      "case": "Scan parity with fight loadout; no new palette inventing.",
+      "risk": "Warm damage tint sits near coral — keep flash coral exclusive; damage stays taxonomy only."
+    },
+    {
+      "id": "cool-remap",
+      "label": "Cooler kylix remaps",
+      "thesis": "Same icons + tags, but remake damage/heal/shield hues into cooler slip-blue family so nothing competes with coral flash.",
+      "materials": ["cool taxonomy", "icons", "tags"],
+      "case": "Stronger world unity; breaks continuity with existing loadout kind colors unless those remaps too.",
+      "risk": "Heal vs life-band and shield vs shield-band may blur if hues get too close."
+    },
+    {
+      "id": "tags-only",
+      "label": "Tags + icons, quiet color",
+      "thesis": "SVG icons and Active/Passive/effect tags; color only as thin tint on the icon/tag, body text stays ice.",
+      "materials": ["restrained", "icons", "tags"],
+      "case": "Safest against craft-floor color noise; weakest hierarchy at a glance.",
+      "risk": "Still reads mostly monochrome on a quick glance."
+    }
+  ],
+  "steer": true
+}

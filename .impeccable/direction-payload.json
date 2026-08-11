@@ -1,0 +1,72 @@
+{
+  "title": "Choose the Match visual world",
+  "question": "The roll assigned Pinball Playfield. Keep it, take an alternate, re-roll, or take the category standard.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Pinball Playfield",
+      "kicker": "THE ROLL",
+      "lineage": "Electromechanical arcade cabinets and glass playfields",
+      "thesis": "Match is the glass playfield; the future run shell is the cabinet around it.",
+      "palette": ["#0d0f14", "#1a6b5c", "#c4a35a", "#e8e2d6", "#5ec8ff"],
+      "materials": ["laminated enamel playfield", "chrome rails", "translucent lit targets", "score-glass hood"],
+      "viewport": "Desktop: cabinet rails as run chrome; dual-seat lanes under glass; Draft as lit target banks; fight fires as bumper flashes with twin Life reels.",
+      "risk": "Kinetic chrome can bury Boon names unless offers stay large labeled target banks.",
+      "sketch": ".impeccable/sketches/assigned.webp"
+    },
+    {
+      "id": "challenger-star-atlas",
+      "label": "Celestial Star Atlas",
+      "lineage": "Night-sky magnitude charts with faint mythic figures",
+      "thesis": "Gods are constellations on a navy plate; Draft picks stars; the fight pulses magnitudes.",
+      "palette": ["#0b1a33", "#e8eef7", "#c45c2a", "#7a8ca8"],
+      "materials": ["chart paper under glass", "chalk-white star dots", "red-flashlight amber rings"],
+      "viewport": "Contained chart plate in the run shell; dual hemispheres for seats; offer row as catalog stars; Life as magnitude ramps.",
+      "risk": "Spectacle stays quiet unless magnitude pulses carry fight energy.",
+      "case": "Wins Greek-god audience ID; quieter kinetic fight than a playfield.",
+      "sketch": ".impeccable/sketches/challenger-star-atlas.webp",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-star-atlas-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/notation-diagram-systems-star-atlas.webp"
+    },
+    {
+      "id": "challenger-one-bit",
+      "label": "One-Bit Desktop",
+      "lineage": "Early one-bit windowed desktops with marching-ants selection",
+      "thesis": "Draft is overlapping windows; the fight is the desktop coming alive under marching ants.",
+      "palette": ["#ffffff", "#000000", "#808080"],
+      "materials": ["pixel dither fills", "one-pixel window chrome", "32-px icons"],
+      "viewport": "Run shell as desktop menu bar; Match as a titled window; offers as dialogs; Loadout icons; active Boon wears marching ants.",
+      "risk": "Reads as tool nostalgia before auto-battler, so spectacle must be earned in motion.",
+      "case": "Wins Draft Operate clarity; loses auto-battler spectacle identification.",
+      "sketch": ".impeccable/sketches/challenger-one-bit.webp",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-one-bit-desktop-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/medium-native-one-bit-desktop.webp"
+    },
+    {
+      "id": "challenger-miura",
+      "label": "Miura Orbit Sheet",
+      "lineage": "Deployable Miura-fold packets that open into rigid crease fields",
+      "thesis": "Match deploys from a hand-sized run packet into a locked crease stage, then folds away.",
+      "palette": ["#f7f4ef", "#c9a227", "#5a6b7a", "#d9e6f2", "#1a1a1a"],
+      "materials": ["matte white sheet", "gold foil packet face", "scored mountain/valley creases"],
+      "viewport": "Packet in the run shell expands to a parallelogram Match field; Draft cells along creases; fight locks the sheet rigid.",
+      "risk": "Crease topology can feel more origami demo than contested fight.",
+      "case": "Wins containment-in-run story; fuses poorly when Boon fires need kinetic punch.",
+      "sketch": ".impeccable/sketches/challenger-miura.webp",
+      "hero": "https://impeccable.style/worlds/cards/paper-folds-pleats-deployable-miura-orbit-sheet-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/paper-folds-pleats-deployable-miura-orbit-sheet.webp"
+    }
+  ],
+  "reroll": true,
+  "steer": true,
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "Dark auto-battler HUD with shop-row Draft and twin HP bars, executed at full craft.",
+    "viewport": "Familiar TFT/Auto Chess chrome: offer row, loadout tray, centered fight readouts inside a run frame.",
+    "palette": ["#0e1116", "#1c2330", "#6c8cff", "#e8ecf4"],
+    "materials": ["matte dark panels", "soft neon accents", "card-shop chrome"],
+    "risk": "Readable and expected; erases this product’s god-draft mechanism as a look.",
+    "sketch": ".impeccable/sketches/canon.webp"
+  }
+}

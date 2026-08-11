@@ -162,6 +162,23 @@ export function sampleWithoutReplacement<T>(
   return picked
 }
 
+export function sampleWeightedWithoutReplacement<T>(
+  items: readonly T[],
+  count: number,
+  weightFn: (item: T) => number,
+  rng: DraftRng,
+): T[] {
+  const pool = [...items]
+  const picked: T[] = []
+  const takeCount = Math.min(count, pool.length)
+  for (let i = 0; i < takeCount; i += 1) {
+    const choice = pickWeighted(pool, weightFn, rng)
+    picked.push(choice)
+    pool.splice(pool.indexOf(choice), 1)
+  }
+  return picked
+}
+
 export function generateOffer(
   seat: DraftSeatState,
   rng: DraftRng,

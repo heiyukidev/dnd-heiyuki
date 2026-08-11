@@ -1,15 +1,22 @@
 import { get, includes } from 'lodash'
 
-import { createDraftRngFromRandom, sampleWithoutReplacement, type DraftRng } from './draftEngine'
+import { createDraftRngFromRandom, sampleWeightedWithoutReplacement, type DraftRng } from './draftEngine'
 import { godsAffiliatedWithWeaponType } from './itemCatalog'
 import { MATCH_LIFE_CAP, startingLifeFromVitality } from './soul'
 import type { SoulStats, WeaponType } from './types'
-import { isWeaponKey, weaponDefinition, WEAPON_KEYS, WEAPON_TYPES } from './weaponCatalog'
+import {
+  isWeaponKey,
+  resolveWeaponNudges,
+  weaponDefinition,
+  weaponOfferWeight,
+  WEAPON_KEYS,
+  WEAPON_TYPES,
+} from './weaponCatalog'
 
 export const WEAPON_OFFER_COUNT = 3
 
 export function generateWeaponOffers(rng: DraftRng): string[] {
-  return sampleWithoutReplacement(WEAPON_KEYS, WEAPON_OFFER_COUNT, rng)
+  return sampleWeightedWithoutReplacement(WEAPON_KEYS, WEAPON_OFFER_COUNT, weaponOfferWeight, rng)
 }
 
 export function generateWeaponOffersFromRandom(random: () => number): string[] {
@@ -51,7 +58,6 @@ export function maxLifeForSeat(
 ): number {
   const vitalityLife =
     soul === undefined ? baseLife : startingLifeFromVitality(soul.vitality, baseLife)
-  const weapon = weaponKey === undefined ? undefined : weaponDefinition(weaponKey)
-  const lifeBonus = get(weapon, ['nudges', 'lifeBonus'], 0)
+  const lifeBonus = get(resolveWeaponNudges(weaponKey ?? ''), 'lifeBonus', 0)
   return vitalityLife + lifeBonus
 }

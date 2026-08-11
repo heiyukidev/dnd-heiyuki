@@ -14,7 +14,7 @@ import type {
   WeaponType,
 } from './types'
 import { isFireCapableItem } from './types'
-import { weaponDefinition } from './weaponCatalog'
+import { resolveWeaponNudges, weaponDefinition } from './weaponCatalog'
 
 export const MIN_EFFECTIVE_COOLDOWN_MS = 500
 export const MIN_EFFECTIVE_POTENCY = 0
@@ -185,8 +185,7 @@ function applyWeaponToEffectiveStats(
   if (weaponKey === undefined) {
     return stats
   }
-  const weapon = weaponDefinition(weaponKey)
-  const nudges = weapon?.nudges
+  const nudges = resolveWeaponNudges(weaponKey)
   if (nudges === undefined) {
     return stats
   }
