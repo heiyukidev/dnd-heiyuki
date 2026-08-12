@@ -1,0 +1,42 @@
+{
+  "title": "Approve a composition",
+  "question": "Scenario Broadcast Crawl is locked. Which composition should we build? Say what should carry forward or feels false.",
+  "options": [
+    {
+      "id": "comp-crawl-docked",
+      "label": "Crawl-docked prompt",
+      "kicker": "DRAFT-FIRST",
+      "thesis": "Numbered Boon list owns the center; dual seats stay PIP; the phosphor crawl dominates the bottom third.",
+      "viewport": "Match Draft: channel header, small West/East PIPs, vertical broadcast choices, heavy crawl dock.",
+      "risk": "Lobby continuity is implied, not shown — Match grammar must still stretch to Home/Lobby.",
+      "case": "Strongest Draft Operate focus for the whole-app Fusion HUD.",
+      "hero": ".impeccable/mocks/comp-crawl-docked.png",
+      "sketch": ".impeccable/mocks/comp-crawl-docked.png"
+    },
+    {
+      "id": "comp-dual-seat-stage",
+      "label": "Dual-seat on-air stage",
+      "kicker": "FIGHT-READY",
+      "thesis": "Equal West/East seat windows frame a center SELECT stack — Draft and fight share one stage grammar.",
+      "viewport": "Three-column Match: seat meters + loadout, numbered Boon system boxes, thin crawl.",
+      "risk": "Invented Draft timer and decorative Greek noise must not ship; product has no pick timers.",
+      "case": "Best continuity from Draft into live fight seats.",
+      "hero": ".impeccable/mocks/comp-dual-seat-stage.png",
+      "sketch": ".impeccable/mocks/comp-dual-seat-stage.png"
+    },
+    {
+      "id": "comp-greenroom-pip",
+      "label": "Greenroom + on-air PIP",
+      "kicker": "LOBBY-FIRST",
+      "thesis": "Lobby is the control room; Match appears as ON AIR PIP so Home/Lobby/Match share chrome from day one.",
+      "viewport": "Host panel + Start Match, join rows, channel guide, Match preview PIP, event crawl.",
+      "risk": "Fake viewer/bitrate telemetry is costume — strip claims; keep broadcast chrome only.",
+      "case": "Best whole-app Fusion proof; Draft density lives in the PIP until Match phases expand it.",
+      "hero": ".impeccable/mocks/comp-greenroom-pip.png",
+      "sketch": ".impeccable/mocks/comp-greenroom-pip.png"
+    }
+  ],
+  "steer": true,
+  "reroll": false,
+  "canon": false
+}

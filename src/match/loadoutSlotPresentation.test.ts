@@ -225,10 +225,10 @@ describe('loadoutSlotPresentation', () => {
 
   it('formats passive templates for god and effect filters', () => {
     expect(formatPassiveCue(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe(
-      '−15.0% dmg 🔱 Spear CD',
+      '−15.0% dmg Spear CD',
     )
     expect(formatPassiveSentence(ITEM_CATALOG.hermes_stolen_seconds.passive!)).toBe(
-      'Reduce your damage 🔱 Spear Boons Cooldown by 15.0%',
+      'Reduce your damage Spear Boons Cooldown by 15.0%',
     )
     expect(formatPassiveCue(ITEM_CATALOG.zeus_thunder_tyrant.passive!)).toBe('+15.0% dmg CD')
     expect(formatPassiveSentence(ITEM_CATALOG.zeus_thunder_tyrant.passive!)).toBe(
@@ -308,7 +308,7 @@ describe('loadoutSlotPresentation', () => {
       optionKeys: ['apollo_sun_balm'],
       catalog: ITEM_CATALOG,
     })
-    expect(offer.choices[0]?.weaponGateTag).toBe('🪄 Wand')
+    expect(offer.choices[0]?.weaponGateTag).toBe('Wand')
     expect(offer.choices[0]?.effectTag).toBe('Heal')
   })
 
@@ -341,7 +341,7 @@ describe('loadoutSlotPresentation', () => {
       slotIndex: 1,
     })
     expect(presentation.potency).toBe(10)
-    expect(presentation.effectSentence).toBe('Heal 10.0 (🪄 Wand)')
+    expect(presentation.effectSentence).toBe('Heal 10.0 (Wand)')
     expect(presentation.cooldownLine).toBe('Cooldown 2.0s')
   })
 

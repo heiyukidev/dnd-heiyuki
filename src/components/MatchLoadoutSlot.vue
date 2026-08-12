@@ -176,11 +176,11 @@ onUnmounted(() => {
 <template>
   <li
     ref="slotRoot"
-    class="slot"
+    class="loadout-slot"
     :class="{
-      flash: showFlash,
-      passive: isPassiveFace,
-      'popover-open': isOpen,
+      'loadout-slot--flash': showFlash,
+      'loadout-slot--passive': isPassiveFace,
+      'loadout-slot--open': isOpen,
     }"
     :style="flashStyle"
     tabindex="0"
@@ -194,51 +194,55 @@ onUnmounted(() => {
     @click="onSlotClick"
     @keydown="onKeydown"
   >
-    <div class="slot-face">
+    <span class="loadout-slot__index" aria-hidden="true">{{ slotIndex + 1 }}</span>
+    <div class="loadout-slot__face">
       <div
-        class="slot-kind"
-        :class="{ 'passive-kind': isPassiveFace }"
+        class="loadout-slot__kind"
+        :class="{ 'loadout-slot__kind--passive': isPassiveFace }"
         :style="{ color: presentation.kindColor }"
       >
-        <svg class="effect-icon" :viewBox="iconViewBox" aria-hidden="true">
+        <svg class="loadout-slot__icon" :viewBox="iconViewBox" aria-hidden="true">
           <path :d="iconPath" fill="currentColor" />
         </svg>
-        <span v-if="isPassiveFace" class="passive-cue">{{ presentation.passiveCue }}</span>
-        <span v-else class="potency">{{
+        <span v-if="isPassiveFace" class="loadout-slot__cue">{{ presentation.passiveCue }}</span>
+        <span v-else class="loadout-slot__potency">{{
           presentation.potency !== undefined ? displayNumber(presentation.potency) : ''
         }}</span>
       </div>
     </div>
-    <div v-if="presentation.showCooldownBar" class="cooldown-track" aria-hidden="true">
-      <div class="cooldown-fill" :style="{ transform: `scaleX(${cooldownFillWidth / 100})` }" />
+    <div v-if="presentation.showCooldownBar" class="loadout-slot__cooldown" aria-hidden="true">
+      <div
+        class="loadout-slot__cooldown-fill"
+        :style="{ transform: `scaleX(${cooldownFillWidth / 100})` }"
+      />
     </div>
-    <div v-if="isOpen" class="slot-popover" role="tooltip">
-      <p class="popover-title">{{ presentation.name }}</p>
+    <div v-if="isOpen" class="loadout-slot__popover" role="tooltip">
+      <p class="loadout-slot__popover-title">{{ presentation.name }}</p>
       <template v-if="isPassiveFace">
-        <p class="popover-effect">{{ presentation.passiveSentence }}</p>
+        <p class="loadout-slot__popover-text">{{ presentation.passiveSentence }}</p>
       </template>
       <template v-else>
-        <p class="popover-effect">{{ presentation.effectSentence }}</p>
-        <p v-if="presentation.passiveSentence" class="popover-passive">
+        <p class="loadout-slot__popover-text">{{ presentation.effectSentence }}</p>
+        <p v-if="presentation.passiveSentence" class="loadout-slot__popover-text loadout-slot__popover-text--dim">
           {{ presentation.passiveSentence }}
         </p>
-        <p class="popover-cooldown">{{ presentation.cooldownLine }}</p>
+        <p class="loadout-slot__popover-text loadout-slot__popover-text--dim">
+          {{ presentation.cooldownLine }}
+        </p>
       </template>
     </div>
   </li>
 </template>
 
 <style scoped>
-.slot {
+.loadout-slot {
   position: relative;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--kylix-rim, var(--border)) 50%, transparent);
-  background: color-mix(
-    in srgb,
-    var(--kylix-ground, var(--bg)) 85%,
-    var(--kylix-bronze, var(--border))
-  );
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-lift);
   transition:
     border-color 120ms ease,
     background 120ms ease,
@@ -246,117 +250,131 @@ onUnmounted(() => {
   cursor: default;
   outline: none;
 }
-.slot:focus-visible {
-  border-color: color-mix(in srgb, var(--kylix-ice-bright, var(--text)) 50%, var(--border));
-  outline: 2px solid var(--kylix-ice-bright, var(--text));
+
+.loadout-slot:focus-visible {
+  border-color: var(--phosphor);
+  outline: 2px solid var(--phosphor);
   outline-offset: 1px;
 }
-.slot.flash {
-  border-color: var(--flash-color, var(--kylix-coral, #e85d3a));
-  background: color-mix(
-    in srgb,
-    var(--flash-color, var(--kylix-coral, #e85d3a)) 28%,
-    var(--kylix-ground, var(--bg))
-  );
-  box-shadow: 0 0 12px
-    color-mix(in srgb, var(--flash-color, var(--kylix-coral, #e85d3a)) 40%, transparent);
+
+.loadout-slot--flash {
+  border-color: var(--flash-color, var(--coral));
+  background: color-mix(in srgb, var(--flash-color, var(--coral)) 28%, var(--panel));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--flash-color, var(--coral)) 40%, transparent);
 }
-.slot.passive {
-  background: color-mix(in srgb, var(--kylix-ground, var(--bg)) 80%, var(--kylix-god, #6b4a72) 12%);
-  border-color: color-mix(in srgb, var(--kylix-god, #6b4a72) 35%, var(--kylix-rim, var(--border)));
+
+.loadout-slot--passive {
+  background: color-mix(in srgb, var(--panel-lift) 85%, var(--phosphor) 8%);
 }
-.slot.popover-open {
+
+.loadout-slot--open {
   z-index: 2;
 }
-.slot-face {
-  margin-bottom: 6px;
+
+.loadout-slot__index {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-family: var(--display);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ice-dim);
+  opacity: 0.7;
 }
-.slot.passive .slot-face {
-  margin-bottom: 0;
+
+.loadout-slot__face {
+  padding-top: 4px;
 }
-.slot-kind {
+
+.loadout-slot--passive .loadout-slot__face {
+  padding-top: 2px;
+}
+
+.loadout-slot__kind {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--kylix-ice-bright, var(--text-h, var(--text)));
+  justify-content: center;
+  gap: 4px;
+  color: var(--ice);
 }
-.passive-kind {
-  align-items: flex-start;
+
+.loadout-slot__kind--passive {
+  flex-direction: column;
+  align-items: center;
 }
-.effect-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+
+.loadout-slot__icon {
+  width: 1.1rem;
+  height: 1.1rem;
   flex-shrink: 0;
 }
-.potency {
-  font-size: 1.1rem;
+
+.loadout-slot__potency {
+  font-size: 0.85rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
-.passive-cue {
-  font-size: 0.82rem;
+
+.loadout-slot__cue {
+  font-size: 0.62rem;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2;
+  text-align: center;
 }
-.cooldown-track {
-  height: 10px;
-  border-radius: 999px;
-  background: color-mix(
-    in srgb,
-    var(--kylix-rim, var(--border)) 40%,
-    var(--kylix-ground, var(--bg))
-  );
+
+.loadout-slot__cooldown {
+  height: 4px;
+  background: color-mix(in srgb, var(--phosphor) 12%, var(--panel));
   overflow: hidden;
 }
-.cooldown-fill {
+
+.loadout-slot__cooldown-fill {
   height: 100%;
   width: 100%;
   transform-origin: left center;
-  background: var(--kylix-ice, var(--accent));
+  background: var(--phosphor);
   transition: transform 80ms linear;
 }
+
 @media (prefers-reduced-motion: reduce) {
-  .cooldown-fill {
-    transition: none;
-  }
-  .slot {
+  .loadout-slot__cooldown-fill,
+  .loadout-slot {
     transition: none;
   }
 }
-.slot-popover {
+
+.loadout-slot__popover {
   position: absolute;
   left: 0;
   right: 0;
   bottom: calc(100% + 6px);
   padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--kylix-rim, var(--border));
-  background: var(--kylix-ground, var(--bg));
-  color: var(--kylix-ice, var(--text));
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--kylix-ground, #070b14) 60%, transparent);
+  border: 1px solid var(--border-strong);
+  background: var(--panel);
+  color: var(--ice-dim);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--ground) 60%, transparent);
   pointer-events: none;
 }
-.popover-title {
+
+.loadout-slot__popover-title {
   margin: 0 0 4px;
+  font-family: var(--display);
   font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--kylix-ice-bright, var(--text-h, var(--text)));
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ice);
 }
-.popover-effect,
-.popover-passive,
-.popover-cooldown {
+
+.loadout-slot__popover-text {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
 }
-.popover-passive,
-.popover-cooldown {
+
+.loadout-slot__popover-text--dim {
   margin-top: 4px;
-}
-.popover-passive {
-  opacity: 0.92;
-}
-.popover-cooldown {
   opacity: 0.85;
 }
 </style>

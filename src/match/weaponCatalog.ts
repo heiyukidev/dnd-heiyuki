@@ -49,7 +49,7 @@ export function weaponEmojiForKey(weaponKey: string): string | undefined {
 }
 
 export function formatWeaponTypeLabel(weaponType: WeaponType): string {
-  return `${weaponTypeEmoji(weaponType)} ${weaponType}`
+  return weaponType
 }
 
 export function formatWeaponRarityLabel(rarity: WeaponRarity): string {

@@ -20,12 +20,12 @@ import { isFireCapableItem } from './types'
 import { formatWeaponTypeLabel } from './weaponCatalog'
 
 export const LOADOUT_EFFECT_KIND_COLORS: Record<ItemEffect, string> = {
-  damage: '#8a7898',
+  damage: '#4588be',
   heal: '#3a8f5a',
-  shield: '#4a7bbd',
+  shield: '#5a9fd4',
 }
 
-export const LOADOUT_PASSIVE_ACCENT_COLOR = '#6b4a72'
+export const LOADOUT_PASSIVE_ACCENT_COLOR = '#3d78a8'
 
 const DEFAULT_UNKNOWN_COOLDOWN_MS = 2_000
 const UNKNOWN_BOON_EFFECT_SENTENCE = 'Unknown boon'

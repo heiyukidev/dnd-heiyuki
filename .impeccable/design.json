@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-12T13:43:00.000Z",
+  "title": "Design System: Heiyuki — Scenario Broadcast Crawl",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Broadcast Ground",
+        "canonical": "#07090e",
+        "tonalRamp": [
+          "#03040a",
+          "#07090e",
+          "#0b101a",
+          "#101522",
+          "#1a2230",
+          "#2a3548",
+          "#4a5a70",
+          "#9aacbf"
+        ]
+      },
+      "phosphor": {
+        "role": "primary",
+        "displayName": "ORV System Blue",
+        "canonical": "#5eb8ff",
+        "tonalRamp": [
+          "#0a1a33",
+          "#143050",
+          "#1e4870",
+          "#286898",
+          "#3d88c0",
+          "#5eb8ff",
+          "#8ecfff",
+          "#c8e8ff"
+        ]
+      },
+      "amber": {
+        "role": "primary",
+        "displayName": "Amber Lamp",
+        "canonical": "#f0c878",
+        "tonalRamp": [
+          "#3a2a10",
+          "#5c4218",
+          "#8a6428",
+          "#b88838",
+          "#d4a858",
+          "#f0c878",
+          "#f6dba0",
+          "#fbefd8"
+        ]
+      },
+      "ice": {
+        "role": "secondary",
+        "displayName": "Ice Bright",
+        "canonical": "#e8eef4",
+        "tonalRamp": [
+          "#1a222c",
+          "#2e3a48",
+          "#4a5a6c",
+          "#6a7e90",
+          "#9aacbf",
+          "#c4d0dc",
+          "#e8eef4",
+          "#f5f8fb"
+        ]
+      },
+      "ice-dim": {
+        "role": "secondary",
+        "displayName": "Ice Dim",
+        "canonical": "#9aacbf",
+        "tonalRamp": [
+          "#1a222c",
+          "#2e3a48",
+          "#4a5a6c",
+          "#6a7e90",
+          "#8496a8",
+          "#9aacbf",
+          "#c4d0dc",
+          "#e8eef4"
+        ]
+      },
+      "coral": {
+        "role": "tertiary",
+        "displayName": "Coral Hit",
+        "canonical": "#c45c2a",
+        "tonalRamp": [
+          "#3a1608",
+          "#5c2410",
+          "#8a3818",
+          "#a84820",
+          "#c45c2a",
+          "#d87848",
+          "#e8a078",
+          "#f5d0b8"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Panel",
+        "canonical": "#0b101a",
+        "tonalRamp": [
+          "#05070c",
+          "#0b101a",
+          "#101522",
+          "#1a2230",
+          "#2a3548",
+          "#3e4e64",
+          "#6a7e90",
+          "#9aacbf"
+        ]
+      },
+      "panel-lift": {
+        "role": "neutral",
+        "displayName": "Panel Lift",
+        "canonical": "#101522",
+        "tonalRamp": [
+          "#07090e",
+          "#0b101a",
+          "#101522",
+          "#1a2230",
+          "#2a3548",
+          "#3e4e64",
+          "#6a7e90",
+          "#c4d0dc"
+        ]
+      },
+      "rarity-common": {
+        "role": "neutral",
+        "displayName": "Rarity Common",
+        "canonical": "#9aa3ad",
+        "tonalRamp": [
+          "#2a2e34",
+          "#3e4650",
+          "#5a646e",
+          "#727c86",
+          "#9aa3ad",
+          "#b4bcc4",
+          "#c0c6cc",
+          "#e8eaec"
+        ]
+      },
+      "rarity-uncommon": {
+        "role": "neutral",
+        "displayName": "Rarity Uncommon",
+        "canonical": "#72b072",
+        "tonalRamp": [
+          "#1a2e1a",
+          "#2a4a2a",
+          "#3e6a3e",
+          "#568856",
+          "#72b072",
+          "#94c894",
+          "#b8deb8",
+          "#dcf0dc"
+        ]
+      },
+      "rarity-rare": {
+        "role": "neutral",
+        "displayName": "Rarity Rare",
+        "canonical": "#6a9ec8",
+        "tonalRamp": [
+          "#142434",
+          "#243c54",
+          "#385c80",
+          "#4e7ca4",
+          "#6a9ec8",
+          "#8eb8d8",
+          "#b4d4e8",
+          "#dcecf4"
+        ]
+      },
+      "rarity-epic": {
+        "role": "neutral",
+        "displayName": "Rarity Epic",
+        "canonical": "#a082c8",
+        "tonalRamp": [
+          "#241830",
+          "#3c2850",
+          "#5a3c78",
+          "#785ea0",
+          "#a082c8",
+          "#b8a0d8",
+          "#d0c0e8",
+          "#ece4f4"
+        ]
+      },
+      "rarity-legendary": {
+        "role": "neutral",
+        "displayName": "Rarity Legendary",
+        "canonical": "#d8924a",
+        "tonalRamp": [
+          "#3a2410",
+          "#5c3818",
+          "#8a5428",
+          "#b07038",
+          "#d8924a",
+          "#e8b078",
+          "#f0d0a8",
+          "#f8ead8"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Channel Bug / Display",
+        "purpose": "HEIYUKI bug, densest condensed tracking for channel identity."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Greenroom and Lobby page titles (uppercase condensed)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Panel section heads (h2)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default UI copy on ice-dim."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels, meter labels, button text, seat labels."
+      },
+      "crawl": {
+        "displayName": "Crawl",
+        "purpose": "Bottom scenario crawl / lower-third items."
+      }
+    },
+    "shadows": [
+      {
+        "name": "lamp-glow",
+        "value": "0 0 8px color-mix(in srgb, #f0c878 70%, transparent)",
+        "purpose": "ON AIR indicator lamp only."
+      },
+      {
+        "name": "meter-charge",
+        "value": "0 0 4px color-mix(in srgb, #5eb8ff 40%, transparent)",
+        "purpose": "Filled Life segments; amber variant for Shield."
+      },
+      {
+        "name": "hit-strobe",
+        "value": "0 0 12px color-mix(in srgb, #c45c2a 40%, transparent)",
+        "purpose": "Loadout fight-hit flash."
+      },
+      {
+        "name": "popover-lift",
+        "value": "0 4px 16px color-mix(in srgb, #07090e 60%, transparent)",
+        "purpose": "Loadout slot tooltip only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-chrome",
+        "value": "120ms ease",
+        "purpose": "Button, offer, and loadout border/background state changes."
+      },
+      {
+        "name": "cooldown-fill",
+        "value": "80ms linear",
+        "purpose": "Loadout cooldown bar transform."
+      },
+      {
+        "name": "crawl-marquee",
+        "value": "40s linear infinite",
+        "purpose": "Scenario crawl scroll; disabled under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      { "name": "stage-dual", "value": "900px" },
+      { "name": "type-compact", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary CTA Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Amber lamp CTA for Create Session, Start Match, Confirm, Request to join.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Create Session</button>",
+      "css": ".ds-btn-primary { border: 1px solid var(--amber, #f0c878); border-radius: 2px; font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; padding: 8px 14px; background: color-mix(in srgb, #f0c878 14%, #0b101a); color: #f0c878; transition: background 120ms ease, border-color 120ms ease; } .ds-btn-primary:hover:not(:disabled) { background: color-mix(in srgb, #f0c878 22%, #0b101a); } .ds-btn-primary:focus-visible { outline: 2px solid #5eb8ff; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }"
+    },
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button-default",
+      "description": "Secondary console action on panel-lift with phosphor border.",
+      "html": "<button class=\"ds-btn-default\" type=\"button\">Cancel Match</button>",
+      "css": ".ds-btn-default { border: 1px solid color-mix(in srgb, #5eb8ff 60%, transparent); border-radius: 2px; font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; padding: 8px 14px; background: #101522; color: #e8eef4; transition: background 120ms ease, border-color 120ms ease; } .ds-btn-default:hover:not(:disabled) { background: color-mix(in srgb, #5eb8ff 8%, #101522); } .ds-btn-default:focus-visible { outline: 2px solid #5eb8ff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Low-emphasis action with soft phosphor border and ice-dim text.",
+      "html": "<button class=\"ds-btn-ghost\" type=\"button\">Dismiss</button>",
+      "css": ".ds-btn-ghost { border: 1px solid color-mix(in srgb, #5eb8ff 50%, transparent); border-radius: 2px; font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; padding: 8px 14px; background: #101522; color: #9aacbf; transition: background 120ms ease, border-color 120ms ease; } .ds-btn-ghost:hover:not(:disabled) { color: #e8eef4; border-color: color-mix(in srgb, #5eb8ff 60%, transparent); } .ds-btn-ghost:focus-visible { outline: 2px solid #5eb8ff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Phosphor-labeled field for Session title and similar greenroom inputs.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field__label\">Title</span><input class=\"ds-field__input\" type=\"text\" value=\"New session\" /></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; font-family: 'Barlow', system-ui, sans-serif; } .ds-field__label { font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #5eb8ff; } .ds-field__input { padding: 8px 10px; border-radius: 2px; border: 1px solid color-mix(in srgb, #5eb8ff 60%, transparent); background: #101522; color: #e8eef4; font: inherit; } .ds-field__input:focus-visible { outline: 2px solid #5eb8ff; outline-offset: 1px; }"
+    },
+    {
+      "name": "Broadcast Panel",
+      "kind": "card",
+      "refersTo": "panel-broadcast",
+      "description": "L-bracketed channel panel used on Home, Join, Lobby, and seat windows.",
+      "html": "<section class=\"ds-panel\"><h2 class=\"ds-panel__title\">Create Session</h2><p class=\"ds-panel__body\">Sign in to create a Session or join with a join link.</p></section>",
+      "css": ".ds-panel { position: relative; padding: 14px 16px; background: #0b101a; border: 1px solid color-mix(in srgb, #5eb8ff 60%, transparent); color: #9aacbf; font-family: 'Barlow', system-ui, sans-serif; } .ds-panel::before, .ds-panel::after { content: ''; position: absolute; width: 10px; height: 10px; border-color: #5eb8ff; border-style: solid; pointer-events: none; } .ds-panel::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; } .ds-panel::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; } .ds-panel__title { margin: 0 0 12px; font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 1.1rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #e8eef4; } .ds-panel__body { margin: 0; font-size: 17px; line-height: 1.45; }"
+    },
+    {
+      "name": "Offer Tag",
+      "kind": "chip",
+      "refersTo": "chip-tag",
+      "description": "Uppercase mode/effect/rarity tag on Boon offer rows.",
+      "html": "<span class=\"ds-tag\">Active</span>",
+      "css": ".ds-tag { display: inline-block; font-family: 'Barlow', system-ui, sans-serif; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 6px; border: 1px solid color-mix(in srgb, #5eb8ff 45%, transparent); color: #9aacbf; border-radius: 0; background: transparent; }"
+    },
+    {
+      "name": "Channel Header",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Three-zone channel bug header with phase line, session chip, and optional ON AIR lamp.",
+      "html": "<header class=\"ds-channel-header\"><div class=\"ds-channel-header__brand\"><a class=\"ds-channel-bug\" href=\"#\">HEIYUKI</a><span class=\"ds-channel-header__phase\">MAIN SCENARIO — GREENROOM</span></div><div class=\"ds-channel-header__session\">CHANNEL 07090E</div><div class=\"ds-channel-header__status\"><span class=\"ds-on-air\"><span class=\"ds-on-air__lamp\"></span>ON AIR</span></div></header>",
+      "css": ".ds-channel-header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid color-mix(in srgb, #5eb8ff 60%, transparent); background: color-mix(in srgb, #0b101a 80%, #07090e); font-family: 'Barlow', system-ui, sans-serif; } .ds-channel-header__brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; } .ds-channel-bug { font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.12em; color: #e8eef4; text-decoration: none; } .ds-channel-bug:hover { color: #5eb8ff; } .ds-channel-bug:focus-visible { outline: 2px solid #5eb8ff; outline-offset: 2px; } .ds-channel-header__phase { font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; color: #5eb8ff; } .ds-channel-header__session { font-size: 0.78rem; color: #9aacbf; text-align: center; } .ds-channel-header__status { display: flex; justify-content: flex-end; } .ds-on-air { display: inline-flex; align-items: center; gap: 6px; font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em; color: #f0c878; } .ds-on-air__lamp { width: 7px; height: 7px; border-radius: 50%; background: #f0c878; box-shadow: 0 0 8px color-mix(in srgb, #f0c878 70%, transparent); }"
+    },
+    {
+      "name": "Scenario Crawl",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Docked lower-third crawl with amber accent items and pipe dividers.",
+      "html": "<footer class=\"ds-crawl\"><div class=\"ds-crawl__track\"><span class=\"ds-crawl__item\">HEIYUKI</span><span class=\"ds-crawl__divider\">|</span><span class=\"ds-crawl__item ds-crawl__item--accent\">JOIN A SESSION</span><span class=\"ds-crawl__divider\">|</span><span class=\"ds-crawl__item\">WATCH THE AUTO-FIGHT</span></div></footer>",
+      "css": ".ds-crawl { border-top: 1px solid color-mix(in srgb, #5eb8ff 60%, transparent); background: #0b101a; overflow: hidden; font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #9aacbf; } .ds-crawl__track { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; padding: 8px 16px; gap: 0; } .ds-crawl__item { display: inline-flex; padding: 0 16px; } .ds-crawl__item--accent { color: #f0c878; } .ds-crawl__divider { color: color-mix(in srgb, #5eb8ff 60%, transparent); padding: 0 4px; }"
+    },
+    {
+      "name": "Segmented Meter",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Life/Shield instrument: condensed label, discrete segments, tabular value.",
+      "html": "<div class=\"ds-meter\" role=\"group\" aria-label=\"Life\"><span class=\"ds-meter__label\">Life</span><div class=\"ds-meter__track\" aria-hidden=\"true\"><span class=\"ds-meter__seg ds-meter__seg--filled\"></span><span class=\"ds-meter__seg ds-meter__seg--filled\"></span><span class=\"ds-meter__seg ds-meter__seg--filled\"></span><span class=\"ds-meter__seg\"></span><span class=\"ds-meter__seg\"></span></div><span class=\"ds-meter__value\">12 / 20</span></div>",
+      "css": ".ds-meter { display: grid; grid-template-columns: 3.5rem 1fr auto; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 0.78rem; font-family: 'Barlow', system-ui, sans-serif; } .ds-meter__label { font-family: 'Barlow Condensed', system-ui, sans-serif; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #5eb8ff; } .ds-meter__track { display: flex; gap: 2px; height: 10px; } .ds-meter__seg { flex: 1 1 0; min-width: 0; background: color-mix(in srgb, #5eb8ff 12%, #101522); border: 1px solid color-mix(in srgb, #5eb8ff 18%, transparent); } .ds-meter__seg--filled { background: #5eb8ff; border-color: #5eb8ff; box-shadow: 0 0 4px color-mix(in srgb, #5eb8ff 40%, transparent); } .ds-meter__value { font-variant-numeric: tabular-nums; color: #e8eef4; font-size: 0.72rem; white-space: nowrap; }"
+    },
+    {
+      "name": "Numbered SELECT Offer",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Center-column Weapon/Boon pick as a numbered system box.",
+      "html": "<button class=\"ds-offer\" type=\"button\"><span class=\"ds-offer__num\">1</span><span class=\"ds-offer__body\"><span class=\"ds-offer__god\">Hermes</span><span class=\"ds-offer__name\">Quick Strike</span><span class=\"ds-offer__detail\">Deal damage on hit.</span></span></button>",
+      "css": ".ds-offer { width: 100%; display: grid; grid-template-columns: 2rem 1fr; gap: 10px; align-items: start; text-align: left; border: 1px solid color-mix(in srgb, #5eb8ff 60%, transparent); padding: 12px 14px; background: #101522; color: #9aacbf; font-family: 'Barlow', system-ui, sans-serif; cursor: pointer; transition: background 120ms ease, border-color 120ms ease; } .ds-offer:hover:not(:disabled) { background: color-mix(in srgb, #5eb8ff 8%, #101522); border-color: color-mix(in srgb, #5eb8ff 40%, color-mix(in srgb, #5eb8ff 60%, transparent)); } .ds-offer:focus-visible { outline: 2px solid #5eb8ff; outline-offset: 2px; } .ds-offer__num { font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 1.4rem; font-weight: 700; line-height: 1; color: #5eb8ff; } .ds-offer__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; } .ds-offer__god { font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #5eb8ff; } .ds-offer__name { font-weight: 700; font-size: 0.95rem; color: #e8eef4; } .ds-offer__detail { font-size: 0.82rem; line-height: 1.4; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Scenario Broadcast Crawl",
+    "overview": "Heiyuki reads as one on-air Scenario channel end to end. Home, Join, Lobby, and Match share the same matte black ground, phosphor system chrome, amber alert lamps, and ice typography — not a Match-only skin over a light lobby shell. The memorable frame is the dual-seat stage: West seat window, center SELECT stack, East seat window, with a condensed phosphor crawl docked at the bottom.\n\nDensity is instrument-panel tight: numbered offer rows, segmented Life/Shield meters, channel-bug headers, and L-bracketed panels. Greek gods stay first-class on Boon offers (name + seal treatment), never as pottery chrome or a TFT shop HUD. Depth comes from tonal panel lifts and phosphor border mixes, not soft card shadows.",
+    "keyCharacteristics": [
+      "Whole-app channel continuity (header bug + crawl + panel grammar everywhere)",
+      "ORV system blue phosphor for system chrome; amber reserved for lamps and CTAs",
+      "Coral reserved for fight-hit flash only",
+      "Condensed broadcast caps (Barlow Condensed) + quiet UI grotesk (Barlow)",
+      "Near-square 2px chrome; L-bracket panel corners",
+      "Segmented meters and numbered SELECT offers as signature instruments"
+    ],
+    "rules": [
+      {
+        "name": "The Coral Hit-Only Rule",
+        "body": "Coral appears only as fight-hit flash on loadout slots. Errors use ice text on a faint coral-tinted panel wash — never coral fills as buttons.",
+        "section": "colors"
+      },
+      {
+        "name": "The Amber Lamp Rule",
+        "body": "Amber is for ON AIR lamps, CTA borders/fills, crawl accent items, and gold/verdict emphasis. Phosphor owns everyday system chrome.",
+        "section": "colors"
+      },
+      {
+        "name": "The Phosphor Chrome Rule",
+        "body": "If it is a border, focus ring, meter segment, channel label, or SELECT index number, it is phosphor (or a phosphor mix) unless rarity or amber lamp applies.",
+        "section": "colors"
+      },
+      {
+        "name": "The Condensed Caps Rule",
+        "body": "Channel chrome, buttons, labels, and crawl are Barlow Condensed uppercase with open tracking. Do not use Cinzel, Inter, Space Grotesk, Fraunces, or serif “museum” display faces.",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Body Rule",
+        "body": "Body stays Barlow at ice-dim; display condensed does the shouting so the stage does not fill with competing headlines.",
+        "section": "typography"
+      },
+      {
+        "name": "The Dual-Seat Stage Rule",
+        "body": "Match composition is West seat | SELECT center | East seat under one channel header, crawl docked bottom. Do not collapse into a shop grid or circular tondo arena.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Console Rule",
+        "body": "No ambient card shadows. Depth is panel lift + phosphor border; glow means “on air” or “hit,” not decoration.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Bracket Panel Rule",
+        "body": "Recurring containers use .broadcast-panel grammar: panel fill, strong phosphor border, L-brackets on opposite corners. Do not invent kylix rim shells, elliptical tondos, or frieze class names.",
+        "section": "shapes"
+      },
+      {
+        "name": "The No-Pill Rule",
+        "body": "Capsules and large radii are out. Interactive chrome stays 2px; lamps alone are round.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Numbered SELECT Rule",
+        "body": "Weapon and Boon picks are a vertical stack of numbered system boxes in the center column — not a bordered card grid or shop carousel.",
+        "section": "components"
+      },
+      {
+        "name": "The Segmented Instrument Rule",
+        "body": "Life and Shield read as discrete phosphor/amber segments, not a single smooth bar fill.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do keep Home, Join, Lobby, and Match on the same ground/panel/phosphor/amber token set and channel header + crawl grammar.",
+      "Do reserve amber for lamps and CTAs; phosphor for everyday chrome.",
+      "Do use Barlow Condensed uppercase for channel chrome and Barlow for body.",
+      "Do build panels with L-brackets and 2px interactive chrome.",
+      "Do flash fight hits with coral only; keep god names first-class on Boon offers.",
+      "Do respect prefers-reduced-motion (static crawl, no offer/slot transition)."
+    ],
+    "donts": [
+      "Don't revive Kylix Tondo Arena tokens, Cinzel/Source Sans, rim shells, friezes, or elliptical tondos.",
+      "Don't use coral as a general accent (buttons, links, idle borders).",
+      "Don't ship soft card elevation, large radii, or pill clusters.",
+      "Don't invent Draft timers, spectator counts, bitrate telemetry, or decorative fake Greek noise as chrome.",
+      "Don't put Lobby or Home back on a light legacy shell separate from the broadcast channel."
+    ]
+  }
+}

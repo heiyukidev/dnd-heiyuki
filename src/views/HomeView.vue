@@ -24,7 +24,6 @@ const { data: mySessionsRaw, error: mySessionsError } = useConvexQuery(
   () => (clerkSignedIn.value && clerkLoaded.value ? {} : 'skip'),
 )
 
-/** Sessions loaded ⇒ Convex accepted our JWT even if the prime probe lagged. */
 const convexReachable = computed(
   () =>
     convexTokenReady.value || (mySessionsRaw.value !== undefined && mySessionsError.value === null),
@@ -73,123 +72,138 @@ function joinHref(token: string) {
 </script>
 
 <template>
-  <div class="page">
-    <h1>Heiyuki</h1>
-    <Show when="signed-out">
-      <p>Sign in to create a Session or join with a join link.</p>
-      <SignInButton />
-    </Show>
-    <Show when="signed-in">
-      <p v-if="userId" class="muted">You are signed in.</p>
-      <section class="card">
-        <h2>Create Session</h2>
-        <label class="field">
-          <span>Title</span>
-          <input v-model="title" type="text" autocomplete="off" />
-        </label>
-        <button
-          type="button"
-          class="btn-primary"
-          :disabled="!canCreateSession"
-          @click="onCreateSession"
-        >
-          {{
-            !clerkLoaded
-              ? 'Loading sign-in…'
-              : !clerkSignedIn
-                ? 'Sign in to create'
-                : !convexReachable
-                  ? 'Connecting…'
-                  : createSessionBusy
-                    ? 'Creating…'
-                    : 'Create Session'
-          }}
-        </button>
-        <p v-if="clerkSignedIn && clerkLoaded && !convexReachable" class="muted tiny">
-          Waiting for Convex auth. Add a Clerk JWT template named
-          <span class="mono">convex</span> if this does not clear.
-        </p>
-        <p v-if="createSessionError" class="error">{{ createSessionError }}</p>
-      </section>
-      <section class="card">
-        <h2>My Sessions</h2>
-        <p v-if="mySessionsError" class="error">
-          Could not load sessions. {{ mySessionsError.message }}
-        </p>
-        <p v-else-if="mySessionsLoading" class="muted">Loading…</p>
-        <p v-else-if="mySessions && !mySessions.length" class="muted">No Sessions yet.</p>
-        <ul v-else-if="mySessions && mySessions.length" class="session-list">
-          <li v-for="row in mySessions" :key="row.membership._id">
-            <RouterLink :to="{ name: 'session', params: { id: row.session._id } }">
-              {{ row.session.title }}
-            </RouterLink>
-            <span class="muted"> · {{ row.membership.role }}</span>
-            <div v-if="row.session.joinToken" class="join-hint">
-              <span class="mono">{{ joinHref(row.session.joinToken) }}</span>
-            </div>
-          </li>
-        </ul>
-      </section>
-    </Show>
+  <div class="greenroom">
+    <div class="greenroom__stage">
+      <h1>Heiyuki</h1>
+      <p class="greenroom__lead muted">Scenario broadcast — draft, fight, return to Lobby.</p>
+
+      <Show when="signed-out">
+        <section class="broadcast-panel greenroom__panel">
+          <p>Sign in to create a Session or join with a join link.</p>
+          <div class="greenroom__actions">
+            <SignInButton>
+              <button type="button" class="broadcast-btn broadcast-btn--cta">Sign in</button>
+            </SignInButton>
+          </div>
+        </section>
+      </Show>
+
+      <Show when="signed-in">
+        <p v-if="userId" class="muted tiny">You are signed in.</p>
+
+        <section class="broadcast-panel greenroom__panel">
+          <h2>Create Session</h2>
+          <label class="field">
+            <span>Title</span>
+            <input v-model="title" type="text" autocomplete="off" />
+          </label>
+          <button
+            type="button"
+            class="broadcast-btn broadcast-btn--cta"
+            :disabled="!canCreateSession"
+            @click="onCreateSession"
+          >
+            {{
+              !clerkLoaded
+                ? 'Loading sign-in…'
+                : !clerkSignedIn
+                  ? 'Sign in to create'
+                  : !convexReachable
+                    ? 'Connecting…'
+                    : createSessionBusy
+                      ? 'Creating…'
+                      : 'Create Session'
+            }}
+          </button>
+          <p v-if="clerkSignedIn && clerkLoaded && !convexReachable" class="muted tiny">
+            Waiting for Convex auth. Add a Clerk JWT template named
+            <span class="mono">convex</span> if this does not clear.
+          </p>
+          <p v-if="createSessionError" class="error">{{ createSessionError }}</p>
+        </section>
+
+        <section class="broadcast-panel greenroom__panel">
+          <h2>My Sessions</h2>
+          <p v-if="mySessionsError" class="error">
+            Could not load sessions. {{ mySessionsError.message }}
+          </p>
+          <p v-else-if="mySessionsLoading" class="muted">Loading…</p>
+          <p v-else-if="mySessions && !mySessions.length" class="muted">No Sessions yet.</p>
+          <ul v-else-if="mySessions && mySessions.length" class="session-list">
+            <li v-for="row in mySessions" :key="row.membership._id">
+              <RouterLink :to="{ name: 'session', params: { id: row.session._id } }">
+                {{ row.session.title }}
+              </RouterLink>
+              <span class="muted"> · {{ row.membership.role }}</span>
+              <div v-if="row.session.joinToken" class="join-hint">
+                <span class="mono">{{ joinHref(row.session.joinToken) }}</span>
+              </div>
+            </li>
+          </ul>
+        </section>
+      </Show>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.page {
-  max-width: 720px;
-}
-.card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 16px;
-  background: color-mix(in srgb, var(--bg) 92%, var(--border));
-}
-.field {
+.greenroom {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  padding: 24px 16px;
+}
+
+.greenroom__stage {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.greenroom__lead {
+  margin-bottom: 20px;
+}
+
+.greenroom__panel {
+  margin-bottom: 16px;
+}
+
+.greenroom__panel h2 {
   margin-bottom: 12px;
 }
-.field input {
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  font: inherit;
+
+.greenroom__actions {
+  margin-top: 12px;
 }
-.btn-primary {
-  background: var(--accent);
-  color: var(--bg);
-  border: none;
-  border-radius: 8px;
-  padding: 10px 14px;
-  font: inherit;
-  cursor: pointer;
-}
+
 .session-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
+
 .session-list li {
   margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
 }
-.muted {
-  color: var(--text);
-  opacity: 0.85;
-  font-size: 0.92rem;
+
+.session-list a {
+  color: var(--phosphor);
+  font-weight: 600;
+  text-decoration: none;
 }
-.mono {
-  font-family: var(--mono);
-  font-size: 0.82rem;
-  word-break: break-all;
+
+.session-list a:hover {
+  color: var(--ice);
 }
+
+.session-list a:focus-visible {
+  outline: 2px solid var(--phosphor);
+  outline-offset: 2px;
+}
+
 .join-hint {
   margin-top: 4px;
-}
-.error {
-  color: var(--text);
-  margin-top: 10px;
-  font-size: 0.92rem;
 }
 </style>

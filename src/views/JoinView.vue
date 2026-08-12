@@ -77,93 +77,101 @@ async function onRequestJoin() {
 </script>
 
 <template>
-  <div class="page">
-    <h1>Join Session</h1>
-    <p v-if="!token" class="muted">Missing join link token.</p>
-    <template v-else>
-      <p v-if="pageStateError" class="error">
-        Could not load Session. {{ pageStateError.message }}
-      </p>
-      <p v-else-if="pageState === undefined" class="muted">Loading Session…</p>
-      <p v-else-if="!session" class="muted">This join link is not valid.</p>
+  <div class="greenroom">
+    <div class="greenroom__stage">
+      <h1>Join Session</h1>
+
+      <p v-if="!token" class="muted">Missing join link token.</p>
       <template v-else>
-        <p class="lead">
-          Session:
-          <strong>{{ session.title }}</strong>
-          <span class="muted"> ({{ session.status }})</span>
-          <span v-if="session.fightingCount !== undefined" class="muted">
-            · {{ session.fightingCount }}/2 Players
-          </span>
+        <p v-if="pageStateError" class="error">
+          Could not load Session. {{ pageStateError.message }}
         </p>
-        <Show when="signed-out">
-          <p>Sign in to send a join request.</p>
-          <SignInButton />
-        </Show>
-        <Show when="signed-in">
-          <p v-if="viewer?.kind === 'member'" class="muted">Opening Session…</p>
-          <template v-else>
-            <p v-if="session.status === 'live' && pendingJoin" class="banner">
-              Join request sent. Wait for the Host to approve.
+        <p v-else-if="pageState === undefined" class="muted">Loading Session…</p>
+        <p v-else-if="!session" class="muted">This join link is not valid.</p>
+        <template v-else>
+          <section class="broadcast-panel greenroom__panel">
+            <p class="lead">
+              Session:
+              <strong>{{ session.title }}</strong>
+              <span class="muted"> ({{ session.status }})</span>
+              <span v-if="session.fightingCount !== undefined" class="muted">
+                · {{ session.fightingCount }}/2 Players
+              </span>
             </p>
-            <p
-              v-else-if="session.status === 'live' && rejectedJoin && !pendingJoin"
-              class="banner banner-warn"
-            >
-              The Host did not admit you to this Session. You can send another join request.
-            </p>
-            <p v-else-if="session.status === 'live' && sessionFull" class="banner banner-warn">
-              Session full (2/2). There are no spectators in this prototype.
-            </p>
-            <button
-              v-if="session.status === 'live' && !pendingJoin && !sessionFull"
-              type="button"
-              class="btn-primary"
-              @click="onRequestJoin"
-            >
-              Request to join
-            </button>
-            <p v-else-if="session.status !== 'live'" class="muted">
-              This Session is archived and is not accepting join requests.
-            </p>
-            <p v-if="joinMessage" class="banner">{{ joinMessage }}</p>
-          </template>
-        </Show>
+
+            <Show when="signed-out">
+              <p>Sign in to send a join request.</p>
+              <div class="greenroom__actions">
+                <SignInButton>
+                  <button type="button" class="broadcast-btn broadcast-btn--cta">Sign in</button>
+                </SignInButton>
+              </div>
+            </Show>
+
+            <Show when="signed-in">
+              <p v-if="viewer?.kind === 'member'" class="muted">Opening Session…</p>
+              <template v-else>
+                <p v-if="session.status === 'live' && pendingJoin" class="banner">
+                  Join request sent. Wait for the Host to approve.
+                </p>
+                <p
+                  v-else-if="session.status === 'live' && rejectedJoin && !pendingJoin"
+                  class="banner banner-warn"
+                >
+                  The Host did not admit you to this Session. You can send another join request.
+                </p>
+                <p v-else-if="session.status === 'live' && sessionFull" class="banner banner-warn">
+                  Session full (2/2). There are no spectators in this prototype.
+                </p>
+                <button
+                  v-if="session.status === 'live' && !pendingJoin && !sessionFull"
+                  type="button"
+                  class="broadcast-btn broadcast-btn--cta"
+                  @click="onRequestJoin"
+                >
+                  Request to join
+                </button>
+                <p v-else-if="session.status !== 'live'" class="muted">
+                  This Session is archived and is not accepting join requests.
+                </p>
+                <p v-if="joinMessage" class="banner">{{ joinMessage }}</p>
+              </template>
+            </Show>
+          </section>
+        </template>
       </template>
-    </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.page {
-  max-width: 640px;
+.greenroom {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
 }
+
+.greenroom__stage {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.greenroom__panel {
+  margin-top: 16px;
+}
+
 .lead {
   font-size: 1.05rem;
+  margin-bottom: 12px;
 }
-.muted {
-  color: var(--text);
-  opacity: 0.85;
+
+.lead strong {
+  color: var(--ice);
 }
-.error {
-  color: var(--text);
-  font-size: 0.92rem;
-}
-.btn-primary {
-  background: var(--accent);
-  color: var(--bg);
-  border: none;
-  border-radius: 8px;
-  padding: 10px 14px;
-  font: inherit;
-  cursor: pointer;
-}
-.banner {
+
+.greenroom__actions {
   margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 18%, var(--bg));
-}
-.banner-warn {
-  background: color-mix(in srgb, #a66 22%, var(--bg));
 }
 </style>

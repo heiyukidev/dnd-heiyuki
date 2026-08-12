@@ -44,7 +44,7 @@ describe('WEAPON_CATALOG', () => {
     for (const weaponType of WEAPON_TYPES) {
       expect(WEAPON_TYPE_EMOJI[weaponType].length).toBeGreaterThan(0)
       expect(weaponTypeEmoji(weaponType)).toBe(WEAPON_TYPE_EMOJI[weaponType])
-      expect(formatWeaponTypeLabel(weaponType)).toBe(`${WEAPON_TYPE_EMOJI[weaponType]} ${weaponType}`)
+      expect(formatWeaponTypeLabel(weaponType)).toBe(weaponType)
     }
   })
 

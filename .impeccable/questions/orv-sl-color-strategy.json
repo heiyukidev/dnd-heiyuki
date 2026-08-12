@@ -1,0 +1,37 @@
+{
+  "title": "ORV / Solo Leveling color lock",
+  "question": "Scenario Broadcast is already locked (void black + system chrome). Which manhwa System color pattern should the whole-app tokens follow?",
+  "options": [
+    {
+      "id": "orv-system-blue",
+      "label": "ORV System Blue",
+      "kicker": "RECOMMENDED",
+      "thesis": "Keep void ground and ice text; push phosphor toward classic ORV message-box blue; amber stays ON AIR / CTA / alert lamps only.",
+      "palette": ["#07090e", "#5eb8ff", "#f0c878", "#e8eef4", "#c45c2a"],
+      "materials": ["system panels", "blue chrome", "amber lamps"],
+      "case": "Closest to Main Scenario windows; preserves the approved cyan/amber broadcast roles.",
+      "risk": "Reads less Solo Leveling purple than a hunter-gate HUD."
+    },
+    {
+      "id": "sl-hunter-violet",
+      "label": "SL Hunter Violet",
+      "kicker": "SOLO-LEAN",
+      "thesis": "Retint system chrome to Solo Leveling violet/magenta glow; ice text and amber CTA lamps stay; coral stays fight-hit only.",
+      "palette": ["#07060c", "#b48cff", "#f0c878", "#e8eef4", "#c45c2a"],
+      "materials": ["violet system windows", "rank glow", "amber lamps"],
+      "case": "Stronger hunter-System identification on Draft and fight.",
+      "risk": "Fights the locked Scenario Broadcast cyan crawl and approved dual-seat comp."
+    },
+    {
+      "id": "fusion-blue-violet",
+      "label": "Fusion Blue + Violet",
+      "kicker": "BOTH",
+      "thesis": "ORV blue owns borders/crawl/system chrome; SL violet owns god seals, epic rarity, and secondary accents; amber stays CTA/alert.",
+      "palette": ["#07090e", "#5eb8ff", "#a082c8", "#f0c878", "#e8eef4"],
+      "materials": ["blue chrome", "violet seals", "amber CTA"],
+      "case": "Honors the prior full-app fusion choice without inventing a new world.",
+      "risk": "Two accents can muddy hierarchy unless violet stays scarce."
+    }
+  ],
+  "steer": true
+}

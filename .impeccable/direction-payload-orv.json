@@ -1,0 +1,120 @@
+{
+  "title": "Choose the visual world",
+  "question": "The roll assigned Scenario Broadcast Crawl. Keep it, take an alternate, re-roll, or take the category standard.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Scenario Broadcast Crawl",
+      "kicker": "THE ROLL",
+      "lineage": "ORV Main Scenario channels and emergency broadcast crawls",
+      "thesis": "The whole app is an on-air Scenario channel: Draft is a live option prompt; the fight is the crawl updating.",
+      "palette": [
+        "#07090e",
+        "#5eb8ff",
+        "#f0c878",
+        "#e8eef4",
+        "#c45c2a"
+      ],
+      "materials": [
+        "matte broadcast black",
+        "ORV system blue phosphor crawl",
+        "amber alert lamps",
+        "channel-bug glass"
+      ],
+      "viewport": "Home as channel guide; Lobby as greenroom with join requests on the crawl; Match as dual-seat on-air stage with Draft options as numbered broadcast choices.",
+      "risk": "Broadcast chrome can feel like a news app unless Draft prompts and fight pulses stay game-first.",
+      "sketch": ".impeccable/sketches/assigned.webp",
+      "hero": null,
+      "board": null
+    },
+    {
+      "id": "challenger-split-flap",
+      "label": "Split-Flap Concourse",
+      "lineage": "Rail split-flap departure boards",
+      "thesis": "Sessions and Match state are flap rows; Draft options cascade letter-by-letter; fight updates clack down the board.",
+      "palette": [
+        "#111111",
+        "#f5f5f5",
+        "#c9a227",
+        "#8b1a1a"
+      ],
+      "materials": [
+        "matte black flaps",
+        "brushed steel frame",
+        "amber delay lamps"
+      ],
+      "viewport": "Lobby as the big board of seats and Match phase; Draft as flipping option rows; fight as cascading Life/Shield cells.",
+      "risk": "Industrial transit grammar can wash out god-Boon identity.",
+      "case": "Wins live dual-seat Operate clarity; weaker manhwa System identification than Scenario Crawl.",
+      "sketch": ".impeccable/sketches/challenger-split-flap.webp",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse.webp"
+    },
+    {
+      "id": "challenger-one-bit",
+      "label": "One-Bit Desktop",
+      "lineage": "Early one-bit windowed desktops",
+      "thesis": "Home, Lobby, and Match are overlapping system windows; Draft dialogs wear marching ants on the chosen Boon.",
+      "palette": [
+        "#ffffff",
+        "#000000",
+        "#808080"
+      ],
+      "materials": [
+        "pixel dither fills",
+        "one-pixel window chrome",
+        "32-px icons"
+      ],
+      "viewport": "Desktop menu bar as app chrome; Match as a titled window; offers as nested dialogs; active seat selection in marching ants.",
+      "risk": "Reads as Mac nostalgia before System apocalypse.",
+      "case": "Wins Draft Operate clarity; fuses poorly because one-bit Mac grammar erases ORV/SL identification.",
+      "sketch": ".impeccable/sketches/challenger-one-bit.webp",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-one-bit-desktop-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/medium-native-one-bit-desktop.webp"
+    },
+    {
+      "id": "challenger-alphabet-storm",
+      "label": "Alphabet Storm",
+      "lineage": "Surreal letter-weather where grammar reshapes the ground",
+      "thesis": "Boon names condense as storm-letters; the fight is grammar breaking into weather across the arena.",
+      "palette": [
+        "#f7f7f2",
+        "#0a0a0a",
+        "#c0c0c8",
+        "#e8e8f0"
+      ],
+      "materials": [
+        "paper-white ground",
+        "ink-black letter mass",
+        "silver mid-transform flash"
+      ],
+      "viewport": "Home as a quiet page; Match as monumental grotesk matter; Draft words gather then lock; fight pulses letter-rain between seats.",
+      "risk": "Spectacle can outrun Life/Shield scanability.",
+      "case": "Wins Omniscient Reader myth identification; fuses poorly for Operate cooldowns and dual-seat stats.",
+      "sketch": ".impeccable/sketches/challenger-alphabet-storm.webp",
+      "hero": "https://impeccable.style/worlds/cards/dream-surreal-impossible-worlds-alphabet-storm-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/dream-surreal-impossible-worlds-alphabet-storm.webp"
+    }
+  ],
+  "reroll": true,
+  "steer": true,
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "Dark auto-battler HUD with shop-row Draft and twin HP bars, executed at full craft.",
+    "viewport": "Familiar TFT/Auto Chess chrome across Home, Lobby, and Match: offer row, loadout tray, centered fight readouts.",
+    "palette": [
+      "#0e1116",
+      "#1c2330",
+      "#6c8cff",
+      "#e8ecf4"
+    ],
+    "materials": [
+      "matte dark panels",
+      "soft neon accents",
+      "card-shop chrome"
+    ],
+    "risk": "Readable and expected; erases Scenario/System identity as a look.",
+    "sketch": ".impeccable/sketches/canon.webp"
+  }
+}

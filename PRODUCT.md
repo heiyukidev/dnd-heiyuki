@@ -39,8 +39,7 @@ Draft a god-affiliated Loadout around a rolled Soul and a picked Weapon, then wa
 
 - Working label in UI: “Heiyuki” — provisional only; do not treat as final product name.
 - Domain language from `CONTEXT.md` is binding for product copy (Session, Host, Player, Match, Soul, Weapon, Draft, Boon, God, Loadout, etc.); retired D&D sheet / battle-map vocabulary stays retired.
-- **Match visual direction:** cool-blue **Kylix Tondo Arena** — deep slip ground, ice-slip text, steel-bronze rim chrome, frieze offer bands, circular tondo fight stage. Greek gods are first-class in Match chrome (god seals on Boon offers), not a TFT shop skin.
-- Lobby and Home remain functionally styled; Match phases own the kylix token set (`DESIGN.md`).
+- **Visual direction (whole app):** **Scenario Broadcast Crawl** — matte broadcast black, ORV system blue phosphor chrome, amber CTA/alert lamps, ice text; Home / Lobby / Match share one on-air channel grammar. Greek gods stay first-class on Boon offers (names + seals), not a TFT shop skin. Fight-hit flash stays coral-only (`#c45c2a`). Replaces the prior Kylix Tondo Arena Match-only lock.
 
 ## Evidence on Hand
 

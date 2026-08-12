@@ -1,0 +1,34 @@
+{
+  "title": "ORV / Solo Leveling redesign",
+  "question": "Match today is the Kylix Tondo Arena. You want a Korean webtoon System HUD world (Omniscient Reader / Solo Leveling). Which surface and flavor should lock the rebuild?",
+  "options": [
+    {
+      "id": "match-system-window",
+      "label": "Match · System Window",
+      "kicker": "ORV-LEAN",
+      "thesis": "Replace Match chrome only: black translucent system panels, blue borders, status-box typography — Draft and fight read as a System window, not a kylix.",
+      "materials": ["system panels", "blue chrome", "status boxes"],
+      "case": "Keeps Lobby/Home as-is; highest fidelity to ORV’s reader-facing System UI.",
+      "risk": "Lobby still feels like a different product until a later pass."
+    },
+    {
+      "id": "match-hunter-gate",
+      "label": "Match · Hunter Gate",
+      "kicker": "SOLO-LEAN",
+      "thesis": "Replace Match chrome only: hunter rank/status HUD, gate-raid atmosphere, level-up spectacle on fight beats.",
+      "materials": ["rank HUD", "gate atmosphere", "level flash"],
+      "case": "Stronger spectacle for the live auto-fight payoff; slightly less ‘message box’ than ORV.",
+      "risk": "Can tip into generic dark gacha HUD if gates aren’t specific."
+    },
+    {
+      "id": "full-app-fusion",
+      "label": "Whole app · Fusion HUD",
+      "kicker": "BROADER",
+      "thesis": "Home, Lobby, and Match share one System/Hunter language — Session join and Draft feel like the same world.",
+      "materials": ["shared tokens", "system chrome", "full rehaul"],
+      "case": "Matches PRODUCT’s ‘visual UI due for full style rehaul’; one product identity.",
+      "risk": "Larger blast radius; Lobby/auth chrome must stay operable under Clerk."
+    }
+  ],
+  "steer": true
+}

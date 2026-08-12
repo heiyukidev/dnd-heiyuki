@@ -11,10 +11,10 @@ importers:
       '@clerk/vue':
         specifier: ^2.2.3
         version: 2.2.3(vue@3.5.34(typescript@6.0.3))
-      '@fontsource/cinzel':
+      '@fontsource/barlow':
         specifier: ^5.3.0
         version: 5.3.0
-      '@fontsource/source-sans-3':
+      '@fontsource/barlow-condensed':
         specifier: ^5.3.0
         version: 5.3.0
       convex:
@@ -351,11 +351,11 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@fontsource/cinzel@5.3.0':
-    resolution: {integrity: sha512-KEOYTsrRppW0uRIPWBDPrQgunCS6f8u4nzZxYRBfo9SCknKojLYjK7B0ZoVmJhyVLefz271ZQRF9EOpHZlfhRw==}
+  '@fontsource/barlow-condensed@5.3.0':
+    resolution: {integrity: sha512-RA7MmIx0v3eQ6Gcf74qLVLOwLB0GpPOzx+eU9iG/AmCnSJGcIWYeU8y6CEMGZ210MGwGg5CZhzLkkvyZdTTk1g==}
 
-  '@fontsource/source-sans-3@5.3.0':
-    resolution: {integrity: sha512-VrWixSgF93kOVSEkwjs9ImnAbxrBew4PgcnaJYEitG9TyJSwxjFUNJIgzB1XFP/acyAWcTDg7+sWe7JI8LTB9w==}
+  '@fontsource/barlow@5.3.0':
+    resolution: {integrity: sha512-tGR0y6QObRtKv71MOth44222+mdNFM/ZWFWDV1VLzNbG4oK9PNRlyJzmkck4vHAi9ibHBXgt4SlY51amFP55CA==}
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -2063,9 +2063,9 @@ snapshots:
 
   '@exodus/bytes@1.15.0': {}
 
-  '@fontsource/cinzel@5.3.0': {}
+  '@fontsource/barlow-condensed@5.3.0': {}
 
-  '@fontsource/source-sans-3@5.3.0': {}
+  '@fontsource/barlow@5.3.0': {}
 
   '@isaacs/cliui@8.0.2':
     dependencies:
